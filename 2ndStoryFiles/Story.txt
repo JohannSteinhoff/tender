@@ -1,0 +1,33 @@
+Story 2: As a user, I want to be able to Browse and Search the Database for recipes.
+
+2.5 Discover Page (Browse & Search)
+Description: A browseable, searchable, and filterable grid of all available recipes.
+
+Functional Requirements:
+
+ID
+Requirement
+FR-31
+The Discover page shall display all available recipes in a responsive grid layout.
+FR-32
+Each recipe card on the Discover page shall show: emoji/image, recipe name, a short description, cook time, serving count, like count, cuisine badge, and difficulty badge.
+FR-33
+A text search bar shall filter the displayed recipe grid in real time (client-side) by recipe name and description.
+FR-34
+A cuisine filter dropdown shall allow filtering recipes by cuisine type (All, Italian, Mexican, American, etc.).
+FR-35
+Filter "chips" shall allow filtering by difficulty level (Easy, Medium, Hard).
+FR-36
+Dietary filter chips shall allow filtering by dietary tag (Vegetarian, Vegan, Gluten-Free, etc.).
+FR-37
+Clicking a recipe card shall open a detailed recipe modal showing full ingredients and step-by-step instructions.
+FR-38
+Each recipe card shall have a like/unlike button that calls POST /api/recipes/{id}/like or DELETE /api/recipes/{id}/like.
+FR-39
+Each recipe card shall have an "Add to Plan" button that opens a prompt for selecting the day and meal type for the weekly meal plan.
+FR-40
+A "Create Recipe" button in the Discover page header shall open the recipe creation modal.
+
+
+
+
