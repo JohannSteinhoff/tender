@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Tender</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #FF6B6B;
+            --primary-dark: #ee5a5a;
+            --secondary: #4ECDC4;
+            --dark: #2C3E50;
+            --light: #F7F9FC;
+            --gradient: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+            --error: #e74c3c;
+            --success: #27ae60;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #FFF5F5 0%, #FFF9EC 50%, #F0FFF4 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            display: flex;
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .login-left {
+            flex: 1;
+            background: var(--gradient);
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-left::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            top: -100px;
+            right: -100px;
+        }
+
+        .login-left .logo {
+            font-size: 2em;
+            font-weight: 800;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .login-left h2 {
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .login-left p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .food-icons {
+            display: flex;
+            gap: 15px;
+            margin-top: 40px;
+            font-size: 2.5em;
+        }
+
+        .login-right {
+            flex: 1;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-right h3 {
+            font-size: 1.8em;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .login-right > p {
+            color: #888;
+            margin-bottom: 30px;
+        }
+
+        .login-right > p a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.95em;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 1em;
+            font-family: inherit;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1);
+        }
+
+        input.error {
+            border-color: var(--error);
+        }
+
+        .error-message {
+            color: var(--error);
+            font-size: 0.85em;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .remember-me input {
+            width: auto;
+        }
+
+        .remember-me label {
+            margin: 0;
+            font-weight: 400;
+            font-size: 0.9em;
+        }
+
+        .forgot-password {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--gradient);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 25px 0;
+            color: #aaa;
+            font-size: 0.9em;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .divider span {
+            padding: 0 15px;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .social-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        .social-btn:hover {
+            border-color: var(--primary);
+            background: #FFF5F5;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        .alert-error {
+            background: #fde8e8;
+            color: var(--error);
+            border: 1px solid #f5c6c6;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: var(--success);
+            border: 1px solid #c3e6cb;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                flex-direction: column;
+            }
+
+            .login-left {
+                padding: 40px;
+            }
+
+            .login-left h2 {
+                font-size: 1.6em;
+            }
+
+            .food-icons {
+                display: none;
+            }
+
+            .login-right {
+                padding: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-left">
+            <div class="logo">
+                <span>🍳</span> Tender
+            </div>
+            <h2>Welcome Back, Chef!</h2>
+            <p>Sign in to continue discovering delicious recipes, managing your grocery lists, and planning meals for the week.</p>
+            <div class="food-icons">
+                <span>🥗</span>
+                <span>🍝</span>
+                <span>🌮</span>
+                <span>🍰</span>
+            </div>
+        </div>
+
+        <div class="login-right">
+            <div id="alertBox" class="alert hidden"></div>
+
+            <h3>Sign In</h3>
+            <p>Don't have an account? <a href="signup.html">Create one</a></p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="john@example.com">
+                    <div class="error-message" id="emailError">Please enter a valid email address</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Enter your password">
+                    <div class="error-message" id="passwordError">Please enter your password</div>
+                </div>
+
+                <div class="form-options">
+                    <div class="remember-me">
+                        <input type="checkbox" id="rememberMe" name="rememberMe">
+                        <label for="rememberMe">Remember me</label>
+                    </div>
+                    <a href="#" class="forgot-password">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn" id="loginBtn">Sign In</button>
+            </form>
+
+            <div class="divider"><span>or continue with</span></div>
+
+            <div class="social-buttons">
+                <button class="social-btn" title="Sign in with Google">G</button>
+                <button class="social-btn" title="Sign in with Apple">🍎</button>
+                <button class="social-btn" title="Sign in with Facebook">f</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script>
+        // Check if already logged in
+        if (TenderAPI.isLoggedIn()) {
+            window.location.replace('dashboard.html');
+            throw new Error('Already logged in, redirecting.');
+        }
+
+        // Show alert
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = 'alert alert-' + type;
+            alertBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                alertBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Login form
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Reset errors
+            document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
+
+            let hasError = false;
+
+            if (!email || !isValidEmail(email)) {
+                document.getElementById('email').classList.add('error');
+                document.getElementById('emailError').classList.add('show');
+                hasError = true;
+            }
+
+            if (!password) {
+                document.getElementById('password').classList.add('error');
+                document.getElementById('passwordError').classList.add('show');
+                hasError = true;
+            }
+
+            if (hasError) return;
+
+            // Attempt authentication via API
+            try {
+                const user = await TenderAPI.login(email, password);
+                TenderDB.setCurrentUser(user);
+                showAlert('Login successful! Redirecting...', 'success');
+
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+            } catch (err) {
+                showAlert('Invalid email or password. Please try again.', 'error');
+                document.getElementById('password').classList.add('error');
+            }
+        });
+
+        // Email validation
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+    </script>
+</body>
+</html>

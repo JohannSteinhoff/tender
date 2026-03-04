@@ -1,0 +1,14 @@
+{
+  "name": "tender-tests",
+  "version": "1.0.0",
+  "description": "Jest test suite for Tender SRS Section 2.1 — User Registration",
+  "scripts": {
+    "test": "jest --testPathPattern=test_cases --rootDir=.. --verbose",
+    "test:unit": "jest --testPathPattern=\"test_cases/FR-0[1-7]|FR-10\" --rootDir=.. --verbose",
+    "test:api": "jest --testPathPattern=\"test_cases/FR-0[89]\" --rootDir=.. --verbose"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "supertest": "^6.3.0"
+  }
+}

@@ -1,0 +1,21 @@
+ How to use it
+
+  1. Generate recipes with ChatGPT — copy-paste this prompt:
+
+  Generate 20 recipes as a JSON array. Each recipe should have these exact fields: name (string), description (short
+  sentence), emoji (single food emoji), cook_time (number in minutes), servings (number), difficulty ("easy", "medium",
+  or "hard"), cuisine (e.g. "italian", "mexican", "indian", "japanese", "american", "thai", "french", "korean", "greek",
+   "chinese", "vietnamese", "british"), ingredients (array of strings), instructions (string with numbered steps).
+  Output ONLY the raw JSON array, no markdown formatting.
+
+  2. Save the output as a .json file in your project folder (e.g. my-recipes.json)
+
+  3. Run the import:
+  node import-recipes.js my-recipes.json
+
+  It'll read the file, insert each recipe into your SQLite database, and show you a summary. You can run it as many
+  times as you want with different files.
+
+  There's also a sample-recipes.json in the project with 2 example recipes showing the exact format if you want to test
+  it first:
+  node import-recipes.js sample-recipes.json

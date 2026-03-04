@@ -1,0 +1,627 @@
+﻿Group 10: Tender                                                                                     
+________________
+
+
+SOFTWARE REQUIREMENTS SPECIFICATION
+
+
+
+
+
+
+
+
+Tender — Swipe-Based Recipe Discovery & Meal Planning Application
+
+
+
+
+
+
+
+
+
+
+Group 10
+Johann Steinhoff (NGQ7@txstate.edu)
+Wesley Wootton (lgq19@txstate.edu)
+Nathan Tran (mmi23@txstate.edu)
+Jacob Sauceda (jas663@txstate.edu)
+
+
+
+
+
+
+
+
+
+
+
+
+CS 4398/5394: Software Engineering Project — Assignment 2
+________________
+TABLE OF CONTENTS
+1. INTRODUCTION        2
+1.1 Purpose of the SRS        2
+1.2 Problem Statement        2
+1.3 Intended Audience and Document Conventions        2
+1.4 Product Scope        3
+1.5 References        3
+2. STATEMENT OF FUNCTIONAL REQUIREMENTS        4
+2.1 User Registration        4
+2.2 User Authentication (Login / Logout)        6
+2.3 Dashboard Home        7
+2.4 Recipe Discovery (Swipe Page)        7
+2.5 Discover Page (Browse & Search)        8
+2.6 Grocery List Management        10
+2.7 Meal Plan Management        10
+2.8 Recipe CRUD (User-Created Recipes)        11
+2.9 User Profile Management        12
+2.10 Admin System        13
+2.11 Use-Case Diagram (Text Representation)        15
+2.12 Class Diagram (Text Representation)        16
+2.13 Sequence Diagram — Recipe Like Flow        17
+3. NON-FUNCTIONAL REQUIREMENTS        17
+3.1 Performance        17
+3.2 Security        18
+3.3 Usability        19
+3.4 Maintainability        20
+4. DESIGN / IMPLEMENTATION CONSTRAINTS        21
+4.1 Standards Compliance        21
+4.2 Development Constraints        22
+5 REFERENCES AND SOURCES OF INFORMATION        23
+
+
+1. INTRODUCTION
+1.1 Purpose of the SRS
+This Software Requirements Specification (SRS) document formally defines the functional and non-functional requirements for Tender, a swipe-based recipe discovery and meal planning web application. The document is structured in accordance with IEEE 830-1998 standards and serves as the primary technical agreement between the development team, course instructors, and any stakeholders evaluating the project.
+
+
+The SRS describes what the system does, not how it does it internally, and covers every user-facing feature already implemented in the working prototype as of February 2026. It also captures design constraints, non-functional expectations, and references used during development.
+1.2 Problem Statement
+Deciding what to cook is a daily challenge for individuals and families. Traditional recipe websites overwhelm users with too many choices, present recipes in a bland browsing interface, and fail to connect discovery with practical meal logistics. There is no single tool that:
+
+
+* Makes recipe discovery fast and fun
+* Connects discovered recipes directly to weekly meal planning
+* Automatically propagates meal plans into an actionable grocery list
+* Stores user dietary restrictions and preferences to personalize results
+
+
+Tender addresses all four gaps by combining a swipe-based discovery UI (familiar from mobile dating applications), a weekly meal planner, and a smart grocery list — all behind a single authenticated account.
+1.3 Intended Audience and Document Conventions
+Intended Audience:
+
+
+* Course instructor (primary evaluator)
+* Development team members (implementation reference)
+* Future contributors or maintainers
+* People looking for recipes (People who don’t know what to make for dinner)
+
+
+
+
+Document Conventions:
+
+
+* FR-XX prefixes denote Functional Requirements.
+* NFR-XX prefixes denote Non-Functional Requirements.
+* C-XX prefixes denote Constraints.
+* All feature descriptions are grounded in the actual source code files: tender.html, login.html, signup.html, dashboard.html, api.js, and server.js.
+* Diagrams are presented in text/ASCII form; the team should replace them with properly rendered UML diagrams in the final PDF submission.
+1.4 Product Scope
+Tender is a browser-based, full-stack web application with the following scope:
+
+
+In Scope
+	Out of Scope
+	User registration & login
+	OAuth / social login (buttons exist but are non-functional placeholders)
+	Swipe-based recipe discovery
+	Real-time collaboration / family sharing
+	Recipe CRUD (user-created recipes)
+	External recipe API integration (Spoonacular, etc.)
+	Weekly meal plan calendar
+	Nutritional data / calorie tracking
+	Interactive grocery list
+	Mobile native app (iOS/Android)
+	User profile with dietary/cuisine preferences
+	Push notifications
+	Admin user management
+	Payment processing
+	Responsive design (mobile + desktop)
+	Image file upload (emoji icons used instead)
+	Dark mode support
+	
+
+	
+
+The application comprises five HTML pages (tender.html, login.html, signup.html, dashboard.html, index.html) and a REST API backend (server.js) backed by a SQLite database (tender.db). The frontend uses vanilla HTML5, CSS3, and JavaScript ES6+. The backend uses Node.js with the Express.js framework.
+________________
+1.5 References
+* IEEE 830-1998 Standard for Software Requirements Specifications
+* Express.js Documentation — https://expressjs.com
+* SQLite Documentation — https://sqlite.org
+* bcryptjs npm package — https://www.npmjs.com/package/bcryptjs
+* MDN Web Docs (HTML5, CSS3, JavaScript) — https://developer.mozilla.org
+* Project GitHub Repository — https://github.com/JohannSteinhoff/3498_SoftwareEngineeringProject2026
+
+
+
+
+________________
+2. STATEMENT OF FUNCTIONAL REQUIREMENTS
+2.1 User Registration
+Description: New users can create an account through a multi-step wizard that collects account credentials and food preferences.
+
+
+Trigger: User clicks "Create Account" on the landing page or "Create one" on the login page.
+
+
+Preconditions: User is not already logged in (enforced by session check on all pages).
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-01
+	The system shall provide a 3-step registration wizard. Step 1 collects first name, last name, email address, password, and password confirmation.
+	FR-02
+	The system shall validate that the password is at least 8 characters, contains one uppercase letter, and contains one number. Real-time visual indicators (checkmarks) shall update as the user types.
+	FR-03
+	The system shall validate that the two password fields match before allowing progression to step 2.
+	FR-04
+	The system shall validate the email address format using a regular expression.
+	FR-05
+	Step 2 shall collect cooking skill level (Beginner, Intermediate, Advanced, Pro Chef), household size (1, 2, 3–4, 5+), dietary restrictions (Vegetarian, Vegan, Gluten-Free, Dairy-Free, Keto, Halal, Kosher), and weekly food budget (Budget / Moderate / Flexible / Premium).
+	FR-06
+	Step 3 shall display 12 cuisine options (Italian, Mexican, Chinese, Japanese, Indian, Thai, Mediterranean, American, French, Korean, Greek, Vietnamese) and require the user to select at least 3 cuisines.
+	FR-07
+	Step 3 shall also collect how many meals the user cooks per week (1–3, 4–7, 8–14, 15+).
+	FR-08
+	Upon successful submission, the system shall call POST /api/auth/register, store the returned session token in localStorage under tender_token, and redirect to dashboard.html.
+	FR-09
+	If the email is already registered, the system shall display the error "This email is already registered. Please log in."
+	FR-10
+	A step progress indicator (3 dots) at the top of the form shall change state (pending / active / completed) as the user progresses through steps.
+	
+
+Post-condition: A new user record is created in the users database table. Associated dietary and cuisine preference records are written to user_dietary and user_cuisines tables.
+
+
+
+
+________________
+2.2 User Authentication (Login / Logout)
+Description: Registered users can securely log in to access protected features and log out to end their session.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-11
+	The login page (login.html) shall present an email field and password field.
+	FR-12
+	The system shall validate both fields on submit; empty or malformed entries shall show inline error messages.
+	FR-13
+	On successful login, the system shall call POST /api/auth/login, store the returned Bearer token in localStorage (tender_token), cache user data in localStorage (tender_user_cache), and redirect to dashboard.html.
+	FR-14
+	On failed login (wrong email/password), an error alert "Invalid email or password. Please try again." shall be shown for 5 seconds.
+	FR-15
+	The system shall redirect already-logged-in users away from login.html and signup.html to dashboard.html immediately on page load.
+	FR-16
+	A "Logout" button in the dashboard navigation shall call POST /api/auth/logout, remove tender_token and tender_user_cache from localStorage, and redirect the user to login.html.
+	FR-17
+	All pages in dashboard.html shall verify the session token on load by calling GET /api/auth/me; if the token is absent or expired, the user shall be redirected to login.html.
+	________________
+2.3 Dashboard Home
+Description: After login the user lands on the Dashboard Home view — a personalized summary screen.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-18
+	The dashboard shall display a personalized welcome banner with the user's first name and the gradient branding.
+	FR-19
+	The dashboard shall display four stat cards: (a) number of liked recipes, (b) number of grocery items, (c) number of meal plan entries, and (d) days as a member.
+	FR-20
+	The dashboard shall display a "Liked Recipes" section showing a grid preview of the user's liked recipes (name and emoji icon).
+	FR-21
+	A "View All" link in the liked recipes section shall open a full-screen overlay showing all liked recipes in a larger card grid.
+	FR-22
+	The dashboard shall display a live grocery list preview in a sidebar card, allowing the user to check/uncheck items and add new items without leaving the home view.
+	FR-23
+	A "Start Swiping" button on the welcome banner shall navigate to the Discover/Swipe view.
+	
+
+
+
+________________
+2.4 Recipe Discovery (Swipe Page)
+Description: The core feature of the app — a Tinder-style swipe interface for discovering new recipes.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-24
+	The system shall fetch a set of recipes the current user has not yet seen via GET /api/recipes/discover.
+	FR-25
+	Recipes shall be displayed as a stacked card showing: emoji icon, recipe name, description, cook time, servings, difficulty level, cuisine type, ingredient list, and step-by-step instructions.
+	FR-26
+	The user shall be able to "like" a recipe by clicking a heart/like button, triggering POST /api/recipes/{id}/like. The recipe is added to the user's liked collection.
+	FR-27
+	The user shall be able to "dislike" a recipe by clicking a dislike button, triggering POST /api/recipes/{id}/dislike. The recipe is removed from the discovery queue.
+	FR-28
+	Once a recipe has been liked or disliked, it shall not appear again in the discovery feed for that user.
+	FR-29
+	When all available recipes have been swiped, the system shall display an empty-state message prompting the user to create their own recipes or check their liked collection.
+	FR-30
+	Liked recipes shall become available for adding to the meal plan.
+	
+
+
+
+________________
+2.5 Discover Page (Browse & Search)
+Description: A browseable, searchable, and filterable grid of all available recipes.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-31
+	The Discover page shall display all available recipes in a responsive grid layout.
+	FR-32
+	Each recipe card on the Discover page shall show: emoji/image, recipe name, a short description, cook time, serving count, like count, cuisine badge, and difficulty badge.
+	FR-33
+	A text search bar shall filter the displayed recipe grid in real time (client-side) by recipe name and description.
+	FR-34
+	A cuisine filter dropdown shall allow filtering recipes by cuisine type (All, Italian, Mexican, American, etc.).
+	FR-35
+	Filter "chips" shall allow filtering by difficulty level (Easy, Medium, Hard).
+	FR-36
+	Dietary filter chips shall allow filtering by dietary tag (Vegetarian, Vegan, Gluten-Free, etc.).
+	FR-37
+	Clicking a recipe card shall open a detailed recipe modal showing full ingredients and step-by-step instructions.
+	FR-38
+	Each recipe card shall have a like/unlike button that calls POST /api/recipes/{id}/like or DELETE /api/recipes/{id}/like.
+	FR-39
+	Each recipe card shall have an "Add to Plan" button that opens a prompt for selecting the day and meal type for the weekly meal plan.
+	FR-40
+	A "Create Recipe" button in the Discover page header shall open the recipe creation modal.
+	
+
+
+
+________________
+2.6 Grocery List Management
+Description: Users can maintain a personal shopping list with full CRUD operations.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-41
+	The Grocery List page shall display all grocery items for the current user, fetched via GET /api/grocery.
+	FR-42
+	Each grocery item shall display its name, quantity (if set), and a checkbox for marking it as purchased.
+	FR-43
+	Clicking a grocery item's checkbox shall call POST /api/grocery/{id}/toggle to toggle its purchased status. Purchased items shall be rendered with a strikethrough style.
+	FR-44
+	Users shall be able to add a new grocery item by entering a name (and optionally a quantity) in the add-item form and clicking "Add", which calls POST /api/grocery with the item data.
+	FR-45
+	Each grocery item shall have a delete button that calls DELETE /api/grocery/{id} to remove it.
+	FR-46
+	A "Clear All" button shall call DELETE /api/grocery to remove all items for the current user after confirmation.
+	
+
+
+
+2.7 Meal Plan Management
+Description: A weekly calendar view where users organize their liked recipes into a structured weekly schedule.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-47
+	The Meal Plan page shall display a 7-day weekly calendar. Each day shall have three meal slots: Breakfast, Lunch, and Dinner.
+	FR-48
+	Each meal slot shall show the recipe name and emoji if a recipe is assigned, or an "Add meal" prompt if empty.
+	FR-49
+	Clicking an empty meal slot shall open a picker allowing the user to select a recipe from their liked collection to assign to that slot. The system shall call POST /api/mealplan with { recipeId, date, mealType }.
+	FR-50
+	Each occupied meal slot shall have a remove button that calls DELETE /api/mealplan/{date}/{mealType} to clear that slot.
+	FR-51
+	Meal plan data is fetched on page load via GET /api/mealplan and rendered client-side.
+	
+
+
+
+________________
+2.8 Recipe CRUD (User-Created Recipes)
+Description: Authenticated users can create, view, edit, and delete their own recipes.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-52
+	A recipe creation form (modal) shall collect: recipe name, emoji icon, description, cook time (minutes), number of servings, difficulty (Easy/Medium/Hard/Expert), cuisine type, dietary tags (multi-select checkboxes), ingredients (text area, one per line), and step-by-step instructions (text area).
+	FR-53
+	The form shall also support uploading a recipe image via a file input (displayed as a preview before save).
+	FR-54
+	On submission, the system shall call POST /api/recipes with the recipe data.
+	FR-55
+	The user's created recipes shall appear in both the Discover page and the swipe queue for other users.
+	FR-56
+	The recipe owner (or an admin) shall be able to edit a recipe. The edit form shall pre-populate all existing fields and call PUT /api/recipes/{id} on save.
+	FR-57
+	The recipe owner (or an admin) shall be able to delete a recipe by calling DELETE /api/recipes/{id}.
+	FR-58
+	The "My Recipes" section on the Discover page shall display only the current user's created recipes, fetched via GET /api/recipes/user/created.
+	
+
+________________
+
+
+2.9 User Profile Management
+Description: Users can view and update their personal information and food preferences.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-59
+	The Profile section shall display the user's full name, email, member-since date, cooking skill level, household size, weekly budget, dietary restrictions, and cuisine preferences.
+	FR-60
+	An "Edit Profile" button shall open a modal form pre-populated with the current user's data, allowing editing of: first name, last name, cooking skill, household size, weekly budget, dietary restrictions, and cuisine preferences.
+	FR-61
+	Saving the edit form shall call PUT /api/users/profile with updated data and refresh the displayed profile.
+	FR-62
+	The profile section shall include a password change form with three fields: current password, new password, and confirm new password. Submitting shall call PUT /api/users/password.
+	FR-63
+	The system shall confirm the new password matches its confirmation before calling the API.
+	FR-64
+	Dietary restriction and cuisine preference tags shall display as styled pill/badge elements on the profile view.
+	
+
+________________
+
+
+2.10 Admin System
+Description: Users with admin privileges can manage users and recipes across the platform.
+
+
+Functional Requirements:
+
+
+ID
+	Requirement
+	FR-65
+	Admin users shall see an "Admin" badge in the navigation and an admin panel section within the Profile view.
+	FR-66
+	The admin panel shall display a table of all registered users (name, email, role) fetched via GET /api/admin/users.
+	FR-67
+	Admins shall be able to promote another user to admin by entering their email and calling POST /api/admin/promote.
+	FR-68
+	Admins shall be able to demote another admin by calling POST /api/admin/demote.
+	FR-69
+	Admins shall be able to delete any recipe on the platform using DELETE /api/recipes/{id} with elevated privileges.
+	FR-70
+	All admin endpoints are protected by server-side middleware that verifies the is_admin flag on the authenticated user's database record.
+	
+
+
+
+2.11 Use-Case Diagram (Text Representation)
+  
+
+ 
+
+
+2.12 Class Diagram (Text Representation)
+  
+
+2.13.1 Sequence Diagram — User Registration
+  ________________
+2.13.2 Sequence Diagram — User Login
+  ________________
+
+
+2.13.3 Sequence Diagram — Recipe Discovery & Swiping
+  
+
+
+
+________________
+
+2.13.4 Sequence Diagram — Create a Recipe
+
+
+  
+________________
+
+2.13.5 Sequence Diagram — Add Ingredients to Grocery List
+
+
+  
+________________
+
+2.13.6 Sequence Diagram — Add Recipe to Meal Plan
+  
+________________
+
+2.13.7 Sequence Diagram — Fridge Scan
+  
+
+________________
+
+
+2.13.5 Sequence Diagram — Logout
+  
+
+
+
+
+
+3. NON-FUNCTIONAL REQUIREMENTS
+3.1 Performance
+ID
+	Requirement
+	NFR-01
+	All page transitions within dashboard.html (switching between Home, Discover, Meal Plan, Grocery, Profile) shall occur within 100ms because they are pure client-side DOM show/hide operations with no network requests required to switch views.
+	NFR-02
+	The recipe discovery endpoint (GET /api/recipes/discover) shall return results within 500ms under normal load, as the SQLite database runs in-process with the Node.js server on the same machine.
+	NFR-03
+	The frontend shall load the initial seed recipe data from localStorage (tender_seed_recipes) on subsequent visits, avoiding redundant network fetches.
+	NFR-04
+	CSS animations (card hover transitions, modal fade-ins, button hover states) use hardware-accelerated CSS properties (transform, opacity) and are set to durations of 200–300ms to feel responsive without being distracting.
+	NFR-05
+	The dashboard.html file is a single-page application; all five views are loaded into the DOM at once, eliminating page load delays when switching between sections.
+	3.2 Security
+ID
+	Requirement
+	NFR-06
+	User passwords shall never be stored in plain text. All passwords are hashed using bcryptjs before being written to the users database table.
+	NFR-07
+	Every protected API endpoint (recipes, grocery, meal plan, profile, admin) shall require a valid Bearer token in the Authorization header. Requests without a valid token shall receive HTTP 401 Unauthorized.
+	NFR-08
+	Session tokens are stored in localStorage under the key tender_token and are included in every API request via the Authorization: Bearer token header pattern in api.js.
+	NFR-09
+	Admin-only endpoints (/api/admin/*) shall verify the is_admin flag on the authenticated user's database record server-side; frontend-only role checks are not relied upon for security.
+	NFR-10
+	Input validation (email format, password strength) is performed on both the client side (real-time feedback in signup.html and login.html) and the server side (API returns 400 Bad Request for invalid inputs).
+	NFR-11
+	Users can only modify or delete their own recipes. The server verifies that recipe.created_by === authenticated_user.id before allowing PUT or DELETE operations; admins bypass this check.
+	3.3 Usability
+ID
+	Requirement
+	NFR-12
+	The application shall be fully responsive. At or below 768px viewport width, the top navigation bar shall be replaced by a mobile bottom navigation bar.
+	NFR-13
+	The registration wizard shall display a visual step progress indicator (three dots) that shows the user's position in the 3-step form. Completed steps use a green color; the active step is highlighted in the primary brand color (#FF6B6B).
+	NFR-14
+	All form submission buttons shall show a disabled/loading state while an API request is in flight, preventing duplicate submissions.
+	NFR-15
+	Success and error feedback shall be shown via non-intrusive alert banners that auto-dismiss after 5 seconds.
+	NFR-16
+	The application shall support dark mode, applied automatically based on the user's OS-level prefers-color-scheme setting, and also persistable via the tender_theme localStorage key.
+	NFR-17
+	The Poppins font family is used consistently throughout all pages, loaded from Google Fonts with weights 300–800.
+	NFR-18
+	Empty states (no liked recipes, no grocery items, no meal plan entries) shall display a friendly icon and message rather than a blank space, guiding users toward the relevant action.
+	NFR-19
+	The recipe discovery cards shall display all relevant information (name, emoji, description, cook time, servings, difficulty, cuisine, ingredients, instructions) in a single view.
+	3.4 Maintainability
+ID
+	Requirement
+	NFR-20
+	All API calls from the frontend are consolidated in a single client module (api.js) that exposes a TenderAPI object. This separation means backend URL or behavior changes only require edits in one file.
+	NFR-21
+	CSS design tokens (colors, gradients, border radii, shadows) are defined as CSS custom properties (variables) in a :root block. Dark mode overrides only the variable values, not individual component styles.
+	NFR-22
+	The dashboard is implemented as a single-page application using a switchPage() function that toggles the .active class on .page-view divs. Adding a new section requires adding one new .page-view div and one switchPage() call.
+	NFR-23
+	The backend follows a clear separation of concerns: server.js handles HTTP routing and middleware; database.js handles all SQL queries and data access; auth.js handles authentication helpers.
+	NFR-24
+	A TenderDB compatibility shim in api.js provides a backwards-compatible interface over the async TenderAPI calls, allowing older dashboard code to continue working while the codebase is incrementally modernized.
+	NFR-25
+	The project uses npm and a package.json for dependency management, making the development environment reproducible with a single npm install command.
+	
+
+________________
+
+
+4. DESIGN / IMPLEMENTATION CONSTRAINTS
+4.1 Standards Compliance
+ID
+	Constraint
+	C-01
+	The application's HTML shall be written to the HTML5 standard, using semantic elements with proper lang and charset attributes on all pages.
+	C-02
+	The REST API shall follow RESTful design conventions: resources are named as nouns (/recipes, /grocery, /mealplan), HTTP verbs correctly communicate intent, and HTTP status codes 200, 201, 400, 401, 403, 404, 500 are used appropriately.
+	C-03
+	Passwords shall be hashed using bcrypt with a cost factor of 10 rounds (bcryptjs default), in compliance with OWASP password storage guidelines.
+	C-04
+	The SRS document is structured in accordance with IEEE 830-1998 — the standard for Software Requirements Specifications.
+	C-05
+	CSS layout uses CSS Grid and Flexbox, which are W3C standards supported in all modern browsers. No proprietary CSS extensions are used.
+	4.2 Development Constraints
+ID
+	Constraint
+	C-06
+	Runtime: The backend requires Node.js v18 or higher. The project uses ES2017+ syntax (async/await) throughout server.js, database.js, and api.js.
+	C-07
+	Database: The project uses SQLite via the sql.js npm package (pure JavaScript, no native binary compilation required). The database is file-based (tender.db) and not suitable for multi-instance horizontal scaling without migration to a client-server database.
+	C-08
+	Session Storage: Authentication tokens are stored in localStorage (browser-side), which means sessions persist across browser tab close/reopen but are scoped to a single device and browser. Cross-device session sync is not supported.
+	C-09
+	No Dedicated File Storage: The application does not use a dedicated file storage backend or CDN for images (e.g., AWS, S3, Cloudinary). Recipe images uploaded by users are converted to Base64 data URIs on the client and stored as text directly within the database record. Recipes without uploaded images use emoji characters as visual identifiers.
+	C-10
+	Single-Process Server: The Node.js server runs as a single process with in-memory session data. A server restart clears all active sessions. Production deployment would require Redis or database-backed session storage.
+	C-11
+	Browser Dependency: The application requires a modern web browser (2020 or newer) with JavaScript enabled. It uses fetch(), async/await, CSS Grid, CSS Custom Properties, and localStorage.
+	C-12
+	Team Size and Scope: The project is scoped for a team of four students. The four principal feature areas (recipe discovery, meal planning, grocery list, user management) map naturally onto four developer responsibilities.
+	C-13
+	Platform: The development environment targets Windows (a start.bat quick-start script is included), though the Node.js stack is cross-platform and can run on macOS or Linux without modification.
+	
+
+________________
+REFERENCES AND SOURCES
+1. IEEE 830-1998 — IEEE Recommended Practice for Software Requirements Specifications. Institute of Electrical and Electronics Engineers, 1998.
+
+
+2. Express.js Documentation — Official documentation for the Express.js web framework used in server.js. Available at: https://expressjs.com/en/4x/api.html
+
+
+3. Node.js Documentation — Official Node.js v18 API reference. Available at: https://nodejs.org/docs/latest-v18.x/api/
+
+
+4. sql.js Documentation — SQLite compiled to WebAssembly, used as the database engine. Available at: https://sql.js.org/documentation/
+
+
+5. bcryptjs npm package — Password hashing library used for secure credential storage. Available at: https://www.npmjs.com/package/bcryptjs
+
+
+6. MDN Web Docs — CSS Custom Properties — Reference for CSS variables used throughout the UI. Available at: https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties
+
+
+7. MDN Web Docs — Fetch API — Reference for the fetch() function used in api.js for all HTTP requests. Available at: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+
+
+8. MDN Web Docs — localStorage — Reference for browser local storage, used for session token and user cache persistence. Available at: https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+
+
+9. Google Fonts — Poppins — The Poppins typeface (weights 300–800) used across all pages. Available at: https://fonts.google.com/specimen/Poppins
+
+
+10. OWASP Password Storage Cheat Sheet — Guidance followed for bcrypt cost factor selection and password hashing best practices. Available at: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+
+
+11. Project GitHub Repository — Source code and version history for the Tender application. Available at: https://github.com/JohannSteinhoff/3498_SoftwareEngineeringProject2026
+
+
+12. Tender Project Proposal (Assignment 1) — CS4398_Assignment1_ProjectProposal.md — Internal team document describing project objectives, implementation outline, and API endpoint reference. On file in the project repository.
