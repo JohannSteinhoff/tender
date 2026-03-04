@@ -1,5 +1,7 @@
 # Tender
 
+**CS4398 Group 10** — Johann Steinhoff (NGQ7)
+
 A swipe-based recipe discovery and meal planning web application — rebuilt on Firebase.
 
 ## What is Tender?
