@@ -90,4 +90,4 @@ Features are being ported from the original project one at a time, with each sta
 
 ## Reference Project
 
-The original fully-functional version lives in `3498_SoftwareEngineeringProject2026/` and uses Node.js + Express + SQLite. Use it as the source of truth when porting features.
+The original fully-functional version lives in `TenderPrototype/` and uses Node.js + Express + SQLite. Use it as the source of truth when porting features.
