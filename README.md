@@ -77,7 +77,7 @@ Features are being ported from the original project one at a time, with each sta
 | Stage | Feature | Status |
 |-------|---------|--------|
 | 1 | Project setup + Firebase init | Complete |
-| 2 | User auth (signup / login) | Pending |
+| 2 | User auth (signup / login) | Complete |
 | 3 | Recipe database + seed data | Pending |
 | 4 | Swipe page | Pending |
 | 5 | Discover / browse page | Pending |
