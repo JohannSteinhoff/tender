@@ -1,78 +1,98 @@
-# Tender
+# Tender (Firebase Starter)
 
-**CS4398 Group 10** — Johann Steinhoff (NGQ7)
+This repository contains the Firebase rebuild of Tender.
 
-A swipe-based recipe discovery and meal planning web application — rebuilt on Firebase.
+Current stack:
+- Firebase Hosting
+- Firebase Authentication
+- Cloud Firestore
+- Vite
 
-## What is Tender?
+## What Firestore Is
 
-Tender brings the swipe mechanic from dating apps to cooking. Users are shown recipe cards one at a time and swipe right to like or left to pass. Liked recipes feed directly into a weekly meal planner, which auto-populates a smart grocery list. The goal is to make "what should I cook?" effortless and fun.
+Firestore is Firebase's cloud database.
 
-This repository is a Firebase-based rebuild of the original Node.js/SQLite version. The full feature set is already complete in the reference project — this repo migrates those features to Firebase incrementally, with each feature tested and documented before moving to the next.
+Think of it as:
+- `Collection` = a table-like group (example: `users`, `recipes`)
+- `Document` = one record (example: one user profile)
+- `Field` = key/value data inside a document
 
-## Features
+Why you need it:
+- Firebase Auth handles sign-in only.
+- Firestore stores your app data (profiles, recipes, likes, meal plans, grocery lists).
 
-- **Swipe-based recipe discovery** — browse recipe cards, like or dislike, never see the same card twice
-- **Personalized profiles** — cooking skill, dietary restrictions, cuisine preferences, household size, budget
-- **Weekly meal planner** — assign liked recipes to specific days and meal types
-- **Smart grocery list** — add, check off, and manage ingredients by category
-- **Recipe management** — create, edit, and delete your own recipes
-- **User authentication** — secure signup/login with multi-step onboarding wizard
-- **Admin panel** — manage recipes and user roles
-- **Responsive design** — mobile-first layout with bottom navigation on small screens
+## Current Starter Flow
 
-## Architecture
+This repo now includes a working starter page that does:
+- Create account (email + password)
+- Login
+- Logout
+- Save profile data to Firestore at `users/{uid}`
+- Load that profile on sign-in
 
-The original app used a Node.js/Express backend with a SQLite database. This rebuild replaces all of that with Firebase services called directly from the frontend — no server needed.
+Files:
+- `src/firebase.js`: Firebase app + Auth + Firestore initialization
+- `src/main.js`: Auth and Firestore logic
+- `index.html`: Starter UI
+- `firestore.rules`: basic secure rules for user profile docs
 
-| Original | Firebase replacement |
-|----------|---------------------|
-| `server.js` (Express) | Removed — no backend server |
-| `database.js` (SQLite) | Firestore (cloud database) |
-| Custom session auth | Firebase Auth |
-| `npm start` / local server | Firebase Hosting |
+## Team Setup (First Time)
 
-All dynamic behavior (user accounts, recipe storage, swiping, meal plans, grocery lists) is handled by Firestore and Firebase Auth accessed directly from the browser. This means the app scales automatically and requires no server maintenance.
-
-## Tech Stack
-
-- **Firebase Auth** — user signup, login, session management
-- **Firestore** — database for recipes, user data, meal plans, grocery lists
-- **Firebase Hosting** — static file hosting with dynamic data from Firestore
-- **Vite** — local dev server and bundler
-- **Vanilla JS / HTML / CSS** — no frontend framework
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18+
-
-### Installation
-
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-### Running the Dev Server
-
+2. Run local dev server:
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+3. Open the local URL shown by Vite (usually `http://localhost:5173`).
 
-### Building for Production
+## Firebase Console Setup
 
+In your Firebase project (`tender-a7367`):
+
+1. Authentication:
+- Go to `Authentication -> Sign-in method`
+- Enable `Email/Password`
+
+2. Firestore:
+- Go to `Firestore Database`
+- Create database in production mode
+- Choose a region close to users
+
+3. Hosting:
+- Hosting is configured by `firebase.json` in this repo
+
+## Deploy Hosting + Rules
+
+Install Firebase CLI once:
+```bash
+npm install -g firebase-tools
+```
+
+Login:
+```bash
+firebase login
+```
+
+Build app:
 ```bash
 npm run build
 ```
 
-Output goes to `dist/`.
+Deploy Hosting and Firestore rules:
+```bash
+firebase deploy
+```
 
-## Migration Status
+## Security Notes
 
-Features are being ported from the original project one at a time, with each stage tested before proceeding.
+- Firebase web config keys in frontend are expected to be public.
+- Real protection is done by Firestore Security Rules and Auth.
+- Current rules only allow a signed-in user to read/write their own `users/{uid}` doc.
 
 | Stage | Feature | Status |
 |-------|---------|--------|
@@ -88,6 +108,9 @@ Features are being ported from the original project one at a time, with each sta
 | 10 | Recipe CRUD | Pending |
 | 11 | Admin panel | Pending |
 
-## Reference Project
+## Next Build Steps for Tender
 
-The original fully-functional version lives in `TenderPrototype/` and uses Node.js + Express + SQLite. Use it as the source of truth when porting features.
+1. Create `recipes` collection and read-only browse queries.
+2. Add `swipes` collection scoped per user.
+3. Add `mealPlans` and `groceryLists` collections with user ownership rules.
+4. Move privileged actions to Cloud Functions when needed.
