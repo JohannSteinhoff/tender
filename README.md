@@ -1,116 +1,214 @@
-# Tender (Firebase Starter)
+<div align="center">
 
-This repository contains the Firebase rebuild of Tender.
+<img src="https://img.shields.io/badge/-%F0%9F%94%A5%20TENDER-%23FF6B6B?style=for-the-badge&labelColor=2C3E50&color=FF6B6B" alt="Tender" height="40"/>
 
-Current stack:
-- Firebase Hosting
-- Firebase Authentication
-- Cloud Firestore
-- Vite
+# 🔥 Tender — Recipe Swipe App
 
-## What Firestore Is
+### *Tinder, but for food. Swipe on recipes. Plan your week. Shop smarter.*
 
-Firestore is Firebase's cloud database.
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Vanilla JS](https://img.shields.io/badge/Vanilla%20JS-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Firestore](https://img.shields.io/badge/Firestore-FF6B6B?style=flat-square&logo=firebase&logoColor=white)](https://firebase.google.com/docs/firestore)
 
-Think of it as:
-- `Collection` = a table-like group (example: `users`, `recipes`)
-- `Document` = one record (example: one user profile)
-- `Field` = key/value data inside a document
+<br/>
 
-Why you need it:
-- Firebase Auth handles sign-in only.
-- Firestore stores your app data (profiles, recipes, likes, meal plans, grocery lists).
+<img src="https://img.shields.io/badge/Status-Active%20Development-4ECDC4?style=for-the-badge&labelColor=2C3E50" />
 
-## Current Starter Flow
+</div>
 
-This repo now includes a working starter page that does:
-- Create account (email + password)
-- Login
-- Logout
-- Save profile data to Firestore at `users/{uid}`
-- Load that profile on sign-in
+---
 
-Files:
-- `src/firebase.js`: Firebase app + Auth + Firestore initialization
-- `src/main.js`: Auth and Firestore logic
-- `index.html`: Starter UI
-- `firestore.rules`: basic secure rules for user profile docs
+## 🍽️ What Is Tender?
 
-## Team Setup (First Time)
+Tender is a **recipe discovery and meal planning app** with a Tinder-style swipe interface. Users swipe through recipes, build their weekly meal plan, and auto-generate a smart grocery list — all in one place.
 
-1. Install dependencies:
+This repository is the **Firebase rebuild** of the original app (which lives in `TenderPrototype/` and is the source of truth for all features and UI).
+
+---
+
+## 🎨 App Colors
+
+| Swatch | Name | Hex |
+|--------|------|-----|
+| 🟥 | Primary (Coral Red) | `#FF6B6B` |
+| 🟧 | Gradient End (Orange) | `#FF8E53` |
+| 🟦 | Secondary (Teal) | `#4ECDC4` |
+| 🟨 | Accent (Yellow) | `#FFE66D` |
+| 🔵 | Dark (Navy) | `#2C3E50` |
+
+---
+
+## 🏗️ Architecture
+
+> **No backend server.** Everything runs directly through Firebase services on the client.
+
+| Original Stack | Firebase Stack |
+|----------------|---------------|
+| Node.js + Express | ❌ Removed |
+| SQLite + `database.js` | ✅ Cloud Firestore |
+| Custom session auth | ✅ Firebase Auth |
+| `node server.js` | ✅ Firebase Hosting + Vite |
+| SQL queries | ✅ Firestore queries (client-side) |
+
+Security is handled entirely by **Firestore Security Rules** — no backend needed.
+
+---
+
+## 📁 Project Structure
+
+```
+Tender/
+├── src/
+│   ├── firebase.js          # App + Auth + Firestore init
+│   ├── firebase-api.js      # Core Firestore helpers
+│   ├── auth.js              # Auth guard (requireAuth)
+│   ├── seed.js              # Recipe seed data for Firestore
+│   ├── main.js              # App entry
+│   │
+│   ├── api/
+│   │   ├── recipes.js       # getAllRecipes, likeRecipe, dislikeRecipe, swipes
+│   │   └── users.js         # getUserProfile, updateUserProfile
+│   │
+│   ├── components/
+│   │   ├── nav.js           # Shared navigation bar
+│   │   ├── recipeModal.js   # Recipe detail modal
+│   │   ├── addRecipeModal.js # Add/edit recipe modal (admin)
+│   │   └── toast.js         # Toast notification system
+│   │
+│   ├── pages/
+│   │   ├── landing.js       # Landing / home page
+│   │   ├── swipe.js         # Tinder-style swipe interface
+│   │   ├── discover.js      # Browse & search recipes
+│   │   ├── dashboard.js     # User stats & liked recipes
+│   │   ├── mealplan.js      # Weekly meal planner
+│   │   ├── grocery.js       # Auto-generated grocery list
+│   │   └── account.js       # Profile settings
+│   │
+│   └── styles/              # Per-page CSS files
+│
+├── index.html               # Landing page (auth redirect)
+├── swipe.html               # Swipe page
+├── discover.html            # Discover page
+├── dashboard.html           # Dashboard
+├── mealplan.html            # Meal planner
+├── grocery.html             # Grocery list
+├── account.html             # Account settings
+│
+├── firestore.rules          # Firestore security rules
+├── storage.rules            # Firebase Storage rules
+├── vite.config.js           # Multi-page Vite build config
+├── TenderPrototype/         # ⚠️ Original working app — source of truth
+└── README.md
+```
+
+---
+
+## 🗺️ Migration Progress
+
+> **Source of truth for all features:** `TenderPrototype/`
+> Each stage is ported incrementally and tested before the next begins.
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | Project setup + Firebase init | ✅ **Complete** | Vite + Firebase configured |
+| 2 | User auth — signup / login / logout | ✅ **Complete** | 3-step signup, auth guard on all pages |
+| 3 | Recipe database + seed data | ✅ **Complete** | Firestore `recipes` collection, auto-seeded |
+| 4 | Swipe page | ✅ **Complete** | Drag swipe, keyboard, button swipe; infinite deck |
+| 5 | Discover / browse page | ✅ **Complete** | Search, filter by cuisine & dietary |
+| 6 | Dashboard + stats | ✅ **Complete** | Like count, recent activity, liked recipe viewer |
+| 7 | Meal planner | ✅ **Complete** | 7-day grid, drag-to-plan from liked recipes |
+| 8 | Grocery list | ✅ **Complete** | Auto-generated from meal plan ingredients |
+| 9 | Profile / account management | ✅ **Complete** | Edit preferences, dietary, cuisine, household |
+| 10 | Recipe CRUD (add / edit / delete) | ✅ **Complete** | Admin modal for recipe management |
+| 11 | Admin panel | 🔄 **In Progress** | — |
+
+---
+
+## 🔥 Firestore Data Model
+
+```
+users/{uid}
+  ├── firstName, lastName, email
+  ├── cookingSkill, householdSize, weeklyBudget, mealsPerWeek
+  ├── dietary[]       — e.g. ["vegetarian", "gluten-free"]
+  ├── cuisines[]      — e.g. ["italian", "thai"]
+  ├── isAdmin
+  └── createdAt
+
+recipes/{recipeId}
+  ├── name, description, emoji
+  ├── cookTime, servings, difficulty, cuisine
+  ├── ingredients[]
+  └── instructions
+
+swipes/{uid}/userSwipes/{recipeId}
+  └── action           — "like" | "dislike"
+
+mealPlans/{uid}
+  └── days{}           — { monday: recipeId, tuesday: recipeId, ... }
+
+groceryLists/{uid}
+  └── items[]          — aggregated ingredients from meal plan
+```
+
+---
+
+## ⚙️ Local Development
+
+**1. Install dependencies**
 ```bash
 npm install
 ```
 
-2. Run local dev server:
+**2. Start the dev server**
 ```bash
 npm run dev
 ```
 
-3. Open the local URL shown by Vite (usually `http://localhost:5173`).
+**3. Open Vite's local URL** (usually `http://localhost:5173`)
 
-## Firebase Console Setup
+---
 
-In your Firebase project (`tender-a7367`):
+## 🚀 Deploy
 
-1. Authentication:
-- Go to `Authentication -> Sign-in method`
-- Enable `Email/Password`
-
-2. Firestore:
-- Go to `Firestore Database`
-- Create database in production mode
-- Choose a region close to users
-
-3. Hosting:
-- Hosting is configured by `firebase.json` in this repo
-
-## Deploy Hosting + Rules
-
-Install Firebase CLI once:
-```bash
-npm install -g firebase-tools
-```
-
-Login:
-```bash
-firebase login
-```
-
-Build app:
+**Build for production:**
 ```bash
 npm run build
 ```
 
-Deploy Hosting and Firestore rules:
+**Deploy to Firebase Hosting + push Firestore rules:**
 ```bash
 firebase deploy
 ```
 
-## Security Notes
+> First time? Run `npm install -g firebase-tools` then `firebase login`.
 
-- Firebase web config keys in frontend are expected to be public.
-- Real protection is done by Firestore Security Rules and Auth.
-- Current rules only allow a signed-in user to read/write their own `users/{uid}` doc.
+---
 
-| Stage | Feature | Status |
-|-------|---------|--------|
-| 1 | Project setup + Firebase init | Complete |
-| 2 | User auth (signup / login) | Complete |
-| 3 | Recipe database + seed data | Pending |
-| 4 | Swipe page | Pending |
-| 5 | Discover / browse page | Pending |
-| 6 | Dashboard + stats | Pending |
-| 7 | Meal planner | Pending |
-| 8 | Grocery list | Pending |
-| 9 | Profile management | Pending |
-| 10 | Recipe CRUD | Pending |
-| 11 | Admin panel | Pending |
+## 🔒 Security Model
 
-## Next Build Steps for Tender
+- Firebase web config keys are **intentionally public** (this is normal for Firebase apps).
+- Real security is enforced by **Firestore Security Rules** (`firestore.rules`).
+- Each user can only read and write their own documents.
+- Recipe writes are restricted to admin users only.
 
-1. Create `recipes` collection and read-only browse queries.
-2. Add `swipes` collection scoped per user.
-3. Add `mealPlans` and `groceryLists` collections with user ownership rules.
-4. Move privileged actions to Cloud Functions when needed.
+---
+
+## 📐 Development Rules
+
+- **Always reference `TenderPrototype/`** before writing any feature — replicate, don't redesign.
+- **No backend server** — all data flows through Firestore and Firebase Auth.
+- **No Cloud Functions** unless explicitly requested.
+- **Test each stage** before moving to the next.
+- **No scope creep** — only port what exists in the original.
+
+---
+
+<div align="center">
+
+Made with 🔥 by the Tender team
+
+<img src="https://img.shields.io/badge/Firebase%20Project-tender--a7367-FF6B6B?style=flat-square&logo=firebase&logoColor=white" />
+
+</div>
