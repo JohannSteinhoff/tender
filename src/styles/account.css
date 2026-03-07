@@ -1,0 +1,275 @@
+.account-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 5%;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 36px;
+}
+
+.account-avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.account-avatar {
+  width: 80px;
+  height: 80px;
+  background: var(--gradient);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.7em;
+  user-select: none;
+  overflow: hidden;
+}
+
+.account-avatar.has-photo {
+  background: none;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-upload-btn {
+  display: inline-block;
+  background: none;
+  border: 1.5px solid var(--border-light);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.avatar-upload-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.account-header-info h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.account-header-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95em;
+}
+
+.account-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.account-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px var(--shadow-color);
+  border: 1px solid var(--border-light);
+  padding: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-header h2 {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-btn {
+  background: none;
+  border: 1.5px solid var(--border-light);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8em;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.edit-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.edit-save-btn {
+  background: var(--primary);
+  border: none;
+  color: white;
+  font-family: inherit;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.edit-save-btn:hover { opacity: 0.85; }
+.edit-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.edit-cancel-btn {
+  background: none;
+  border: 1.5px solid var(--border-light);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8em;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.edit-cancel-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-field label {
+  font-size: 0.82em;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.edit-field input,
+.edit-field select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-main, var(--bg-card));
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9em;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.edit-field input:focus,
+.edit-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field-note {
+  font-size: 0.75em;
+  color: var(--text-secondary);
+}
+
+.check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 5px 10px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 20px;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.check-option:has(input:checked) {
+  border-color: var(--primary);
+  background: rgba(255,107,107,0.08);
+  color: var(--primary);
+}
+
+.check-option input {
+  display: none;
+}
+
+.account-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.account-row:last-child { border-bottom: none; }
+
+.account-row-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.account-row-value {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9em;
+  text-align: right;
+  max-width: 60%;
+}

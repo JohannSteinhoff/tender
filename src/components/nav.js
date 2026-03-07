@@ -30,9 +30,36 @@ export function renderNav(activePage, profile = null) {
     <a href="/dashboard.html" class="logo">&#x1F373; Tender</a>
     <div class="nav-menu">${menuLinks}</div>
     <div class="nav-right">
-      <button class="theme-btn" id="themeBtn" title="Toggle dark mode">&#x1F31B;</button>
-      <div class="user-avatar" title="${profile ? profile.firstName + ' ' + (profile.lastName || '') : ''}">${initials}</div>
-      <button class="logout-btn" id="logoutBtn">Sign Out</button>
+      <button class="theme-toggle" id="themeBtn" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <span class="theme-track">
+          <span class="theme-thumb">
+            <svg class="theme-icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="theme-icon moon-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </span>
+        </span>
+      </button>
+      <div class="avatar-wrapper" id="avatarWrapper">
+        <div class="user-avatar ${profile?.photoURL ? 'has-photo' : ''}" id="userAvatar">${profile?.photoURL ? `<img src="${profile.photoURL}" alt="avatar">` : initials}</div>
+        <div class="avatar-dropdown" id="avatarDropdown">
+          <div class="avatar-dropdown-header">
+            <div class="avatar-dropdown-initials ${profile?.photoURL ? 'has-photo' : ''}">${profile?.photoURL ? `<img src="${profile.photoURL}" alt="avatar">` : initials}</div>
+            <div class="avatar-dropdown-info">
+              <div class="avatar-dropdown-name">${profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User' : 'User'}</div>
+              <div class="avatar-dropdown-email">${profile?.email || ''}</div>
+            </div>
+          </div>
+          <div class="avatar-dropdown-divider"></div>
+          <a href="/account.html" class="avatar-dropdown-item">&#x1F464; My Account</a>
+          <button class="avatar-dropdown-item avatar-dropdown-signout" id="logoutBtn">&#x1F6AA; Sign Out</button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -42,6 +69,15 @@ export function renderNav(activePage, profile = null) {
     const dark = document.documentElement.classList.contains('dark-mode');
     localStorage.setItem('tender_theme', dark ? 'dark' : 'light');
   });
+
+  // Avatar dropdown toggle
+  const avatarDropdown = document.getElementById('avatarDropdown');
+  document.getElementById('userAvatar').addEventListener('click', (e) => {
+    e.stopPropagation();
+    avatarDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', () => avatarDropdown.classList.remove('open'));
+  avatarDropdown.addEventListener('click', (e) => e.stopPropagation());
 
   // Logout
   document.getElementById('logoutBtn').addEventListener('click', signOutUser);

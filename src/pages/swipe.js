@@ -15,6 +15,7 @@ let swipedIds = new Set(); // all already-swiped (like or dislike)
 
 let deckMaster = [];   // all recipes after dietary filter
 let deck = [];         // current shuffled working deck
+let allRecipes = [];   // full recipe list for infinite looping
 
 let dragging = false;
 let startX = 0;
@@ -56,10 +57,12 @@ async function loadDeck() {
   swipedIds = new Set(Object.keys(swipes));
   likedIds = new Set(Object.entries(swipes).filter(([, a]) => a === 'like').map(([id]) => id));
 
+  allRecipes = recipes;
+
   // Exclude already-swiped recipes
   const fresh = recipes.filter(r => !swipedIds.has(r.id));
 
-  deckMaster = shuffleArray(fresh);
+  deckMaster = shuffleArray(fresh.length > 0 ? fresh : recipes);
   applyDifficultyFilter();
 }
 
@@ -80,31 +83,22 @@ function renderCard() {
   const actions = document.getElementById('swipeActions');
 
   if (deck.length === 0) {
-    // Deck exhausted — refill from master without already-swiped filter
-    if (deckMaster.length > 0) {
-      let refill = deckMaster.slice();
-      if (difficultyFilter) refill = refill.filter(r => (r.difficulty || 'medium') === difficultyFilter);
-      if (refill.length > 0) {
-        deck = shuffleArray(refill);
-        renderCard();
-        return;
-      }
+    // Refill from all recipes (loop infinitely)
+    let refill = shuffleArray(allRecipes.length > 0 ? allRecipes : deckMaster);
+    if (difficultyFilter) refill = refill.filter(r => (r.difficulty || 'medium') === difficultyFilter);
+    if (refill.length === 0) {
       container.innerHTML = `
         <div class="swipe-empty">
           <div class="empty-icon">🔍</div>
           <h2>No ${capitalizeFirst(difficultyFilter)} Recipes</h2>
           <p>Try a different difficulty filter.</p>
         </div>`;
-    } else {
-      container.innerHTML = `
-        <div class="swipe-empty">
-          <div class="empty-icon">🎉</div>
-          <h2>You've seen everything!</h2>
-          <p>Check back later for new recipes.</p>
-        </div>`;
+      if (actions) actions.style.display = 'none';
+      stopEmojiRain();
+      return;
     }
-    if (actions) actions.style.display = 'none';
-    stopEmojiRain();
+    deck = refill;
+    renderCard();
     return;
   }
 

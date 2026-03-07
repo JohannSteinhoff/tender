@@ -1,5 +1,5 @@
 import { db } from '../firebase.js';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 /** Fetch the Firestore profile for a user. */
 export async function getUserProfile(uid) {
@@ -8,7 +8,7 @@ export async function getUserProfile(uid) {
   return { uid, ...snap.data() };
 }
 
-/** Update the Firestore profile for a user. */
+/** Create or update the Firestore profile for a user. */
 export async function updateUserProfile(uid, data) {
-  await updateDoc(doc(db, 'users', uid), data);
+  await setDoc(doc(db, 'users', uid), data, { merge: true });
 }

@@ -13,6 +13,7 @@ export default defineConfig({
         discover: resolve(__dirname, 'discover.html'),
         mealplan: resolve(__dirname, 'mealplan.html'),
         grocery: resolve(__dirname, 'grocery.html'),
+        account: resolve(__dirname, 'account.html'),
       },
     },
   },
