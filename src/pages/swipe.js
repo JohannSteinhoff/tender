@@ -327,9 +327,44 @@ function spawnBurst(emoji) {
 
 // ── Action buttons ───────────────────────────────────────────
 function setupActionButtons() {
-  document.getElementById('btnNope')?.addEventListener('click', () => swipeAction('nope'));
-  document.getElementById('btnLike')?.addEventListener('click', () => swipeAction('like'));
-  document.getElementById('btnInfo')?.addEventListener('click', swipeShowDetails);
+  const btnNope = document.getElementById('btnNope');
+  const btnLike = document.getElementById('btnLike');
+  const btnInfo = document.getElementById('btnInfo');
+
+  btnNope?.addEventListener('click', () => swipeAction('nope'));
+  btnLike?.addEventListener('click', () => swipeAction('like'));
+  btnInfo?.addEventListener('click', swipeShowDetails);
+
+  addRipple(btnNope, 'rgba(255,77,109,0.35)');
+  addRipple(btnLike, 'rgba(255,255,255,0.45)');
+  addRipple(btnInfo, 'rgba(71,118,230,0.35)');
+
+  // Keyboard shortcuts: ← nope, → like, space info
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); flashBtn(btnNope); swipeAction('nope'); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); flashBtn(btnLike); swipeAction('like'); }
+    if (e.key === ' ')          { e.preventDefault(); flashBtn(btnInfo); swipeShowDetails(); }
+  });
+}
+
+function addRipple(btn, color) {
+  if (!btn) return;
+  btn.addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'btn-ripple';
+    ripple.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - rect.left - size / 2}px;top:${e.clientY - rect.top - size / 2}px;background:${color};`;
+    this.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  });
+}
+
+function flashBtn(btn) {
+  if (!btn) return;
+  btn.classList.add('btn-pressed');
+  setTimeout(() => btn.classList.remove('btn-pressed'), 200);
 }
 
 // ── Difficulty filter ────────────────────────────────────────

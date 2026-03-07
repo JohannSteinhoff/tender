@@ -38,9 +38,16 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
         <div class="modal-meta">
           ${recipe.cuisine ? `<span>🌍 ${capitalizeFirst(recipe.cuisine)}</span>` : ''}
           ${recipe.difficulty ? `<span>📊 ${capitalizeFirst(recipe.difficulty)}</span>` : ''}
-          ${recipe.cookTime ? `<span>⏱ ${recipe.cookTime} min</span>` : ''}
+          ${(recipe.prepTime || recipe.cookTime) ? `<span>⏱ ${(recipe.prepTime || 0) + (recipe.cookTime || 0)} min</span>` : ''}
           ${recipe.servings ? `<span>🍽 ${recipe.servings} servings</span>` : ''}
+          ${recipe.calories ? `<span>🔥 ${recipe.calories} cal</span>` : ''}
         </div>
+
+        ${(recipe.dietary && recipe.dietary.length > 0) ? `
+          <div class="modal-dietary">
+            ${recipe.dietary.map(d => `<span class="dietary-tag">${escapeHtml(d)}</span>`).join('')}
+          </div>
+        ` : ''}
 
         ${recipe.description ? `<p class="modal-desc">${escapeHtml(recipe.description)}</p>` : ''}
 
@@ -57,6 +64,14 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
           <div class="modal-section">
             <h3>Instructions</h3>
             <div class="modal-instructions">${escapeHtml(recipe.instructions)}</div>
+          </div>
+        ` : ''}
+
+        ${recipe.sourceUrl ? `
+          <div class="modal-section">
+            <a href="${escapeHtml(recipe.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="modal-source-link">
+              &#x1F517; View Original Recipe
+            </a>
           </div>
         ` : ''}
 

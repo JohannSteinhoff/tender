@@ -4,6 +4,7 @@ import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds } from '../a
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
+import { openAddRecipeModal } from '../components/addRecipeModal.js';
 import { showToast } from '../components/toast.js';
 import { escapeHtml, capitalizeFirst, parseIngredients } from '../utils/helpers.js';
 
@@ -38,6 +39,18 @@ async function init() {
   renderRecipeOfDay();
   buildCuisineChips();
   filterAndRender();
+
+  document.getElementById('addRecipeBtn').addEventListener('click', () => {
+    try {
+      openAddRecipeModal(uid, (newRecipe) => {
+        allRecipes.push(newRecipe);
+        buildCuisineChips();
+        filterAndRender();
+      });
+    } catch (err) {
+      console.error('openAddRecipeModal failed:', err);
+    }
+  });
 }
 
 // ── Recipe of the Day ────────────────────────────────────────

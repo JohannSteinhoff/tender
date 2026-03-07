@@ -37,9 +37,33 @@
 
       <!-- Action buttons -->
       <div id="swipeActions" class="swipe-actions" style="display:none">
-        <button class="swipe-btn swipe-btn-nope" id="btnNope" aria-label="Nope">&#x2715;</button>
-        <button class="swipe-btn swipe-btn-info" id="btnInfo" aria-label="Details">&#x2139;</button>
-        <button class="swipe-btn swipe-btn-like" id="btnLike" aria-label="Like">&#x2764;</button>
+        <div class="swipe-btn-wrap">
+          <button class="swipe-action-btn swipe-btn-nope" id="btnNope" aria-label="Nope">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <span class="btn-label">Nope</span>
+          <span class="btn-key">&#x2190;</span>
+        </div>
+        <div class="swipe-btn-wrap swipe-btn-wrap-sm">
+          <button class="swipe-action-btn swipe-btn-info" id="btnInfo" aria-label="Details">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/>
+            </svg>
+          </button>
+          <span class="btn-label">Info</span>
+          <span class="btn-key">Space</span>
+        </div>
+        <div class="swipe-btn-wrap">
+          <button class="swipe-action-btn swipe-btn-like" id="btnLike" aria-label="Like">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+          <span class="btn-label">Like</span>
+          <span class="btn-key">&#x2192;</span>
+        </div>
       </div>
     </div>
   </div>

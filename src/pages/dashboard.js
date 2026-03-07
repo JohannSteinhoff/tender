@@ -3,6 +3,7 @@ import { getUserProfile } from '../api/users.js';
 import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
+import { openAddRecipeModal } from '../components/addRecipeModal.js';
 import { escapeHtml, capitalizeFirst } from '../utils/helpers.js';
 
 let uid = null;
@@ -31,6 +32,17 @@ async function init() {
   renderStats();
   renderLikedRecipes();
   renderProfile();
+
+  document.getElementById('addRecipeBtn').addEventListener('click', () => {
+    try {
+      openAddRecipeModal(uid, (newRecipe) => {
+        allRecipes.push(newRecipe);
+        renderLikedRecipes();
+      });
+    } catch (err) {
+      console.error('openAddRecipeModal failed:', err);
+    }
+  });
 }
 
 function renderWelcome() {

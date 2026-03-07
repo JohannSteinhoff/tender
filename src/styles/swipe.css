@@ -4,7 +4,7 @@
   flex-direction: column;
   align-items: center;
   min-height: calc(100vh - 65px);
-  padding: 20px 20px 40px;
+  padding: 20px 20px 60px;
   position: relative;
   z-index: 2;
 }
@@ -13,79 +13,108 @@
   position: fixed;
   inset: 0;
   background-color: transparent;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s ease;
   z-index: 0;
   pointer-events: none;
 }
 
-/* ── Header ─────────────────────────────────────────────────── */
-.swipe-header {
-  text-align: center;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 2;
-}
-
-.swipe-header h1 {
-  font-size: 2em;
-  background: var(--gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.swipe-header p { color: var(--text-secondary); font-size: 0.95em; }
-
-.swipe-counter {
-  display: inline-block;
-  background: rgba(255, 107, 107, 0.1);
-  color: var(--primary);
-  padding: 4px 14px;
-  border-radius: 20px;
-  font-size: 0.85em;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-/* ── Difficulty filter ──────────────────────────────────────── */
-.swipe-difficulty-filters {
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.swipe-sidebar {
   position: fixed;
-  top: 90px;
+  top: 50%;
   left: 24px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  background: var(--bg-card);
+  border-radius: 20px;
+  padding: 18px 12px;
+  box-shadow: 0 8px 32px var(--shadow-color), 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid var(--border-color);
+}
+
+.swipe-sidebar h3 {
+  font-size: 0.6em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  margin: 0 0 6px;
+  white-space: nowrap;
+}
+
+.swipe-diff-btns {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  z-index: 10;
-}
-
-.swipe-diff-label {
-  font-size: 0.68em;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 2px;
 }
 
 .swipe-diff-btn {
-  background: var(--bg-card);
+  background: transparent;
   border: 2px solid var(--border-color);
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 5px 14px;
-  font-size: 0.8em;
+  font-size: 0.78em;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.2s;
-  box-shadow: 0 2px 6px var(--shadow-color);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
 }
 
-.swipe-diff-btn:hover { border-color: var(--primary); color: var(--primary); }
-.swipe-diff-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
-.swipe-diff-btn[data-diff="easy"].active { background: #4ade80; border-color: #4ade80; }
-.swipe-diff-btn[data-diff="medium"].active { background: #fb923c; border-color: #fb923c; }
-.swipe-diff-btn[data-diff="hard"].active { background: #f87171; border-color: #f87171; }
+.swipe-diff-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.swipe-diff-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(255,107,107,0.4);
+}
+
+.swipe-diff-btn[data-diff="easy"].active {
+  background: #4ade80;
+  border-color: #4ade80;
+  box-shadow: 0 4px 12px rgba(74,222,128,0.4);
+}
+
+.swipe-diff-btn[data-diff="medium"].active {
+  background: #fb923c;
+  border-color: #fb923c;
+  box-shadow: 0 4px 12px rgba(251,146,60,0.4);
+}
+
+.swipe-diff-btn[data-diff="hard"].active {
+  background: #f87171;
+  border-color: #f87171;
+  box-shadow: 0 4px 12px rgba(248,113,113,0.4);
+}
+
+.swipe-counter {
+  display: inline-block;
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72em;
+  font-weight: 700;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* ── Main area ───────────────────────────────────────────────── */
+.swipe-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
 /* ── Card stack ─────────────────────────────────────────────── */
 .swipe-container {
@@ -98,6 +127,18 @@
 
 @media (max-width: 420px) {
   .swipe-container { width: calc(100vw - 40px); height: 480px; }
+  .swipe-sidebar {
+    position: static;
+    transform: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 16px;
+    border-radius: 16px;
+    padding: 12px;
+  }
+  .swipe-diff-btns { flex-direction: row; }
 }
 
 .swipe-card {
@@ -115,7 +156,11 @@
   will-change: transform;
 }
 
-.swipe-card:active { cursor: grabbing; box-shadow: 0 15px 50px rgba(0,0,0,0.18); }
+.swipe-card:hover {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}
+
+.swipe-card:active { cursor: grabbing; }
 .swipe-card.animating { transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), opacity 0.4s ease; }
 
 /* ── Card image area ────────────────────────────────────────── */
@@ -284,69 +329,154 @@
 /* ── Action buttons ─────────────────────────────────────────── */
 .swipe-actions {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   align-items: center;
-  margin-top: 28px;
+  justify-content: center;
+  margin-top: 32px;
   z-index: 2;
 }
 
+.swipe-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.swipe-btn-wrap-sm {
+  gap: 5px;
+}
+
+.btn-label {
+  font-size: 0.68em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+
+.swipe-btn-wrap:hover .btn-label {
+  color: var(--text-secondary);
+}
+
+.btn-key {
+  font-size: 0.58em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  font-family: monospace;
+}
+
+/* Base button */
 .swipe-action-btn {
-  width: 60px;
-  height: 60px;
+  position: relative;
+  overflow: hidden;
   border-radius: 50%;
   border: none;
-  font-size: 1.5em;
   cursor: pointer;
+  font-family: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, box-shadow 0.2s;
-  position: relative;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease,
+    background 0.25s ease,
+    color 0.2s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.swipe-action-btn::after {
-  content: attr(data-label);
+.swipe-action-btn:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.swipe-action-btn:active {
+  transform: scale(0.91) !important;
+}
+
+.swipe-action-btn.btn-pressed {
+  transform: scale(0.91) !important;
+}
+
+/* Ripple */
+.btn-ripple {
   position: absolute;
-  bottom: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.45em;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--text-tertiary);
-  font-family: 'Poppins', sans-serif;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: ripple-anim 0.55s ease-out forwards;
+  pointer-events: none;
+  opacity: 1;
 }
 
-.swipe-action-btn:hover { transform: scale(1.1); }
+@keyframes ripple-anim {
+  to { transform: scale(2.8); opacity: 0; }
+}
 
+/* ── Nope button ─────────────────────────────────────────────── */
 .swipe-btn-nope {
-  background: white;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  color: var(--primary);
+  width: 72px;
+  height: 72px;
+  background: var(--bg-card);
+  color: #FF4D6D;
+  border: 3px solid #FF4D6D;
+  box-shadow:
+    0 6px 20px rgba(255,77,109,0.2),
+    0 2px 6px rgba(0,0,0,0.06);
 }
 
-.swipe-btn-info {
-  background: white;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  color: #888;
-  width: 50px;
-  height: 50px;
-  font-size: 1.2em;
-}
-
-.swipe-btn-superlike {
-  background: #fff9c4;
-  box-shadow: 0 4px 15px rgba(255,230,100,0.4);
-  color: #b8960a;
-  width: 50px;
-  height: 50px;
-  font-size: 1.2em;
-}
-
-.swipe-btn-like {
-  background: var(--secondary);
-  box-shadow: 0 4px 15px rgba(78,205,196,0.4);
+.swipe-btn-nope:hover {
+  background: linear-gradient(135deg, #FF4D6D 0%, #FF6B35 100%);
   color: white;
+  border-color: transparent;
+  box-shadow:
+    0 10px 36px rgba(255,77,109,0.5),
+    0 4px 12px rgba(255,77,109,0.3);
+  transform: scale(1.12);
+}
+
+/* ── Info button ─────────────────────────────────────────────── */
+.swipe-btn-info {
+  width: 54px;
+  height: 54px;
+  background: var(--bg-card);
+  color: #94a3b8;
+  border: 2.5px solid var(--border-color);
+  box-shadow:
+    0 4px 14px var(--shadow-color),
+    0 2px 4px rgba(0,0,0,0.04);
+}
+
+.swipe-btn-info:hover {
+  background: var(--bg-card);
+  color: #4776E6;
+  border-color: #4776E6;
+  box-shadow:
+    0 8px 28px rgba(71,118,230,0.35),
+    0 2px 8px rgba(71,118,230,0.2);
+  transform: scale(1.1);
+}
+
+/* ── Like button ─────────────────────────────────────────────── */
+.swipe-btn-like {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: white;
+  border: none;
+  box-shadow:
+    0 6px 20px rgba(74,222,128,0.45),
+    0 2px 6px rgba(0,0,0,0.08);
+}
+
+.swipe-btn-like:hover {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow:
+    0 12px 40px rgba(34,197,94,0.6),
+    0 4px 12px rgba(34,197,94,0.3);
+  transform: scale(1.12);
 }
 
 /* ── Emoji rain ─────────────────────────────────────────────── */
