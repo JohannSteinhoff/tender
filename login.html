@@ -8,7 +8,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         :root {
             --primary: #FF6B6B;
@@ -73,10 +77,24 @@
             gap: 10px;
         }
 
-        .login-left h2 { font-size: 2.2em; margin-bottom: 20px; line-height: 1.2; }
-        .login-left p { font-size: 1.1em; opacity: 0.9; line-height: 1.6; }
+        .login-left h2 {
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
 
-        .food-icons { display: flex; gap: 15px; margin-top: 40px; font-size: 2.5em; }
+        .login-left p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .food-icons {
+            display: flex;
+            gap: 15px;
+            margin-top: 40px;
+            font-size: 2.5em;
+        }
 
         .login-right {
             flex: 1;
@@ -86,13 +104,34 @@
             justify-content: center;
         }
 
-        .login-right h3 { font-size: 1.8em; color: var(--dark); margin-bottom: 10px; }
-        .login-right > p { color: #888; margin-bottom: 30px; }
-        .login-right > p a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .login-right h3 {
+            font-size: 1.8em;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
 
-        .form-group { margin-bottom: 20px; }
+        .login-right > p {
+            color: #888;
+            margin-bottom: 30px;
+        }
 
-        label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--dark); font-size: 0.95em; }
+        .login-right > p a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.95em;
+        }
 
         input {
             width: 100%;
@@ -104,19 +143,60 @@
             transition: border-color 0.3s, box-shadow 0.3s;
         }
 
-        input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1); }
-        input.error { border-color: var(--error); }
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1);
+        }
 
-        .error-message { color: var(--error); font-size: 0.85em; margin-top: 5px; display: none; }
-        .error-message.show { display: block; }
+        input.error {
+            border-color: var(--error);
+        }
 
-        .form-options { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .remember-me { display: flex; align-items: center; gap: 8px; }
-        .remember-me input { width: auto; }
-        .remember-me label { margin: 0; font-weight: 400; font-size: 0.9em; }
+        .error-message {
+            color: var(--error);
+            font-size: 0.85em;
+            margin-top: 5px;
+            display: none;
+        }
 
-        .forgot-password { color: var(--primary); text-decoration: none; font-size: 0.9em; font-weight: 500; }
-        .forgot-password:hover { text-decoration: underline; }
+        .error-message.show {
+            display: block;
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .remember-me input {
+            width: auto;
+        }
+
+        .remember-me label {
+            margin: 0;
+            font-weight: 400;
+            font-size: 0.9em;
+        }
+
+        .forgot-password {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
 
         .btn {
             width: 100%;
@@ -131,14 +211,41 @@
             transition: transform 0.3s, box-shadow 0.3s;
         }
 
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
 
-        .divider { display: flex; align-items: center; margin: 25px 0; color: #aaa; font-size: 0.9em; }
-        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
-        .divider span { padding: 0 15px; }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
 
-        .social-buttons { display: flex; gap: 15px; }
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 25px 0;
+            color: #aaa;
+            font-size: 0.9em;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        .divider span {
+            padding: 0 15px;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 15px;
+        }
 
         .social-btn {
             flex: 1;
@@ -151,20 +258,54 @@
             transition: border-color 0.3s, background 0.3s;
         }
 
-        .social-btn:hover { border-color: var(--primary); background: #FFF5F5; }
+        .social-btn:hover {
+            border-color: var(--primary);
+            background: #FFF5F5;
+        }
 
-        .alert { padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 0.95em; }
-        .alert-error { background: #fde8e8; color: var(--error); border: 1px solid #f5c6c6; }
-        .alert-success { background: #d4edda; color: var(--success); border: 1px solid #c3e6cb; }
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
 
-        .hidden { display: none !important; }
+        .alert-error {
+            background: #fde8e8;
+            color: var(--error);
+            border: 1px solid #f5c6c6;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: var(--success);
+            border: 1px solid #c3e6cb;
+        }
+
+        .hidden {
+            display: none !important;
+        }
 
         @media (max-width: 768px) {
-            .login-container { flex-direction: column; }
-            .login-left { padding: 40px; }
-            .login-left h2 { font-size: 1.6em; }
-            .food-icons { display: none; }
-            .login-right { padding: 40px; }
+            .login-container {
+                flex-direction: column;
+            }
+
+            .login-left {
+                padding: 40px;
+            }
+
+            .login-left h2 {
+                font-size: 1.6em;
+            }
+
+            .food-icons {
+                display: none;
+            }
+
+            .login-right {
+                padding: 40px;
+            }
         }
     </style>
 </head>
@@ -172,15 +313,15 @@
     <div class="login-container">
         <div class="login-left">
             <div class="logo">
-                <span>&#x1F373;</span> Tender
+                <span>🍳</span> Tender
             </div>
             <h2>Welcome Back, Chef!</h2>
             <p>Sign in to continue discovering delicious recipes, managing your grocery lists, and planning meals for the week.</p>
             <div class="food-icons">
-                <span>&#x1F957;</span>
-                <span>&#x1F35D;</span>
-                <span>&#x1F32E;</span>
-                <span>&#x1F370;</span>
+                <span>🥗</span>
+                <span>🍝</span>
+                <span>🌮</span>
+                <span>🍰</span>
             </div>
         </div>
 
@@ -188,7 +329,7 @@
             <div id="alertBox" class="alert hidden"></div>
 
             <h3>Sign In</h3>
-            <p>Don't have an account? <a href="signup.html">Create one</a></p>
+            <p>Don't have an account? <a href="/signup.html">Create one</a></p>
 
             <form id="loginForm">
                 <div class="form-group">
@@ -218,33 +359,34 @@
 
             <div class="social-buttons">
                 <button class="social-btn" title="Sign in with Google">G</button>
-                <button class="social-btn" title="Sign in with Apple">&#x1F34E;</button>
+                <button class="social-btn" title="Sign in with Apple">🍎</button>
                 <button class="social-btn" title="Sign in with Facebook">f</button>
             </div>
         </div>
     </div>
 
+    <script type="module" src="/src/firebase-api.js"></script>
     <script type="module">
-        import { auth } from '/src/firebase.js';
-        import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+        (async () => {
+        // Check if already logged in
+        if (TenderAPI.isLoggedIn()) {
+            window.location.replace('/dashboard.html');
+            return;
+        }
 
-        // Redirect if already signed in
-        onAuthStateChanged(auth, (user) => {
-            if (user) window.location.replace('/dashboard.html');
-        });
-
+        // Show alert
         function showAlert(message, type) {
             const alertBox = document.getElementById('alertBox');
             alertBox.textContent = message;
             alertBox.className = 'alert alert-' + type;
             alertBox.classList.remove('hidden');
-            setTimeout(() => alertBox.classList.add('hidden'), 5000);
+
+            setTimeout(() => {
+                alertBox.classList.add('hidden');
+            }, 5000);
         }
 
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
-
+        // Login form
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -271,21 +413,26 @@
 
             if (hasError) return;
 
-            const btn = document.getElementById('loginBtn');
-            btn.disabled = true;
-            btn.textContent = 'Signing in...';
-
+            // Attempt authentication via API
             try {
-                await signInWithEmailAndPassword(auth, email, password);
+                const user = await TenderAPI.login(email, password);
+                TenderDB.setCurrentUser(user);
                 showAlert('Login successful! Redirecting...', 'success');
-                setTimeout(() => window.location.href = '/dashboard.html', 1000);
+
+                setTimeout(() => {
+                    window.location.href = '/dashboard.html';
+                }, 1000);
             } catch (err) {
                 showAlert('Invalid email or password. Please try again.', 'error');
                 document.getElementById('password').classList.add('error');
-                btn.disabled = false;
-                btn.textContent = 'Sign In';
             }
         });
+
+        // Email validation
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+        })(); // end async IIFE
     </script>
 </body>
 </html>

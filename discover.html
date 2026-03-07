@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tender - Discover</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/nav.css">
+  <link rel="stylesheet" href="/src/styles/components.css">
+  <link rel="stylesheet" href="/src/styles/discover.css">
+</head>
+<body>
+  <nav id="app-nav"></nav>
+
+  <main class="discover-page">
+
+    <!-- Recipe of the Day -->
+    <section id="recipeOfDay" class="recipe-of-day" style="display:none">
+      <div id="rotdThumb" class="recipe-of-day-thumb"></div>
+      <div>
+        <div class="recipe-of-day-label">Recipe of the Day</div>
+        <div id="rotdName" class="recipe-of-day-name"></div>
+        <div id="rotdMeta" class="recipe-of-day-meta"></div>
+      </div>
+    </section>
+
+    <!-- Page header -->
+    <div class="discover-header">
+      <h1>Discover Recipes</h1>
+    </div>
+
+    <!-- Search + filter dropdowns -->
+    <div class="search-bar">
+      <input
+        type="search"
+        id="searchInput"
+        placeholder="Search by name, ingredient, or description..."
+        aria-label="Search recipes"
+      >
+      <select id="cuisineFilter" aria-label="Filter by cuisine">
+        <option value="">All Cuisines</option>
+      </select>
+      <select id="difficultyFilter" aria-label="Filter by difficulty">
+        <option value="">All Difficulties</option>
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+
+    <!-- Cuisine chips -->
+    <div id="cuisineChips" class="filter-chips"></div>
+
+    <!-- Recipe grid -->
+    <div id="discoverGrid" class="discover-grid"></div>
+
+  </main>
+
+  <script type="module" src="/src/pages/discover.js"></script>
+</body>
+</html>

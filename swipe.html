@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tender - Swipe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/nav.css">
+  <link rel="stylesheet" href="/src/styles/components.css">
+  <link rel="stylesheet" href="/src/styles/swipe.css">
+</head>
+<body>
+  <nav id="app-nav"></nav>
+
+  <div id="swipePage" class="swipe-page">
+    <div id="swipeBg" class="swipe-bg"></div>
+    <div id="emojiRainContainer" class="emoji-rain-container"></div>
+
+    <!-- Difficulty filter sidebar -->
+    <aside class="swipe-sidebar">
+      <h3>Difficulty</h3>
+      <div class="swipe-diff-btns">
+        <button class="swipe-diff-btn active" data-diff="">All</button>
+        <button class="swipe-diff-btn" data-diff="easy">Easy</button>
+        <button class="swipe-diff-btn" data-diff="medium">Medium</button>
+        <button class="swipe-diff-btn" data-diff="hard">Hard</button>
+      </div>
+      <p id="swipeCounter" class="swipe-counter">0 recipes liked</p>
+    </aside>
+
+    <!-- Card stack -->
+    <div class="swipe-main">
+      <div id="swipeContainer" class="swipe-container"></div>
+
+      <!-- Action buttons -->
+      <div id="swipeActions" class="swipe-actions" style="display:none">
+        <button class="swipe-btn swipe-btn-nope" id="btnNope" aria-label="Nope">&#x2715;</button>
+        <button class="swipe-btn swipe-btn-info" id="btnInfo" aria-label="Details">&#x2139;</button>
+        <button class="swipe-btn swipe-btn-like" id="btnLike" aria-label="Like">&#x2764;</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/pages/swipe.js"></script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+/* ── Discover page layout ───────────────────────────────────── */
+.discover-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 30px 3%;
+}
+
+/* ── Recipe of the Day ──────────────────────────────────────── */
+.recipe-of-day {
+  background: var(--gradient);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: white;
+}
+
+.recipe-of-day:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,107,107,0.3); }
+
+.recipe-of-day-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5em;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.recipe-of-day-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.recipe-of-day-label {
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.recipe-of-day-name { font-size: 1.3em; font-weight: 700; margin-bottom: 4px; }
+.recipe-of-day-meta { font-size: 0.85em; opacity: 0.85; }
+
+/* ── Page header + create button ────────────────────────────── */
+.discover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.discover-header h1 { font-size: 1.8em; color: var(--text-primary); }
+.discover-header p { color: var(--text-secondary); font-size: 0.95em; }
+
+.btn-create-recipe {
+  background: var(--gradient);
+  border: none;
+  color: white;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-create-recipe:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,107,0.35); }
+
+/* ── Search & filter bar ────────────────────────────────────── */
+.search-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.search-bar input,
+.search-bar select {
+  padding: 11px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.95em;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+}
+
+.search-bar input { flex: 1; min-width: 200px; }
+.search-bar select { min-width: 140px; cursor: pointer; }
+
+.search-bar input:focus,
+.search-bar select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ── Cuisine filter chips ───────────────────────────────────── */
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.filter-chip {
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.filter-chip:hover { border-color: var(--primary); color: var(--primary); }
+.filter-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+/* ── Recipe grid ────────────────────────────────────────────── */
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.discover-recipe-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s, box-shadow 0.25s;
+  box-shadow: 0 2px 12px var(--shadow-color);
+  position: relative;
+}
+
+.discover-recipe-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+}
+
+/* ── Card image ─────────────────────────────────────────────── */
+.discover-recipe-image {
+  height: 160px;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.5em;
+  position: relative;
+  overflow: hidden;
+}
+
+.discover-recipe-image.has-img { background: none; font-size: inherit; }
+.discover-recipe-image.has-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+.difficulty-badge, .cuisine-badge {
+  position: absolute;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 700;
+  z-index: 2;
+}
+
+.difficulty-badge {
+  top: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.9);
+  color: #555;
+}
+
+.cuisine-badge {
+  top: 10px;
+  left: 10px;
+  background: rgba(255,255,255,0.9);
+  color: #555;
+}
+
+/* ── Card body ──────────────────────────────────────────────── */
+.discover-recipe-body { padding: 16px; }
+
+.discover-recipe-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.discover-recipe-body h3 {
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.discover-recipe-body .description {
+  font-size: 0.82em;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.discover-recipe-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.8em;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.discover-recipe-meta span { display: flex; align-items: center; gap: 4px; }
+
+.discover-recipe-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-like-card, .btn-unlike-card {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82em;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.btn-like-card {
+  background: var(--gradient);
+  color: white;
+}
+
+.btn-like-card:hover { opacity: 0.9; }
+
+.btn-unlike-card {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-color);
+}
+
+.btn-unlike-card:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── Card admin actions ─────────────────────────────────────── */
+.discover-admin-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.discover-recipe-card:hover .discover-admin-actions { opacity: 1; }
+
+.card-icon-btn {
+  background: var(--bg-primary);
+  border: none;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.card-icon-btn.delete:hover { background: #fde8e8; }
+.card-icon-btn.edit:hover { background: #e8f4fd; }
+
+/* ── No results ─────────────────────────────────────────────── */
+.no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.no-results .icon { font-size: 3em; margin-bottom: 12px; }

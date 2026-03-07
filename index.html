@@ -1,26 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tender</title>
-    <style>
-      body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; background: linear-gradient(135deg, #FFF5F5 0%, #FFF9EC 50%, #F0FFF4 100%); }
-    </style>
-  </head>
-  <body>
-    <p>Loading...</p>
-    <script type="module">
-      import { auth } from '/src/firebase.js';
-      import { onAuthStateChanged } from 'firebase/auth';
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tender - Swipe Right on Dinner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/landing.css">
+</head>
+<body>
 
-      onAuthStateChanged(auth, (user) => {
-        if (user) {
-          window.location.replace('/dashboard.html');
-        } else {
-          window.location.replace('/login.html');
-        }
-      });
-    </script>
-  </body>
+  <!-- Navigation -->
+  <nav id="navbar">
+    <a href="#" class="logo">&#x1F373; Tender</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#testimonials">Reviews</a>
+      <a href="/login.html">Log In</a>
+      <a href="/signup.html" class="btn btn-primary">Create an Account</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <span class="hero-badge">&#x2728; Discover Your Perfect Meal</span>
+      <h1>Swipe Right on <span>Delicious</span> Recipes</h1>
+      <p>Discover recipes you'll love, build your grocery list automatically, and never wonder "what's for dinner?" again. It's like dating, but for food.</p>
+      <div class="hero-buttons">
+        <a href="/signup.html" class="btn btn-primary">Create an Account</a>
+        <a href="/login.html" class="btn btn-outline">Log In</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-number">50K+</div>
+          <div class="stat-label">Recipes</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">2M+</div>
+          <div class="stat-label">Users</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">4.9</div>
+          <div class="stat-label">App Rating</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <span class="floating-food food-1">&#x1F951;</span>
+      <span class="floating-food food-2">&#x1F355;</span>
+      <span class="floating-food food-3">&#x1F957;</span>
+      <span class="floating-food food-4">&#x1F370;</span>
+
+      <div class="phone-mockup">
+        <div class="phone-screen">
+          <div class="phone-header">
+            <h3>Tonight's Dinner?</h3>
+          </div>
+          <div class="recipe-card-mockup" id="hero-recipe-card">
+            <div class="recipe-image-mockup" id="hero-recipe-emoji">&#x1F35D;</div>
+            <div class="recipe-info-mockup">
+              <h4 id="hero-recipe-name">Creamy Tuscan Pasta</h4>
+              <p id="hero-recipe-meta">30 min · 4 servings · Easy</p>
+              <div class="recipe-tags-mockup" id="hero-recipe-tags">
+                <span class="tag">Italian</span>
+                <span class="tag">Vegetarian</span>
+              </div>
+            </div>
+          </div>
+          <div class="swipe-buttons-mockup">
+            <button class="swipe-btn-mockup nope" aria-label="Nope">&#x2715;</button>
+            <button class="swipe-btn-mockup like" aria-label="Like">&#x2665;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="section-title">
+      <h2>Why You'll Love Tender</h2>
+      <p>We make meal planning fun, grocery shopping effortless, and cooking enjoyable.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F446;</div>
+        <h3>Swipe to Discover</h3>
+        <p>Browse through thousands of recipes with a simple swipe. Like it? Swipe right. Not your style? Swipe left.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F6D2;</div>
+        <h3>Smart Grocery Lists</h3>
+        <p>Your liked recipes automatically build a smart grocery list. Organised by aisle, combined ingredients, nothing forgotten.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4C5;</div>
+        <h3>Meal Planning</h3>
+        <p>Plan your week in minutes. Drag and drop recipes to your calendar and let Tender handle the rest.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F3AF;</div>
+        <h3>Personalised For You</h3>
+        <p>Set your dietary restrictions, cooking skill, and cuisine preferences to see perfect matches every time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F46A;</div>
+        <h3>Family Friendly</h3>
+        <p>Share your account with family members. Everyone swipes, and Tender finds meals the whole family will enjoy.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4B0;</div>
+        <h3>Budget Tracking</h3>
+        <p>Set a weekly food budget and Tender will suggest recipes that keep you on track without sacrificing taste.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-title">
+      <h2>How Tender Works</h2>
+      <p>From swiping to eating in three simple steps.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Swipe Recipes</h3>
+        <p>Browse personalised recipe suggestions. Swipe right on dishes you want to try, left on ones you don't.</p>
+        <span class="step-arrow">&#x2192;</span>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>Get Your List</h3>
+        <p>Your grocery list builds automatically. Smart organisation groups items by store section.</p>
+        <span class="step-arrow">&#x2192;</span>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Cook &amp; Enjoy</h3>
+        <p>Follow step-by-step instructions. Check off ingredients as you cook.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testimonials" id="testimonials">
+    <div class="section-title">
+      <h2>What Our Users Say</h2>
+      <p>Join millions who've found their perfect meal match.</p>
+    </div>
+    <div class="testimonial-grid">
+      <div class="testimonial-card">
+        <p>"Tender completely changed how I approach cooking. No more staring at the fridge wondering what to make!"</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">&#x1F469;</div>
+          <div class="author-info">
+            <h4>Sarah M.</h4>
+            <span>Home Cook</span>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p>"The grocery list feature alone is worth it. I've cut my shopping time in half and stopped buying things I don't need."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">&#x1F468;</div>
+          <div class="author-info">
+            <h4>Mike R.</h4>
+            <span>Busy Dad</span>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p>"My family finally agrees on dinner! We all swipe and Tender finds something everyone likes. Game changer."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">&#x1F469;&#x200D;&#x1F9B0;</div>
+          <div class="author-info">
+            <h4>Jennifer K.</h4>
+            <span>Mom of 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <h2>Ready to Find Your Perfect Meal?</h2>
+    <p>Join Tender for free and start swiping tonight.</p>
+    <a href="/signup.html" class="btn">Create an Account</a>
+    <p class="cta-login">Already have an account? <a href="/login.html">Log In</a></p>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-brand">
+        <a href="#" class="logo">&#x1F373; Tender</a>
+        <p>Making meal planning deliciously simple since 2026.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#testimonials">Reviews</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h4>Account</h4>
+        <ul>
+          <li><a href="/signup.html">Sign Up</a></li>
+          <li><a href="/login.html">Log In</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="#">Help Center</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 Tender. All rights reserved. Made with &#x2764; for food lovers.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/pages/landing.js"></script>
+</body>
 </html>

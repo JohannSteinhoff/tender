@@ -1,0 +1,93 @@
+/* ── Reset & base ───────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: var(--scrollbar-track); border-radius: 999px; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--scrollbar-thumb) 0%, var(--scrollbar-thumb-hover) 100%);
+  border-radius: 999px;
+  border: 3px solid var(--scrollbar-track);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── CSS Variables (light) ──────────────────────────────────── */
+:root {
+  --primary: #FF6B6B;
+  --primary-dark: #ee5a5a;
+  --secondary: #4ECDC4;
+  --accent: #FFE66D;
+  --dark: #2C3E50;
+  --light: #F7F9FC;
+  --gradient: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+
+  --bg-primary: #F7F9FC;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafafa;
+  --bg-input: #ffffff;
+  --text-primary: #2C3E50;
+  --text-secondary: #888888;
+  --text-tertiary: #aaaaaa;
+  --border-color: #e0e0e0;
+  --border-light: #f0f0f0;
+  --shadow-color: rgba(0,0,0,0.05);
+  --overlay-bg: rgba(0,0,0,0.5);
+  --scrollbar-track: #eef2f9;
+  --scrollbar-thumb: #ff8e53;
+  --scrollbar-thumb-hover: #ff6b6b;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────── */
+html.dark-mode {
+  --bg-primary: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-card-hover: #1a2744;
+  --bg-input: #1e2a47;
+  --text-primary: #e8e8e8;
+  --text-secondary: #a0a0b0;
+  --text-tertiary: #707080;
+  --border-color: #2a3a5c;
+  --border-light: #222b45;
+  --shadow-color: rgba(0,0,0,0.2);
+  --overlay-bg: rgba(0,0,0,0.7);
+  --dark: #e8e8e8;
+  --light: #1a1a2e;
+  --scrollbar-track: #1f2a45;
+  --scrollbar-thumb: #4ecdc4;
+  --scrollbar-thumb-hover: #6ee1d9;
+}
+
+/* ── Body ───────────────────────────────────────────────────── */
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── Shared utilities ───────────────────────────────────────── */
+.hidden { display: none !important; }
+
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  color: var(--text-secondary);
+  font-size: 1.1em;
+}
+
+.tag {
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--primary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85em;
+}

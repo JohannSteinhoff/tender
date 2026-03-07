@@ -1,197 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Tender</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        :root {
-            --primary: #FF6B6B;
-            --gradient: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
-            --dark: #2C3E50;
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #FFF5F5 0%, #FFF9EC 50%, #F0FFF4 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .loading {
-            font-size: 1.2em;
-            color: #888;
-        }
-
-        .dashboard {
-            display: none;
-            max-width: 600px;
-            width: 100%;
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            padding: 60px;
-            text-align: center;
-        }
-
-        .dashboard.visible { display: block; }
-
-        .logo {
-            font-size: 2.5em;
-            font-weight: 800;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-        }
-
-        .welcome {
-            font-size: 1.6em;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #888;
-            margin-bottom: 40px;
-            font-size: 1em;
-        }
-
-        .stage-badge {
-            display: inline-block;
-            background: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-            border-radius: 20px;
-            padding: 6px 16px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin-bottom: 30px;
-        }
-
-        .user-info {
-            background: #f8f9fa;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 30px;
-            text-align: left;
-        }
-
-        .user-info p { margin-bottom: 6px; font-size: 0.9em; color: #555; }
-        .user-info strong { color: var(--dark); }
-
-        .btn {
-            padding: 14px 32px;
-            background: var(--gradient);
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-            font-family: inherit;
-        }
-
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3); }
-
-        .next-stages {
-            margin-top: 30px;
-            padding-top: 30px;
-            border-top: 1px solid #eee;
-            text-align: left;
-        }
-
-        .next-stages h4 { color: var(--dark); margin-bottom: 10px; font-size: 0.9em; }
-
-        .next-stages ul {
-            list-style: none;
-            font-size: 0.85em;
-            color: #888;
-        }
-
-        .next-stages ul li { padding: 3px 0; }
-        .next-stages ul li::before { content: '○  '; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Tender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/nav.css">
+  <link rel="stylesheet" href="/src/styles/components.css">
+  <link rel="stylesheet" href="/src/styles/dashboard.css">
 </head>
 <body>
-    <p class="loading" id="loading">Loading...</p>
+  <nav id="app-nav"></nav>
 
-    <div class="dashboard" id="dashboard">
-        <div class="logo">&#x1F373; Tender</div>
-        <div class="stage-badge">Stage 2 Complete: Auth working</div>
-        <h2 class="welcome" id="welcomeMsg">Welcome!</h2>
-        <p class="subtitle" id="userEmail"></p>
+  <main class="dashboard-page">
 
-        <div class="user-info" id="userInfo"></div>
+    <!-- Welcome banner -->
+    <section class="welcome-section">
+      <div class="welcome-text">
+        <h1 id="welcomeHeading">Welcome back!</h1>
+        <p id="welcomeSub">Here's what's cooking today.</p>
+      </div>
+      <button class="start-swiping-btn" onclick="location.href='/swipe.html'">Start Swiping &#x1F525;</button>
+    </section>
 
-        <button class="btn" id="logoutBtn">Sign Out</button>
-
-        <div class="next-stages">
-            <h4>Coming next:</h4>
-            <ul>
-                <li>Stage 3: Recipe database + seed data</li>
-                <li>Stage 4: Swipe page</li>
-                <li>Stage 5: Discover / browse page</li>
-                <li>Stage 6: Full dashboard + stats</li>
-                <li>Stage 7: Meal planner</li>
-                <li>Stage 8: Grocery list</li>
-            </ul>
-        </div>
+    <!-- Stats row -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="icon">&#x2764;&#xFE0F;</div>
+        <h3 id="statLiked">-</h3>
+        <p>Liked Recipes</p>
+      </div>
+      <div class="stat-card">
+        <div class="icon">&#x1F37D;&#xFE0F;</div>
+        <h3 id="statServings">-</h3>
+        <p>Household Size</p>
+      </div>
+      <div class="stat-card">
+        <div class="icon">&#x1F4C5;</div>
+        <h3 id="statMeals">-</h3>
+        <p>Meals / Week</p>
+      </div>
+      <div class="stat-card">
+        <div class="icon">&#x1F4B0;</div>
+        <h3 id="statBudget">-</h3>
+        <p>Weekly Budget</p>
+      </div>
     </div>
 
-    <script type="module">
-        import { auth, db } from '/src/firebase.js';
-        import { onAuthStateChanged, signOut } from 'firebase/auth';
-        import { doc, getDoc } from 'firebase/firestore';
+    <!-- Main grid -->
+    <div class="dashboard-grid">
 
-        onAuthStateChanged(auth, async (user) => {
-            document.getElementById('loading').style.display = 'none';
+      <!-- Liked recipes -->
+      <div class="section-card">
+        <div class="section-header">
+          <h2>&#x2764;&#xFE0F; Liked Recipes</h2>
+          <a href="/discover.html">View all</a>
+        </div>
+        <div id="likedRecipesGrid" class="recipes-mini-grid">
+          <div class="section-empty"><div class="empty-icon">&#x1F37D;&#xFE0F;</div>No liked recipes yet. Start swiping!</div>
+        </div>
+      </div>
 
-            if (!user) {
-                window.location.replace('/login.html');
-                return;
-            }
+      <!-- Profile info -->
+      <div class="section-card profile-section">
+        <div class="section-header">
+          <h2>&#x1F464; Your Profile</h2>
+        </div>
+        <div id="profileInfo" class="profile-info">
+          <div class="section-empty"><div class="empty-icon">&#x23F3;</div>Loading...</div>
+        </div>
+      </div>
 
-            // Load Firestore profile
-            let profile = null;
-            try {
-                const snap = await getDoc(doc(db, 'users', user.uid));
-                if (snap.exists()) profile = snap.data();
-            } catch (err) {
-                console.error('Failed to load profile:', err);
-            }
+    </div>
 
-            const name = profile ? `${profile.firstName} ${profile.lastName}` : user.email;
-            document.getElementById('welcomeMsg').textContent = `Welcome, ${name}!`;
-            document.getElementById('userEmail').textContent = user.email;
+  </main>
 
-            if (profile) {
-                document.getElementById('userInfo').innerHTML = `
-                    <p><strong>Cooking skill:</strong> ${profile.cookingSkill}</p>
-                    <p><strong>Household size:</strong> ${profile.householdSize}</p>
-                    <p><strong>Weekly budget:</strong> ${profile.weeklyBudget}</p>
-                    <p><strong>Dietary:</strong> ${profile.dietary?.join(', ') || 'None'}</p>
-                    <p><strong>Cuisines:</strong> ${profile.cuisines?.join(', ')}</p>
-                `;
-            }
-
-            document.getElementById('dashboard').classList.add('visible');
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await signOut(auth);
-            window.location.replace('/login.html');
-        });
-    </script>
+  <script type="module" src="/src/pages/dashboard.js"></script>
 </body>
 </html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tender - Grocery List</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/nav.css">
+  <link rel="stylesheet" href="/src/styles/components.css">
+  <link rel="stylesheet" href="/src/styles/grocery.css">
+</head>
+<body>
+  <nav id="app-nav"></nav>
+
+  <main class="grocery-page">
+
+    <div class="page-header">
+      <div>
+        <h1>&#x1F6D2; Grocery List</h1>
+        <p>Everything you need — automatically built from your liked recipes.</p>
+      </div>
+      <button class="btn-add-item" id="btnAddItem">+ Add Item</button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="grocery-stats">
+      <div class="grocery-stat">
+        <span class="grocery-stat-num" id="totalItems">0</span>
+        <span class="grocery-stat-label">Total</span>
+      </div>
+      <div class="grocery-stat">
+        <span class="grocery-stat-num" id="checkedItems">0</span>
+        <span class="grocery-stat-label">Checked</span>
+      </div>
+      <div class="grocery-stat">
+        <span class="grocery-stat-num" id="remainingItems">0</span>
+        <span class="grocery-stat-label">Remaining</span>
+      </div>
+    </div>
+
+    <!-- Add item form (hidden by default) -->
+    <form id="addItemForm" class="add-item-form hidden">
+      <input type="text" id="newItemInput" placeholder="e.g. 2 cups flour" autocomplete="off">
+      <button type="submit">Add</button>
+      <button type="button" id="btnCancelAdd">Cancel</button>
+    </form>
+
+    <!-- List -->
+    <div id="groceryList" class="grocery-list-container">
+      <!-- Rendered by grocery.js -->
+    </div>
+
+  </main>
+
+  <script type="module" src="/src/pages/grocery.js"></script>
+</body>
+</html>
