@@ -236,12 +236,13 @@
 
 /* ── Add Recipe modal ───────────────────────────────────────── */
 .add-recipe-modal {
-  max-width: 620px;
+  max-width: 920px;
 }
 
-/* Live preview header — same style as the recipe view modal-header */
+/* Live preview header */
 .ar-preview-header {
   cursor: default;
+  height: 160px;
 }
 
 .ar-preview-title {
@@ -267,7 +268,18 @@
 }
 
 /* Form body */
-.ar-form-body { padding-top: 20px; }
+.ar-form-body { padding: 24px 28px 28px; }
+
+/* Two-column layout */
+.ar-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 32px;
+}
+
+.ar-col-left, .ar-col-right {
+  min-width: 0;
+}
 
 /* Section label */
 .ar-section-label {
@@ -276,12 +288,16 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  margin: 22px 0 10px;
+  margin: 20px 0 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.ar-section-label:first-child { margin-top: 0; }
+.ar-col-left .ar-section-label:first-child,
+.ar-col-right .ar-section-label:first-child { margin-top: 0; }
 
 /* Generic form groups */
 .form-group {
@@ -310,12 +326,12 @@
 .form-group textarea {
   padding: 10px 13px;
   border: 2px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.93em;
   font-family: inherit;
   background: var(--bg-primary);
   color: var(--text-primary);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   resize: vertical;
 }
 
@@ -324,9 +340,16 @@
 .form-group textarea:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,107,107,0.1);
 }
 
 /* Row layouts */
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .form-row-3 {
   display: flex;
   gap: 10px;
@@ -342,16 +365,79 @@
   gap: 10px;
 }
 
-@media (max-width: 500px) {
-  .form-row-3 { flex-wrap: wrap; }
-  .form-row-4 { grid-template-columns: repeat(2, 1fr); }
+/* ── Emoji picker ──────────────────────────────────────────── */
+.ar-emoji-picker-wrap {
+  margin-bottom: 12px;
 }
 
-/* Emoji input */
-.ar-emoji-input {
-  font-size: 1.4em !important;
+.ar-emoji-selected-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-primary);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  border: 2px solid var(--border-color);
+  transition: border-color 0.2s;
+}
+
+.ar-emoji-selected-display:has(+ .ar-emoji-grid .ar-emoji-btn.active) {
+  border-color: var(--primary);
+}
+
+#ar-emoji-display {
+  font-size: 2.2em;
+  line-height: 1;
+  display: inline-block;
+}
+
+.ar-emoji-label {
+  font-size: 0.82em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.ar-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-primary);
+  border-radius: 14px;
+  border: 2px solid var(--border-color);
+}
+
+.ar-emoji-btn {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 1.5em;
+  padding: 6px 2px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+  line-height: 1;
   text-align: center;
-  padding: 6px 8px !important;
+}
+
+.ar-emoji-btn:hover {
+  background: rgba(255,107,107,0.08);
+  transform: scale(1.2);
+}
+
+.ar-emoji-btn.active {
+  background: rgba(255,107,107,0.15);
+  border-color: var(--primary);
+  transform: scale(1.15);
+}
+
+@keyframes emojiBounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.4); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
 }
 
 /* Ingredient rows */
@@ -366,6 +452,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@keyframes fadeInRow {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOutRow {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(20px); }
 }
 
 .ar-ingredient-bullet {
@@ -383,12 +479,13 @@
   font-family: inherit;
   background: var(--bg-primary);
   color: var(--text-primary);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .ar-ingredient-input:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,107,107,0.1);
 }
 
 .ar-remove-ingredient {
@@ -398,34 +495,36 @@
   cursor: pointer;
   font-size: 0.9em;
   padding: 6px 8px;
-  border-radius: 6px;
-  transition: color 0.2s, background 0.2s;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s, transform 0.15s;
   flex-shrink: 0;
 }
 
 .ar-remove-ingredient:hover {
   color: var(--primary);
   background: rgba(255,107,107,0.08);
+  transform: scale(1.15);
 }
 
 .ar-add-row-btn {
   background: none;
   border: 2px dashed var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--text-secondary);
   font-size: 0.88em;
   font-family: inherit;
   font-weight: 600;
-  padding: 9px 16px;
+  padding: 10px 16px;
   width: 100%;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
   margin-bottom: 4px;
 }
 
 .ar-add-row-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+  background: rgba(255,107,107,0.04);
 }
 
 /* Dietary chips */
@@ -433,21 +532,21 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .ar-dietary-chip {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   border: 2px solid var(--border-color);
   border-radius: 50px;
   font-size: 0.85em;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
   user-select: none;
 }
 
@@ -456,12 +555,100 @@
 .ar-dietary-chip:hover {
   border-color: var(--primary);
   color: var(--primary);
+  transform: translateY(-1px);
 }
 
 .ar-dietary-chip:has(input:checked) {
   border-color: var(--primary);
   background: rgba(255,107,107,0.1);
   color: var(--primary);
+  box-shadow: 0 2px 8px rgba(255,107,107,0.15);
+}
+
+/* ── Submit row ────────────────────────────────────────────── */
+.ar-submit-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+  justify-content: flex-end;
+}
+
+.ar-submit-btn {
+  background: var(--gradient);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 36px;
+  font-size: 1.05em;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(255,107,107,0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.ar-submit-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.ar-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 28px rgba(255,107,107,0.45);
+}
+
+.ar-submit-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.ar-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ar-submit-icon {
+  font-size: 1.15em;
+}
+
+.ar-submit-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.ar-cancel-btn {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px 28px;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, transform 0.15s;
+}
+
+.ar-cancel-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
 }
 
 /* Error box */
@@ -470,9 +657,91 @@
   border: 1.5px solid var(--primary);
   color: var(--primary);
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.9em;
   margin-top: 8px;
+}
+
+/* ── Celebration overlay ───────────────────────────────────── */
+.ar-celebration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  animation: fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+.ar-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 1.8em;
+  pointer-events: none;
+  animation: particleBurst 1s ease-out var(--delay) forwards;
+  opacity: 0;
+}
+
+@keyframes particleBurst {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(0.3); opacity: 1; }
+  20%  { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(var(--scale)); opacity: 0; }
+}
+
+.ar-celebration-msg {
+  text-align: center;
+  color: white;
+  z-index: 1;
+  animation: celebMsgIn 0.5s ease 0.3s both;
+}
+
+.ar-celebration-emoji {
+  font-size: 3.5em;
+  display: block;
+  margin-bottom: 12px;
+  animation: emojiBounce 0.6s ease 0.4s both;
+}
+
+.ar-celebration-msg h2 {
+  font-size: 1.6em;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+.ar-celebration-msg p {
+  font-size: 1em;
+  opacity: 0.85;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+}
+
+@keyframes celebMsgIn {
+  from { transform: scale(0.7) translateY(20px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* ── Responsive: stack columns on smaller screens ──────────── */
+@media (max-width: 720px) {
+  .add-recipe-modal { max-width: 95vw; }
+  .ar-columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .ar-emoji-grid {
+    max-height: 140px;
+  }
+}
+
+@media (max-width: 500px) {
+  .form-row-2 { grid-template-columns: 1fr; }
+  .form-row-3 { flex-wrap: wrap; }
+  .form-row-4 { grid-template-columns: repeat(2, 1fr); }
+  .ar-submit-row { flex-direction: column-reverse; }
+  .ar-submit-btn, .ar-cancel-btn { width: 100%; justify-content: center; }
+  .ar-form-body { padding: 16px 18px 20px; }
 }
 
 /* ── Add Recipe FAB button ──────────────────────────────────── */
