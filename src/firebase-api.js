@@ -32,6 +32,7 @@ onAuthStateChanged(auth, (user) => {
     localStorage.setItem('tender_uid', user.uid);
     localStorage.setItem('tender_email', user.email);
   } else {
+    localStorage.removeItem('tender_token');
     localStorage.removeItem('tender_uid');
     localStorage.removeItem('tender_email');
     localStorage.removeItem('tender_user_cache');
@@ -125,11 +126,13 @@ const TenderAPI = {
 
   async login(email, password) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    const token = await cred.user.getIdToken();
     _currentFirebaseUser = cred.user;
+    localStorage.setItem('tender_token', token);
     localStorage.setItem('tender_uid', cred.user.uid);
     const snap = await getDoc(doc(db, 'users', cred.user.uid));
     const profile = snap.exists() ? snap.data() : {};
-    const user = { id: cred.user.uid, uid: cred.user.uid, email: cred.user.email, ...profile };
+    const user = { id: cred.user.uid, uid: cred.user.uid, email: cred.user.email, token, ...profile };
     localStorage.setItem('tender_user_cache', JSON.stringify(user));
     return user;
   },
@@ -137,16 +140,19 @@ const TenderAPI = {
   async register(formData) {
     const { email, password, ...profile } = formData;
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const token = await cred.user.getIdToken();
     _currentFirebaseUser = cred.user;
+    localStorage.setItem('tender_token', token);
     localStorage.setItem('tender_uid', cred.user.uid);
     const userData = { email, ...profile, isAdmin: false, createdAt: serverTimestamp() };
     await setDoc(doc(db, 'users', cred.user.uid), userData);
-    const user = { id: cred.user.uid, uid: cred.user.uid, ...userData };
+    const user = { id: cred.user.uid, uid: cred.user.uid, token, ...userData };
     localStorage.setItem('tender_user_cache', JSON.stringify(user));
     return user;
   },
 
   async logout() {
+    localStorage.removeItem('tender_token');
     localStorage.removeItem('tender_uid');
     localStorage.removeItem('tender_email');
     localStorage.removeItem('tender_user_cache');
@@ -189,6 +195,7 @@ const TenderAPI = {
     const user = auth.currentUser;
     if (!user) throw new Error('Not logged in');
     await deleteDoc(doc(db, 'users', uid));
+    localStorage.removeItem('tender_token');
     localStorage.removeItem('tender_uid');
     localStorage.removeItem('tender_user_cache');
     _currentFirebaseUser = null;

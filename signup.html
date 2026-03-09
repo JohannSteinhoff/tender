@@ -649,6 +649,16 @@
 
     <script type="module" src="/src/firebase-api.js"></script>
     <script type="module">
+        import {
+            computeDotStates,
+            isValidEmail,
+            mapRegistrationErrorMessage,
+            registerAndFinalize,
+            validateCuisineSelection,
+            validatePassword,
+            validateStep1
+        } from '/src/features/registration/logic.js';
+
         // Redirect already-logged-in users
         if (typeof TenderAPI !== 'undefined' && TenderAPI.isLoggedIn()) {
             window.location.replace('/dashboard.html');
@@ -677,10 +687,10 @@
         const reqNumber = document.getElementById('reqNumber');
 
         password.addEventListener('input', function() {
-            const val = this.value;
-            reqLength.classList.toggle('valid', val.length >= 8);
-            reqUpper.classList.toggle('valid', /[A-Z]/.test(val));
-            reqNumber.classList.toggle('valid', /[0-9]/.test(val));
+            const result = validatePassword(this.value);
+            reqLength.classList.toggle('valid', result.hasMinLength);
+            reqUpper.classList.toggle('valid', result.hasUppercase);
+            reqNumber.classList.toggle('valid', result.hasNumber);
         });
 
         // Step navigation
@@ -688,10 +698,12 @@
             document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
             document.getElementById('step' + step).classList.add('active');
 
+            const states = computeDotStates(step);
             document.querySelectorAll('.step-dot').forEach((dot, index) => {
                 dot.classList.remove('active', 'completed');
-                if (index + 1 < step) dot.classList.add('completed');
-                if (index + 1 === step) dot.classList.add('active');
+                const state = states[`dot${index + 1}`];
+                if (state === 'completed') dot.classList.add('completed');
+                if (state === 'active') dot.classList.add('active');
             });
 
             currentStep = step;
@@ -723,37 +735,39 @@
             document.querySelectorAll('.error-message').forEach(el => el.classList.remove('show'));
             document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
 
-            let hasError = false;
+            const errors = validateStep1({
+                firstName,
+                lastName,
+                email,
+                password: pwd,
+                confirmPassword: confirmPwd
+            });
+            const hasError = errors.length > 0;
 
-            if (!firstName) {
+            if (errors.includes('firstName')) {
                 document.getElementById('firstName').classList.add('error');
                 document.getElementById('firstNameError').classList.add('show');
-                hasError = true;
             }
 
-            if (!lastName) {
+            if (errors.includes('lastName')) {
                 document.getElementById('lastName').classList.add('error');
                 document.getElementById('lastNameError').classList.add('show');
-                hasError = true;
             }
 
-            if (!email || !isValidEmail(email)) {
+            if (errors.includes('email')) {
                 document.getElementById('email').classList.add('error');
                 document.getElementById('emailError').classList.add('show');
-                hasError = true;
             }
 
             // Email uniqueness is checked server-side during registration
 
-            if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) {
+            if (errors.includes('password')) {
                 document.getElementById('password').classList.add('error');
-                hasError = true;
             }
 
-            if (pwd !== confirmPwd) {
+            if (errors.includes('confirmPassword')) {
                 document.getElementById('confirmPassword').classList.add('error');
                 document.getElementById('confirmPasswordError').classList.add('show');
-                hasError = true;
             }
 
             if (hasError) return;
@@ -793,7 +807,7 @@
                 cuisines.push(cb.value);
             });
 
-            if (cuisines.length < 3) {
+            if (!validateCuisineSelection(cuisines)) {
                 showAlert('Please select at least 3 cuisines', 'error');
                 return;
             }
@@ -803,26 +817,18 @@
 
             // Create user account via API
             try {
-                const user = await TenderAPI.register(formData);
-                TenderDB.setCurrentUser(user);
+                await registerAndFinalize({
+                    formData,
+                    register: TenderAPI.register,
+                    setCurrentUser: TenderDB.setCurrentUser,
+                    storage: localStorage,
+                    redirect: (path) => { window.location.href = path; }
+                });
                 showAlert('Account created successfully! Redirecting...', 'success');
-
-                setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 1500);
             } catch (err) {
-                if (err.message.includes('already registered')) {
-                    showAlert('This email is already registered. Please log in.', 'error');
-                } else {
-                    showAlert('Error creating account. Make sure the server is running.', 'error');
-                }
+                showAlert(mapRegistrationErrorMessage(err?.message || ''), 'error');
             }
         });
-
-        // Email validation
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
     </script>
 </body>
 </html>
