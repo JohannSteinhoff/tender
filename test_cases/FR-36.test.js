@@ -6,9 +6,8 @@
  *   (Vegetarian, Vegan, Gluten-Free, etc.).
  *
  * Source files:
- *   - src/pages/discover.js          → filterAndRender() (dietary not yet
- *                                       a separate filter step — tested as
- *                                       filterByDietary behaviour)
+ *   - src/pages/discover.js          → filterAndRender() + buildDietaryChips()
+ *                                       (Fix 1: dietary filter now wired)
  *   - src/components/addRecipeModal.js → DIETARY_OPTIONS list (10 options)
  *
  * Test strategy:
@@ -139,10 +138,10 @@ describe('FR-36 | Dietary Filter Chips', () => {
   /*
    * NOTE — Chip UI state (require e2e):
    *
-   *   - Dietary filter chips are not yet wired in discover.html/discover.js.
-   *     The current implementation filters by search/cuisine/difficulty only.
-   *     Dietary filter UI is a planned addition.
-   *   - When implemented, chip active-state toggling and re-render requires
-   *     Playwright or Cypress.
+   *   - FIX APPLIED (Fix 1): Dietary filter chips are NOW wired in
+   *     discover.html (#dietaryChips) and discover.js (buildDietaryChips,
+   *     filterAndRender reads activeDietary Set with AND logic).
+   *   - Chip active-state toggling and grid re-render require Playwright
+   *     or Cypress to verify in the browser.
    */
 });

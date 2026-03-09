@@ -1,6 +1,6 @@
 import { requireAuth } from '../auth.js';
 import { getUserProfile } from '../api/users.js';
-import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds } from '../api/recipes.js';
+import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, addMealPlanEntry } from '../api/recipes.js';
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
@@ -15,6 +15,23 @@ let allRecipes = [];
 let likedIds = new Set();
 
 let activeCuisine = '';
+let activeDifficulty = '';
+let activeDietary = new Set();
+
+const DIETARY_OPTIONS = [
+  { value: 'vegetarian',  label: 'Vegetarian' },
+  { value: 'vegan',       label: 'Vegan' },
+  { value: 'gluten-free', label: 'Gluten Free' },
+  { value: 'dairy-free',  label: 'Dairy Free' },
+  { value: 'nut-free',    label: 'Nut Free' },
+  { value: 'halal',       label: 'Halal' },
+  { value: 'kosher',      label: 'Kosher' },
+  { value: 'low-carb',    label: 'Low Carb' },
+  { value: 'keto',          label: 'Keto' },
+  { value: 'shellfish-free', label: 'Shellfish-Free' },
+];
+
+const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'];
 
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
@@ -38,6 +55,8 @@ async function init() {
 
   renderRecipeOfDay();
   buildCuisineChips();
+  buildDifficultyChips();
+  buildDietaryChips();
   filterAndRender();
 
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
@@ -107,11 +126,66 @@ function buildCuisineChips() {
   });
 }
 
+// ── Difficulty chips ─────────────────────────────────────────
+function buildDifficultyChips() {
+  const chips = document.getElementById('difficultyChips');
+  chips.innerHTML = `<button class="filter-chip active" data-difficulty="">All</button>`;
+  DIFFICULTY_OPTIONS.forEach(d => {
+    chips.innerHTML += `<button class="filter-chip" data-difficulty="${d}">${capitalizeFirst(d)}</button>`;
+  });
+
+  chips.addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-chip');
+    if (!btn) return;
+    chips.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeDifficulty = btn.dataset.difficulty;
+    filterAndRender();
+  });
+}
+
+// ── Dietary chips ─────────────────────────────────────────────
+function buildDietaryChips() {
+  const chips = document.getElementById('dietaryChips');
+  chips.innerHTML = `<button class="filter-chip active" data-dietary="">All</button>`;
+  DIETARY_OPTIONS.forEach(({ value, label }) => {
+    chips.innerHTML += `<button class="filter-chip" data-dietary="${value}">${label}</button>`;
+  });
+
+  chips.addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-chip');
+    if (!btn) return;
+    const val = btn.dataset.dietary;
+
+    if (val === '') {
+      // "All" clears everything
+      activeDietary.clear();
+      chips.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    } else {
+      // Deactivate the "All" chip
+      chips.querySelector('[data-dietary=""]').classList.remove('active');
+      // Toggle this chip
+      if (activeDietary.has(val)) {
+        activeDietary.delete(val);
+        btn.classList.remove('active');
+      } else {
+        activeDietary.add(val);
+        btn.classList.add('active');
+      }
+      // If nothing selected, re-activate "All"
+      if (activeDietary.size === 0) {
+        chips.querySelector('[data-dietary=""]').classList.add('active');
+      }
+    }
+    filterAndRender();
+  });
+}
+
 // ── Filter & render ──────────────────────────────────────────
 function filterAndRender() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   const cuisine = document.getElementById('cuisineFilter').value;
-  const difficulty = document.getElementById('difficultyFilter').value;
 
   let filtered = allRecipes.filter(r => {
     const ingredients = parseIngredients(r.ingredients);
@@ -120,8 +194,10 @@ function filterAndRender() {
       || (r.description || '').toLowerCase().includes(search)
       || ingredients.some(i => i.toLowerCase().includes(search));
     const matchCuisine = !cuisine || r.cuisine === cuisine;
-    const matchDiff = !difficulty || r.difficulty === difficulty;
-    return matchSearch && matchCuisine && matchDiff;
+    const matchDiff = !activeDifficulty || r.difficulty === activeDifficulty;
+    const matchDietary = activeDietary.size === 0
+      || [...activeDietary].every(tag => Array.isArray(r.dietary) && r.dietary.includes(tag));
+    return matchSearch && matchCuisine && matchDiff && matchDietary;
   });
 
   renderGrid(filtered);
@@ -158,10 +234,14 @@ function renderGrid(recipes) {
             ${r.cookTime ? `<span>⏱ ${r.cookTime} min</span>` : ''}
             ${r.servings ? `<span>🍽 ${r.servings} servings</span>` : ''}
             ${ingredients.length > 0 ? `<span>📋 ${ingredients.length} ingredients</span>` : ''}
+            <span class="like-count" data-like-count>❤️ ${r.likeCount || 0}</span>
           </div>
           <div class="discover-recipe-actions">
             <button class="${liked ? 'btn-unlike-card' : 'btn-like-card'}" data-action="like" aria-label="${liked ? 'Unlike' : 'Like'}">
               ${liked ? '💔 Unlike' : '❤️ Like'}
+            </button>
+            <button class="btn-plan-card" data-action="plan" aria-label="Add to meal plan">
+              📅 Plan
             </button>
           </div>
         </div>
@@ -192,23 +272,37 @@ function renderGrid(recipes) {
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
+        const countEl = card.querySelector('[data-like-count]');
         if (likedIds.has(id)) {
           await unlikeRecipe(uid, id);
           likedIds.delete(id);
           btn.className = 'btn-like-card';
           btn.textContent = '❤️ Like';
+          if (countEl) {
+            const cur = parseInt(countEl.textContent.replace(/\D/g, ''), 10) || 0;
+            countEl.textContent = `❤️ ${Math.max(0, cur - 1)}`;
+          }
           showToast('Removed from liked recipes');
         } else {
           await likeRecipe(uid, id);
           likedIds.add(id);
           btn.className = 'btn-unlike-card';
           btn.textContent = '💔 Unlike';
+          if (countEl) {
+            const cur = parseInt(countEl.textContent.replace(/\D/g, ''), 10) || 0;
+            countEl.textContent = `❤️ ${cur + 1}`;
+          }
           showToast('Added to liked recipes! ❤️', 'success');
         }
       } catch (err) {
         showToast('Something went wrong', 'error');
       }
       btn.disabled = false;
+    });
+
+    card.querySelector('[data-action="plan"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      openPlanModal(id, recipe.name);
     });
   });
 }
@@ -218,10 +312,51 @@ function onLikeChange(recipeId, nowLiked) {
   else likedIds.delete(recipeId);
 }
 
+// ── Add to Plan modal ─────────────────────────────────────────
+let _planRecipeId = null;
+let _planRecipeName = null;
+
+function openPlanModal(recipeId, recipeName) {
+  _planRecipeId = recipeId;
+  _planRecipeName = recipeName;
+  document.getElementById('planRecipeName').textContent = recipeName;
+  document.getElementById('planModal').style.display = 'flex';
+}
+
+function closePlanModal() {
+  document.getElementById('planModal').style.display = 'none';
+  _planRecipeId = null;
+  _planRecipeName = null;
+}
+
+document.getElementById('planCancel').addEventListener('click', closePlanModal);
+document.getElementById('planModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closePlanModal();
+});
+
+document.getElementById('planConfirm').addEventListener('click', async () => {
+  const day  = document.getElementById('planDay').value;
+  const meal = document.getElementById('planMeal').value;
+  const btn  = document.getElementById('planConfirm');
+  btn.disabled = true;
+  try {
+    await addMealPlanEntry(uid, {
+      recipeId:   _planRecipeId,
+      recipeName: _planRecipeName,
+      day,
+      meal,
+    });
+    showToast(`Added to ${day} ${meal}! 📅`, 'success');
+    closePlanModal();
+  } catch (err) {
+    showToast('Could not add to plan', 'error');
+  }
+  btn.disabled = false;
+});
+
 // ── Wire up search/filter inputs ─────────────────────────────
 document.getElementById('searchInput').addEventListener('input', filterAndRender);
 document.getElementById('cuisineFilter').addEventListener('change', filterAndRender);
-document.getElementById('difficultyFilter').addEventListener('change', filterAndRender);
 
 // ── Start ────────────────────────────────────────────────────
 init().catch(console.error);

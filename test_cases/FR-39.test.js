@@ -10,11 +10,13 @@
  *   - src/pages/discover.js   → (Add to Plan not yet wired in discover.js)
  *
  * IMPLEMENTATION STATUS:
- *   The "Add to Plan" button is specified in FR-39 but is NOT yet
- *   implemented in the current discover.html / discover.js of the
- *   Firebase app. The discover page currently shows only a Like/Unlike
- *   button per card. This test file documents what the feature must
- *   validate when implemented.
+ *   FIX APPLIED (Fix 2): The "Add to Plan" button is NOW implemented.
+ *   discover.html: #planModal overlay with day + meal selects.
+ *   discover.js: openPlanModal(), addMealPlanEntry() Firestore call.
+ *   src/api/recipes.js: addMealPlanEntry(uid, {recipeId, recipeName, day, meal})
+ *     → addDoc to users/{uid}/mealplan/{entryId}
+ *   Each card now has a "📅 Plan" button (data-action="plan") that opens
+ *   the modal, collects day + meal type, and saves to Firestore.
  *
  * Test strategy:
  *   Unit-test the meal plan entry validation logic that will be needed
@@ -123,18 +125,16 @@ describe('FR-39 | Add to Plan — Meal Plan Entry Validation', () => {
   });
 
   /*
-   * NOTE — Implementation status and browser concerns:
+   * NOTE — Browser concerns (require e2e):
    *
-   *   - FR-39 is NOT YET IMPLEMENTED in discover.js / discover.html.
-   *     The discover page currently has only a Like/Unlike button.
-   *     When the "Add to Plan" button is added, the above validation
-   *     logic should be wired to the prompt/modal that collects
-   *     day and mealType from the user.
-   *
-   *   - The prompt UI (day picker + meal type selector) is a DOM
-   *     concern requiring Playwright or Cypress once implemented.
+   *   - The "Add to Plan" button and modal (#planModal) are now implemented
+   *     (Fix 2). Click events, day/meal select values, and confirm/cancel
+   *     interactions require Playwright or Cypress to verify in the browser.
    *
    *   - Saving the entry to Firestore (users/{uid}/mealplan/{entryId})
    *     requires Firebase Emulator Suite for integration testing.
+   *
+   *   - addMealPlanEntry() in src/api/recipes.js uses addDoc() with fields:
+   *     { recipeId, recipeName, day, meal, addedAt: serverTimestamp() }
    */
 });

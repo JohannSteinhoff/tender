@@ -43,16 +43,22 @@
       <select id="cuisineFilter" aria-label="Filter by cuisine">
         <option value="">All Cuisines</option>
       </select>
-      <select id="difficultyFilter" aria-label="Filter by difficulty">
-        <option value="">All Difficulties</option>
-        <option value="easy">Easy</option>
-        <option value="medium">Medium</option>
-        <option value="hard">Hard</option>
-      </select>
     </div>
 
     <!-- Cuisine chips -->
     <div id="cuisineChips" class="filter-chips"></div>
+
+    <!-- Difficulty chips -->
+    <div class="filter-chips-section">
+      <span class="filter-chips-label">Difficulty:</span>
+      <div id="difficultyChips" class="filter-chips inline-chips"></div>
+    </div>
+
+    <!-- Dietary chips -->
+    <div class="filter-chips-section">
+      <span class="filter-chips-label">Dietary:</span>
+      <div id="dietaryChips" class="filter-chips inline-chips"></div>
+    </div>
 
     <!-- Recipe grid -->
     <div id="discoverGrid" class="discover-grid"></div>
@@ -60,6 +66,40 @@
   </main>
 
   <button class="add-recipe-fab" id="addRecipeBtn">&#x2795; Add Recipe</button>
+
+  <!-- Add to Meal Plan modal -->
+  <div id="planModal" class="plan-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="planModalTitle">
+    <div class="plan-modal">
+      <h3 id="planModalTitle">Add to Meal Plan</h3>
+      <p id="planRecipeName" class="plan-recipe-name"></p>
+      <div class="plan-modal-fields">
+        <div class="plan-field">
+          <label for="planDay">Day</label>
+          <select id="planDay">
+            <option>Monday</option>
+            <option>Tuesday</option>
+            <option>Wednesday</option>
+            <option>Thursday</option>
+            <option>Friday</option>
+            <option>Saturday</option>
+            <option>Sunday</option>
+          </select>
+        </div>
+        <div class="plan-field">
+          <label for="planMeal">Meal</label>
+          <select id="planMeal">
+            <option>Breakfast</option>
+            <option>Lunch</option>
+            <option>Dinner</option>
+          </select>
+        </div>
+      </div>
+      <div class="plan-modal-actions">
+        <button id="planConfirm" class="btn-plan-confirm">Add to Plan</button>
+        <button id="planCancel" class="btn-plan-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/pages/discover.js"></script>
 </body>

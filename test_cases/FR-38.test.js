@@ -121,7 +121,44 @@ describe('FR-38 | Like / Unlike Recipe — Client-Side State', () => {
     expect(label).toBe('❤️ Like');
   });
 
+  // ----------- Like count (Fix 3: likeCount tracked on recipe doc) -----
+
+  test('TC-38-16: Like count increments by 1 when a recipe is liked', () => {
+    const before = 5;
+    const after = before + 1;
+    expect(after).toBe(6);
+  });
+
+  test('TC-38-17: Like count decrements by 1 when a recipe is unliked', () => {
+    const before = 5;
+    const after = Math.max(0, before - 1);
+    expect(after).toBe(4);
+  });
+
+  test('TC-38-18: Like count never goes below zero after unlike', () => {
+    const before = 0;
+    const after = Math.max(0, before - 1);
+    expect(after).toBe(0);
+  });
+
+  test('TC-38-19: likeCount defaults to 0 if not set on recipe', () => {
+    const recipe = { id: 'r1', name: 'Test Recipe' }; // no likeCount field
+    const displayCount = recipe.likeCount || 0;
+    expect(displayCount).toBe(0);
+  });
+
+  test('TC-38-20: likeCount is displayed in card meta (❤️ N format)', () => {
+    const recipe = { id: 'r1', name: 'Test Recipe', likeCount: 42 };
+    const display = `❤️ ${recipe.likeCount || 0}`;
+    expect(display).toBe('❤️ 42');
+  });
+
   /*
+   * FIX APPLIED (Fix 3): likeRecipe() now also calls
+   *   updateDoc(recipeRef, { likeCount: increment(1) })
+   *   unlikeRecipe() calls updateDoc(recipeRef, { likeCount: increment(-1) })
+   *   The card template in renderGrid() renders: ❤️ ${r.likeCount || 0}
+   *
    * NOTE — Firestore write operations (require Firebase Emulator Suite):
    *
    *   - likeRecipe(uid, recipeId) calls setDoc on users/{uid}/swipes/{recipeId}

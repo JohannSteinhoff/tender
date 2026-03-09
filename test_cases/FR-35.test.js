@@ -6,19 +6,22 @@
  *   (Easy, Medium, Hard).
  *
  * Source files:
- *   - src/pages/discover.js          → filterAndRender() matchDiff logic
+ *   - src/pages/discover.js          → filterAndRender() + buildDifficultyChips()
  *   - src/components/addRecipeModal.js → difficulty <select> options
- *   - discover.html                  → #difficultyFilter <select>
+ *   - discover.html                  → #difficultyChips <div> (chip buttons)
  *
  * Test strategy:
  *   Unit-test filterByDifficulty() and verify DIFFICULTY_OPTIONS matches
  *   the values used in the HTML and addRecipeModal.
  *
  * NOTE — values are lowercase in the Firebase app:
- *   discover.html uses <option value="easy">Easy</option>
- *   addRecipeModal.js uses <option value="easy">Easy</option>
+ *   discover.html was updated (Fix 4) to use chip buttons (#difficultyChips)
+ *   instead of a <select>. buildDifficultyChips() sets activeDifficulty state.
  *   Firestore stores 'easy', 'medium', 'hard' (lowercase).
- *   The filter uses exact equality: r.difficulty === difficulty.
+ *   The filter uses exact equality: r.difficulty === activeDifficulty.
+ *
+ * FIX APPLIED (Fix 4): Replaced <select id="difficultyFilter"> with chip
+ *   buttons in discover.html. Added buildDifficultyChips() in discover.js.
  */
 
 import { describe, test, expect } from 'vitest';
@@ -106,11 +109,11 @@ describe('FR-35 | Difficulty Filter', () => {
   });
 
   /*
-   * NOTE — Chip/dropdown UI state (require e2e):
+   * NOTE — Chip UI state (require e2e):
    *
-   *   - discover.html has a #difficultyFilter <select> (not chips).
-   *     Selecting a value triggers filterAndRender() via the 'change'
-   *     event listener. Verifying the grid updates requires Playwright.
+   *   - discover.html now has a #difficultyChips <div> with chip buttons
+   *     (Fix 4). Clicking a chip sets activeDifficulty and calls
+   *     filterAndRender(). Verifying the grid updates requires Playwright.
    *   - The active chip highlight (.filter-chip.active) is a DOM concern.
    */
 });

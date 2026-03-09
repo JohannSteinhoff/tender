@@ -1,7 +1,7 @@
 import { db } from '../firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, orderBy, setDoc, serverTimestamp,
+  query, orderBy, setDoc, serverTimestamp, increment,
 } from 'firebase/firestore';
 
 const RECIPES_COL = 'recipes';
@@ -43,12 +43,15 @@ export async function deleteRecipe(id) {
 
 const swipesPath = (uid) => collection(db, 'users', uid, 'swipes');
 
-/** Record a like for a recipe. */
+/** Record a like for a recipe and increment the recipe's like count. */
 export async function likeRecipe(uid, recipeId) {
-  await setDoc(doc(db, 'users', uid, 'swipes', recipeId), {
-    action: 'like',
-    timestamp: serverTimestamp(),
-  });
+  await Promise.all([
+    setDoc(doc(db, 'users', uid, 'swipes', recipeId), {
+      action: 'like',
+      timestamp: serverTimestamp(),
+    }),
+    updateDoc(doc(db, RECIPES_COL, recipeId), { likeCount: increment(1) }),
+  ]);
 }
 
 /** Record a dislike for a recipe. */
@@ -59,9 +62,23 @@ export async function dislikeRecipe(uid, recipeId) {
   });
 }
 
-/** Remove a like (unlike). */
+/** Remove a like (unlike) and decrement the recipe's like count. */
 export async function unlikeRecipe(uid, recipeId) {
-  await deleteDoc(doc(db, 'users', uid, 'swipes', recipeId));
+  await Promise.all([
+    deleteDoc(doc(db, 'users', uid, 'swipes', recipeId)),
+    updateDoc(doc(db, RECIPES_COL, recipeId), { likeCount: increment(-1) }),
+  ]);
+}
+
+/** Add a recipe to the user's meal plan. */
+export async function addMealPlanEntry(uid, { recipeId, recipeName, day, meal }) {
+  await addDoc(collection(db, 'users', uid, 'mealplan'), {
+    recipeId,
+    recipeName,
+    day,
+    meal,
+    addedAt: serverTimestamp(),
+  });
 }
 
 /** Get all swipe records for a user. Returns { recipeId -> action } map. */
