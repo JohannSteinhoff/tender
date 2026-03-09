@@ -1,4 +1,4 @@
-rules_version = '2';
+﻿rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -7,13 +7,18 @@ service cloud.firestore {
       allow create, read, update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false;
 
-      // Swipes subcollection — only the owning user
+      // Swipes subcollection - only the owning user
       match /swipes/{recipeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Grocery subcollection - only the owning user
+      match /grocery/{itemId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
-    // Recipes — any logged-in user can read and create;
+    // Recipes - any logged-in user can read and create;
     // only the creator or an admin can update/delete
     match /recipes/{recipeId} {
       allow read: if request.auth != null;
