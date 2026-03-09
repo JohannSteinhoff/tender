@@ -99,10 +99,11 @@ describe('FR-32 | Recipe Card — Required Display Fields', () => {
         });
     });
 
-    test('TC-32-11: All recipes from API contain cook_time, servings, cuisine, and difficulty', async () => {
+    test('TC-32-11: All recipes from API contain cookTime, servings, cuisine, and difficulty', async () => {
         const res = await request(app).get('/api/recipes');
         res.body.forEach(recipe => {
-            expect(recipe).toHaveProperty('cook_time');
+            // API returns camelCase: cookTime (not snake_case cook_time)
+            expect(recipe).toHaveProperty('cookTime');
             expect(recipe).toHaveProperty('servings');
             expect(recipe).toHaveProperty('cuisine');
             expect(recipe).toHaveProperty('difficulty');

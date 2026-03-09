@@ -1,0 +1,23 @@
+{
+  "name": "tender-story2-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Story 2 acceptance tests — Tender Firebase app (Discover & Search)",
+  "scripts": {
+    "test": "vitest run --reporter=verbose",
+    "test:watch": "vitest --reporter=verbose",
+    "test:fr31": "vitest run FR-31 --reporter=verbose",
+    "test:fr32": "vitest run FR-32 --reporter=verbose",
+    "test:fr33": "vitest run FR-33 --reporter=verbose",
+    "test:fr34": "vitest run FR-34 --reporter=verbose",
+    "test:fr35": "vitest run FR-35 --reporter=verbose",
+    "test:fr36": "vitest run FR-36 --reporter=verbose",
+    "test:fr37": "vitest run FR-37 --reporter=verbose",
+    "test:fr38": "vitest run FR-38 --reporter=verbose",
+    "test:fr39": "vitest run FR-39 --reporter=verbose",
+    "test:fr40": "vitest run FR-40 --reporter=verbose"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}
