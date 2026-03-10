@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import {
   VALID_BUDGET_OPTIONS,
   VALID_COOKING_SKILLS,
@@ -16,6 +16,10 @@ import {
   validatePassword,
   validateStep1,
 } from "../../src/features/registration/logic.js";
+import {
+  collectIngredientsFromRecipes,
+  mergeGeneratedItems,
+} from "../../src/features/grocery/logic.js";
 
 const tests = [
   {
@@ -119,6 +123,47 @@ const tests = [
       assert.deepEqual(computeDotStates(1), { dot1: "active", dot2: "pending", dot3: "pending" });
       assert.deepEqual(computeDotStates(2), { dot1: "completed", dot2: "active", dot3: "pending" });
       assert.deepEqual(computeDotStates(3), { dot1: "completed", dot2: "completed", dot3: "active" });
+    },
+  },
+  {
+    id: "FR-11",
+    run: () => {
+      const recipes = [
+        { ingredients: "Eggs\nMilk\n  Flour  " },
+        { ingredients: ["milk", "Butter"] },
+        { ingredients: "" },
+      ];
+      const result = collectIngredientsFromRecipes(recipes);
+      const byName = Object.fromEntries(result.map((item) => [item.name.toLowerCase(), item.quantity]));
+
+      assert.equal(byName.eggs, 1);
+      assert.equal(byName.milk, 2);
+      assert.equal(byName.flour, 1);
+      assert.equal(byName.butter, 1);
+    },
+  },
+  {
+    id: "FR-12",
+    run: () => {
+      const existingItems = [
+        { id: "1", name: "Milk", quantity: 1, checked: false },
+        { id: "2", name: "Eggs", quantity: 4, checked: true },
+      ];
+      const generatedItems = [
+        { name: "milk", quantity: 2 },
+        { name: "Butter", quantity: 1 },
+        { name: "Eggs", quantity: 2 },
+      ];
+
+      const merged = mergeGeneratedItems(existingItems, generatedItems);
+      const byName = Object.fromEntries(merged.items.map((item) => [item.name.toLowerCase(), item]));
+
+      assert.equal(merged.added, 1);
+      assert.equal(merged.updated, 1);
+      assert.equal(byName.milk.quantity, 2);
+      assert.equal(byName.eggs.quantity, 4);
+      assert.equal(byName.butter.quantity, 1);
+      assert.equal(byName.butter.checked, false);
     },
   },
 ];

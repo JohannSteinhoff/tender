@@ -1,4 +1,4 @@
-import "./FR-01.test.js";
+﻿import "./FR-01.test.js";
 import "./FR-02.test.js";
 import "./FR-03.test.js";
 import "./FR-04.test.js";
@@ -8,3 +8,5 @@ import "./FR-07.test.js";
 import "./FR-08.test.js";
 import "./FR-09.test.js";
 import "./FR-10.test.js";
+import "./FR-11.test.js";
+import "./FR-12.test.js";
