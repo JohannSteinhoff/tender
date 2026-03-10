@@ -5,7 +5,7 @@ import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openAddRecipeModal } from '../components/addRecipeModal.js';
 import { showToast } from '../components/toast.js';
-import { escapeHtml, capitalizeFirst } from '../utils/helpers.js';
+import { escapeHtml, capitalizeFirst, applyCardTilt } from '../utils/helpers.js';
 
 let uid = null;
 let profile = null;
@@ -62,10 +62,24 @@ function renderWelcome() {
   document.getElementById('welcomeSub').textContent = `You have ${likedIds.size} liked recipe${likedIds.size !== 1 ? 's' : ''}.`;
 }
 
+function animateCounter(el, value) {
+  const num = parseInt(value, 10);
+  if (isNaN(num) || num <= 1) { el.textContent = value; return; }
+  const duration = 700;
+  const start = performance.now();
+  (function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = Math.round(eased * num);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = value;
+  })(start);
+}
+
 function renderStats() {
-  document.getElementById('statLiked').textContent = likedIds.size;
-  document.getElementById('statServings').textContent = profile?.householdSize ?? '-';
-  document.getElementById('statMeals').textContent = profile?.mealsPerWeek ?? '-';
+  animateCounter(document.getElementById('statLiked'),    likedIds.size);
+  animateCounter(document.getElementById('statServings'), profile?.householdSize ?? '-');
+  animateCounter(document.getElementById('statMeals'),    profile?.mealsPerWeek  ?? '-');
 
   let days = '-';
   if (profile?.createdAt) {
@@ -74,7 +88,7 @@ function renderStats() {
     else if (!(d instanceof Date)) d = new Date(d);
     if (!isNaN(d)) days = Math.max(1, Math.floor((Date.now() - d.getTime()) / 86_400_000));
   }
-  document.getElementById('statDays').textContent = days;
+  animateCounter(document.getElementById('statDays'), days);
 }
 
 function renderLikedRecipes() {
@@ -99,6 +113,8 @@ function renderLikedRecipes() {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
     if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange));
   });
+
+  applyCardTilt(grid, '.recipe-mini-card');
 }
 
 function renderMyRecipes() {
@@ -243,6 +259,10 @@ function renderMyRecipes() {
       }
     });
   });
+
+  if (myRecipesView === 'grid') {
+    applyCardTilt(grid, '.my-recipe-card');
+  }
 }
 
 function showConfirm(recipeName) {

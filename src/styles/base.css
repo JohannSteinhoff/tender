@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+
 /* ── Reset & base ───────────────────────────────────────────── */
 * {
   margin: 0;
@@ -16,6 +18,12 @@
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 *::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Text selection colour ──────────────────────────────────── */
+::selection {
+  background: rgba(255, 107, 107, 0.22);
+  color: var(--text-primary);
+}
 
 /* ── CSS Variables (light) ──────────────────────────────────── */
 :root {
@@ -41,6 +49,7 @@
   --scrollbar-track: #eef2f9;
   --scrollbar-thumb: #ff8e53;
   --scrollbar-thumb-hover: #ff6b6b;
+  --font-primary: 'Poppins', sans-serif;
 }
 
 /* ── Dark mode ──────────────────────────────────────────────── */
@@ -65,11 +74,23 @@ html.dark-mode {
 
 /* ── Body ───────────────────────────────────────────────────── */
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-primary);
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.6;
+  animation: page-fade-in 0.3s ease both;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card entrance animation (reusable) ─────────────────────── */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
 /* ── Shared utilities ───────────────────────────────────────── */
@@ -90,4 +111,265 @@ body {
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.85em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   COLOR + FONT THEMES
+   Applied as class on <html>: html.theme-ocean, etc.
+   Each has light and dark variants that cooperate with
+   the existing .dark-mode toggle — except theme-code which
+   is always dark.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Ocean Breeze  (analogous cool blues · Inter) ─────────── */
+html.theme-ocean {
+  --font-primary: 'Inter', sans-serif;
+  --primary:       #0096C7;
+  --primary-dark:  #0077A8;
+  --secondary:     #48CAE4;
+  --accent:        #ADE8F4;
+  --gradient:      linear-gradient(135deg, #0096C7 0%, #48CAE4 100%);
+  --scrollbar-thumb:       #0096C7;
+  --scrollbar-thumb-hover: #0077A8;
+}
+html.theme-ocean:not(.dark-mode) {
+  --bg-primary:    #EBF8FF;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #F0FBFF;
+  --bg-input:      #FFFFFF;
+  --text-primary:   #023E8A;
+  --text-secondary: #0077B6;
+  --text-tertiary:  #90E0EF;
+  --border-color: #BDE0FE;
+  --border-light: #DEEEFF;
+  --shadow-color: rgba(0, 100, 180, 0.08);
+  --overlay-bg:   rgba(2, 62, 138, 0.5);
+  --scrollbar-track: #DDEEFF;
+}
+html.theme-ocean.dark-mode {
+  --bg-primary:    #03045E;
+  --bg-card:       #023E8A;
+  --bg-card-hover: #0353A4;
+  --bg-input:      #0461C0;
+  --text-primary:   #CAF0F8;
+  --text-secondary: #90E0EF;
+  --text-tertiary:  #48CAE4;
+  --border-color: #0A4FAD;
+  --border-light: #083594;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --overlay-bg:   rgba(0, 0, 50, 0.75);
+  --scrollbar-track: #021040;
+}
+
+/* ── Forest Canopy  (analogous greens · Nunito) ───────────── */
+html.theme-forest {
+  --font-primary: 'Nunito', sans-serif;
+  --primary:       #2D6A4F;
+  --primary-dark:  #1B4332;
+  --secondary:     #52B788;
+  --accent:        #B7E4C7;
+  --gradient:      linear-gradient(135deg, #2D6A4F 0%, #52B788 100%);
+  --scrollbar-thumb:       #52B788;
+  --scrollbar-thumb-hover: #2D6A4F;
+}
+html.theme-forest:not(.dark-mode) {
+  --bg-primary:    #F0FAF4;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #F5FBF7;
+  --bg-input:      #FFFFFF;
+  --text-primary:   #1B4332;
+  --text-secondary: #40916C;
+  --text-tertiary:  #95D5B2;
+  --border-color: #B7E4C7;
+  --border-light: #D8F3DC;
+  --shadow-color: rgba(45, 106, 79, 0.08);
+  --overlay-bg:   rgba(27, 67, 50, 0.5);
+  --scrollbar-track: #D8F3DC;
+}
+html.theme-forest.dark-mode {
+  --bg-primary:    #081C15;
+  --bg-card:       #1B4332;
+  --bg-card-hover: #214D3B;
+  --bg-input:      #2D6A4F;
+  --text-primary:   #D8F3DC;
+  --text-secondary: #95D5B2;
+  --text-tertiary:  #52B788;
+  --border-color: #2D6A4F;
+  --border-light: #1E3A2A;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --overlay-bg:   rgba(0, 0, 0, 0.7);
+  --scrollbar-track: #0A2018;
+}
+
+/* ── Vivid Sunset  (triadic pink · purple · cyan · DM Sans) ── */
+html.theme-sunset {
+  --font-primary: 'DM Sans', sans-serif;
+  --primary:       #F72585;
+  --primary-dark:  #D61A72;
+  --secondary:     #7209B7;
+  --accent:        #4CC9F0;
+  --gradient:      linear-gradient(135deg, #F72585 0%, #7209B7 100%);
+  --scrollbar-thumb:       #F72585;
+  --scrollbar-thumb-hover: #D61A72;
+}
+html.theme-sunset:not(.dark-mode) {
+  --bg-primary:    #FFF0F9;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #FFF5FB;
+  --bg-input:      #FFFFFF;
+  --text-primary:   #3A0060;
+  --text-secondary: #7209B7;
+  --text-tertiary:  #C77DFF;
+  --border-color: #E7B2F5;
+  --border-light: #F3D8FB;
+  --shadow-color: rgba(247, 37, 133, 0.08);
+  --overlay-bg:   rgba(58, 0, 96, 0.5);
+  --scrollbar-track: #F5D0F0;
+}
+html.theme-sunset.dark-mode {
+  --bg-primary:    #10002B;
+  --bg-card:       #240046;
+  --bg-card-hover: #2D005A;
+  --bg-input:      #3A0066;
+  --text-primary:   #E0AAFF;
+  --text-secondary: #C77DFF;
+  --text-tertiary:  #9D4EDD;
+  --border-color: #3C096C;
+  --border-light: #240046;
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --overlay-bg:   rgba(16, 0, 43, 0.8);
+  --scrollbar-track: #1A0040;
+}
+
+/* ── Code Editor  (One Dark Pro inspired · always dark · JetBrains Mono) */
+html.theme-code {
+  --font-primary: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --primary:       #98C379;
+  --primary-dark:  #7AAB5C;
+  --secondary:     #61AFEF;
+  --accent:        #E5C07B;
+  --gradient:      linear-gradient(135deg, #98C379 0%, #61AFEF 100%);
+  --bg-primary:    #1E2127;
+  --bg-card:       #282C34;
+  --bg-card-hover: #2E333D;
+  --bg-input:      #21252B;
+  --text-primary:   #ABB2BF;
+  --text-secondary: #636D83;
+  --text-tertiary:  #4B5263;
+  --border-color: #3E4451;
+  --border-light: #2C313A;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --overlay-bg:   rgba(0, 0, 0, 0.8);
+  --dark:  #ABB2BF;
+  --light: #1E2127;
+  --scrollbar-track:       #1A1D23;
+  --scrollbar-thumb:       #98C379;
+  --scrollbar-thumb-hover: #7AAB5C;
+}
+
+/* ── Lavender Dream  (analogous violet–pink · Quicksand) ───── */
+html.theme-lavender {
+  --font-primary: 'Quicksand', sans-serif;
+  --primary:       #7C3AED;
+  --primary-dark:  #6D28D9;
+  --secondary:     #EC4899;
+  --accent:        #F0ABFC;
+  --gradient:      linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --scrollbar-thumb:       #7C3AED;
+  --scrollbar-thumb-hover: #6D28D9;
+}
+html.theme-lavender:not(.dark-mode) {
+  --bg-primary:    #FAF5FF;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #FDF8FF;
+  --bg-input:      #FFFFFF;
+  --text-primary:   #3B0764;
+  --text-secondary: #7C3AED;
+  --text-tertiary:  #C4B5FD;
+  --border-color: #DDD6FE;
+  --border-light: #EDE9FE;
+  --shadow-color: rgba(124, 58, 237, 0.08);
+  --overlay-bg:   rgba(59, 7, 100, 0.5);
+  --scrollbar-track: #EDE9FE;
+}
+html.theme-lavender.dark-mode {
+  --bg-primary:    #1A0533;
+  --bg-card:       #2D1052;
+  --bg-card-hover: #371563;
+  --bg-input:      #3F1A72;
+  --text-primary:   #EDE9FE;
+  --text-secondary: #C4B5FD;
+  --text-tertiary:  #8B5CF6;
+  --border-color: #4C1D95;
+  --border-light: #3B0764;
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --overlay-bg:   rgba(26, 5, 51, 0.8);
+  --scrollbar-track: #120028;
+}
+
+/* ── Monochrome  (pure neutral · Space Grotesk) ───────────── */
+html.theme-mono {
+  --font-primary: 'Space Grotesk', sans-serif;
+  --primary:       #111111;
+  --primary-dark:  #000000;
+  --secondary:     #555555;
+  --accent:        #AAAAAA;
+  --gradient:      linear-gradient(135deg, #333333 0%, #777777 100%);
+  --scrollbar-thumb:       #888888;
+  --scrollbar-thumb-hover: #555555;
+}
+html.theme-mono:not(.dark-mode) {
+  --bg-primary:    #F5F5F5;
+  --bg-card:       #FFFFFF;
+  --bg-card-hover: #FAFAFA;
+  --bg-input:      #FFFFFF;
+  --text-primary:   #111111;
+  --text-secondary: #666666;
+  --text-tertiary:  #AAAAAA;
+  --border-color: #D4D4D4;
+  --border-light: #E8E8E8;
+  --shadow-color: rgba(0, 0, 0, 0.06);
+  --overlay-bg:   rgba(0, 0, 0, 0.5);
+  --scrollbar-track: #E0E0E0;
+}
+html.theme-mono.dark-mode {
+  --bg-primary:    #0A0A0A;
+  --bg-card:       #141414;
+  --bg-card-hover: #1C1C1C;
+  --bg-input:      #1A1A1A;
+  --text-primary:   #E8E8E8;
+  --text-secondary: #999999;
+  --text-tertiary:  #555555;
+  --border-color: #2A2A2A;
+  --border-light: #1F1F1F;
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --overlay-bg:   rgba(0, 0, 0, 0.75);
+  --scrollbar-track: #0F0F0F;
+}
+
+/* ── Synthwave  (80s neon retro · always dark · Orbitron) ──── */
+html.theme-synthwave {
+  --font-primary: 'Orbitron', sans-serif;
+  --primary:       #FF1CF7;
+  --primary-dark:  #C800C8;
+  --secondary:     #00E5FF;
+  --accent:        #FFE600;
+  --gradient:      linear-gradient(135deg, #FF1CF7 0%, #7B00FF 50%, #00E5FF 100%);
+  /* Always dark — all variables set here, no light variant */
+  --bg-primary:    #060010;
+  --bg-card:       #0E0025;
+  --bg-card-hover: #160035;
+  --bg-input:      #120030;
+  --text-primary:   #F0E6FF;
+  --text-secondary: #B44FFF;
+  --text-tertiary:  #6B2FA0;
+  --border-color:   #3A007A;
+  --border-light:   #240055;
+  --shadow-color:   rgba(255, 28, 247, 0.18);
+  --overlay-bg:     rgba(6, 0, 16, 0.88);
+  --dark:  #F0E6FF;
+  --light: #060010;
+  --scrollbar-track:       #0A0020;
+  --scrollbar-thumb:       #FF1CF7;
+  --scrollbar-thumb-hover: #00E5FF;
 }

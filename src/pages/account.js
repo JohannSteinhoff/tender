@@ -28,6 +28,7 @@ async function init() {
 
   renderNav('account', profile);
   renderAccount(profile);
+  initCurlEasterEgg();
 }
 
 function renderAccount(p) {
@@ -301,5 +302,137 @@ document.getElementById('photoInput').addEventListener('change', async (e) => {
     e.target.value = '';
   }
 });
+
+// ── Page-curl easter egg ─────────────────────────────────────────
+
+function initCurlEasterEgg() {
+  const card   = document.getElementById('preferencesCard');
+  const handle = document.getElementById('prefCurlHandle');
+  const panel  = document.getElementById('prefEasterPanel');
+  if (!card || !handle || !panel) return;
+
+  const EGG_THEMES = [
+    { id: 'default',  label: 'Default',        font: 'Poppins',         swatch: 'linear-gradient(135deg,#FF6B6B,#4ECDC4)' },
+    { id: 'ocean',    label: 'Ocean Breeze',    font: 'Inter',           swatch: 'linear-gradient(135deg,#0096C7,#48CAE4)' },
+    { id: 'forest',   label: 'Forest Canopy',   font: 'Nunito',          swatch: 'linear-gradient(135deg,#2D6A4F,#52B788)' },
+    { id: 'sunset',   label: 'Vivid Sunset',    font: 'DM Sans',         swatch: 'linear-gradient(135deg,#F72585,#7209B7)' },
+    { id: 'code',     label: 'Code Editor',     font: 'JetBrains Mono',  swatch: 'linear-gradient(135deg,#282C34,#98C379)' },
+    { id: 'lavender', label: 'Lavender Dream',  font: 'Quicksand',       swatch: 'linear-gradient(135deg,#7C3AED,#EC4899)' },
+    { id: 'mono',       label: 'Monochrome',      font: 'Space Grotesk',   swatch: 'linear-gradient(135deg,#333333,#999999)' },
+    { id: 'synthwave',  label: 'Synthwave',       font: 'Orbitron',        swatch: 'linear-gradient(135deg,#FF1CF7,#7B00FF,#00E5FF)' },
+  ];
+
+  function getActive() {
+    return localStorage.getItem('tender_theme_name') || 'default';
+  }
+
+  function applyEggTheme(id) {
+    const html = document.documentElement;
+    [...html.classList].filter(c => c.startsWith('theme-')).forEach(c => html.classList.remove(c));
+    if (id !== 'default') html.classList.add(`theme-${id}`);
+    if (id === 'code' || id === 'synthwave') { html.classList.add('dark-mode'); localStorage.setItem('tender_theme', 'dark'); }
+    localStorage.setItem('tender_theme_name', id);
+    buildPanel();
+  }
+
+  function buildPanel() {
+    const active = getActive();
+    panel.innerHTML = `
+      <div class="easter-header">
+        <span class="easter-title">&#x2728; Secret Themes</span>
+        <button class="easter-close" id="easterClose">&#x21A9; fold back</button>
+      </div>
+      <div class="easter-grid">
+        ${EGG_THEMES.map(t => `
+          <button class="easter-theme-card${active === t.id ? ' active' : ''}" data-theme="${t.id}">
+            <div class="easter-swatch" style="background:${t.swatch}"></div>
+            <div class="easter-info">
+              <span class="easter-name">${t.label}</span>
+              <span class="easter-font">${t.font}</span>
+            </div>
+            ${active === t.id ? '<span class="easter-check">&#x2713;</span>' : ''}
+          </button>`).join('')}
+      </div>`;
+    document.getElementById('easterClose').addEventListener('click', snapClose);
+    panel.querySelectorAll('.easter-theme-card').forEach(btn =>
+      btn.addEventListener('click', () => applyEggTheme(btn.dataset.theme))
+    );
+  }
+
+  buildPanel();
+
+  // ── Curl state ──────────────────────────────────────────────
+  let dragging = false;
+  let startY   = 0;
+  let angle    = 0;
+  let open     = false;
+  const MAX    = 162; // degrees at fully-open
+
+  function setCurl(deg, animate = false) {
+    angle = deg;
+    const p = deg / MAX;
+    card.style.transition = animate ? 'transform 0.48s cubic-bezier(0.34,1.56,0.64,1)' : 'none';
+    // Pivot at bottom-left (the grab point).
+    // Primary motion: translateY slides the card straight up, matching the drag direction.
+    // Character: a gentle 8° CCW lean and a slight backward tilt for a "peel off the surface" feel.
+    card.style.transformOrigin = '0% 100%';
+    if (deg === 0) {
+      card.style.transform = '';
+    } else {
+      const ty = -p * card.offsetHeight * 1.05; // slides up past its own top edge
+      const rz = -p * 8;                         // subtle CCW lean (not a swing)
+      const rx = -p * 12;                        // slight backward tilt, like lifting off a table
+      card.style.transform = `perspective(800px) translateY(${ty}px) rotateX(${rx}deg) rotateZ(${rz}deg)`;
+    }
+    panel.style.opacity = String(Math.min(1, p * 1.8));
+  }
+
+  function snapOpen() {
+    open = true;
+    card.style.pointerEvents = 'none';
+    panel.classList.add('unlocked');
+    setCurl(MAX, true);
+  }
+
+  function snapClose() {
+    open = false;
+    card.style.pointerEvents = '';
+    panel.classList.remove('unlocked');
+    setCurl(0, true);
+  }
+
+  function onStart(e) {
+    if (open) return;
+    e.preventDefault();
+    dragging = true;
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend',  onEnd);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const y   = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy  = startY - y;                       // positive = dragged upward
+    const pct = dy / (card.offsetHeight * 0.65);  // full drag = 65% of card height
+    setCurl(Math.max(0, Math.min(MAX, pct * MAX)));
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup',   onEnd);
+    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchend',  onEnd);
+    angle > MAX * 0.38 ? snapOpen() : snapClose();
+  }
+
+  handle.addEventListener('mousedown',  onStart);
+  handle.addEventListener('touchstart', onStart, { passive: false });
+}
 
 init().catch(console.error);

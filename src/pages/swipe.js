@@ -200,6 +200,16 @@ function onPointerMove(e) {
   this.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
   setBackground(currentX);
 
+  // Directional glow — green when swiping right, red when swiping left
+  const glowAmt = Math.min(Math.abs(currentX) / 180, 1);
+  if (currentX > 20) {
+    this.style.boxShadow = `0 8px 40px rgba(60, 200, 110, ${0.08 + glowAmt * 0.45}), 0 0 0 2px rgba(60, 200, 110, ${glowAmt * 0.28})`;
+  } else if (currentX < -20) {
+    this.style.boxShadow = `0 8px 40px rgba(220, 70, 70, ${0.08 + glowAmt * 0.45}), 0 0 0 2px rgba(220, 70, 70, ${glowAmt * 0.28})`;
+  } else {
+    this.style.boxShadow = '';
+  }
+
   const threshold = 60;
   const like = document.getElementById('stampLike');
   const nope = document.getElementById('stampNope');
@@ -236,8 +246,9 @@ function onPointerUp(e) {
     completeSwipe('nope');
   } else {
     // Snap back
-    this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1)';
+    this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1), box-shadow 0.35s ease';
     this.style.transform = 'translateX(0) rotate(0)';
+    this.style.boxShadow = '';
     const like = document.getElementById('stampLike');
     const nope = document.getElementById('stampNope');
     if (like) like.style.opacity = 0;
@@ -326,6 +337,8 @@ function onPointerCancel() {
   currentY = 0;
   hasDragged = false;
   setBackground(0);
+  const card = document.getElementById('activeSwipeCard');
+  if (card) card.style.boxShadow = '';
 }
 
 function setRecipeBackdrop(recipe, cardEl = null) {

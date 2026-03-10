@@ -41,3 +41,25 @@ export function parseIngredients(raw) {
   if (Array.isArray(raw)) return raw.filter(Boolean);
   return raw.split('\n').map(s => s.trim()).filter(Boolean);
 }
+
+/**
+ * Apply a subtle 3-D mouse-tracking tilt to cards inside a container.
+ * @param {Element} container  - parent element to query within
+ * @param {string}  selector   - CSS selector for the tiltable cards
+ */
+export function applyCardTilt(container, selector) {
+  if (!container) return;
+  container.querySelectorAll(selector).forEach(card => {
+    card.addEventListener('mousemove', function (e) {
+      const r  = this.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width  / 2)) / (r.width  / 2);
+      const dy = (e.clientY - (r.top  + r.height / 2)) / (r.height / 2);
+      this.style.transition = 'transform 0.06s linear';
+      this.style.transform  = `perspective(500px) rotateX(${-dy * 5}deg) rotateY(${dx * 5}deg) translateY(-3px)`;
+    });
+    card.addEventListener('mouseleave', function () {
+      this.style.transition = 'transform 0.3s ease';
+      this.style.transform  = '';
+    });
+  });
+}

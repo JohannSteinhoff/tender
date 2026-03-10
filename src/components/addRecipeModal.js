@@ -3,6 +3,7 @@ import { showToast } from './toast.js';
 import { capitalizeFirst, parseIngredients } from '../utils/helpers.js';
 import { storage } from '../firebase.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { EMOJI_CATEGORIES } from '../data/emojis.js';
 
 const DIETARY_OPTIONS = [
   { value: 'vegetarian',    label: 'Vegetarian',    icon: '\u{1F966}' },
@@ -35,18 +36,6 @@ const CUISINE_OPTIONS = [
   { value: 'other',          label: 'Other' },
 ];
 
-const FOOD_EMOJIS = [
-  '\u{1F35D}', '\u{1F355}', '\u{1F354}', '\u{1F32E}', '\u{1F363}',
-  '\u{1F35B}', '\u{1F35C}', '\u{1F957}', '\u{1F969}', '\u{1F373}',
-  '\u{1F950}', '\u{1F32F}', '\u{1F35E}', '\u{1F956}', '\u{1F968}',
-  '\u{1F96A}', '\u{1F959}', '\u{1F9C6}', '\u{1F358}', '\u{1F365}',
-  '\u{1F96E}', '\u{1F360}', '\u{1F362}', '\u{1F361}', '\u{1F364}',
-  '\u{1F35F}', '\u{1F357}', '\u{1F356}', '\u{1F953}', '\u{1F9C0}',
-  '\u{1F366}', '\u{1F370}', '\u{1F382}', '\u{1F36A}', '\u{1F369}',
-  '\u{1F36B}', '\u{1F36D}', '\u{1F352}', '\u{1F353}', '\u{1F34A}',
-  '\u{1F34B}', '\u{1F34C}', '\u{1F34E}', '\u{1F347}', '\u{1F349}',
-  '\u{1FAD0}', '\u{1F951}', '\u{1F955}', '\u{1F33D}', '\u{1F336}',
-];
 
 const STEPS = [
   { label: 'Basics' },
@@ -87,9 +76,6 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       '</label>'
     ).join('');
 
-  const emojiGridHtml = FOOD_EMOJIS
-    .map(e => '<button type="button" class="ar-emoji-btn" data-emoji="' + e + '">' + e + '</button>')
-    .join('');
 
   const stepBarHtml = STEPS.map((s, i) => {
     const num = i + 1;
@@ -206,15 +192,12 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
                 '<div class="ar-emoji-picker-wrap" style="margin-bottom:0">' +
                   '<div class="ar-emoji-selected-display">' +
                     '<span id="ar-emoji-display">\u{1F37D}\u{FE0F}</span>' +
-                    '<span class="ar-emoji-label">Tap to choose or paste below</span>' +
+                    '<span class="ar-emoji-label">Tap to choose or search below</span>' +
                   '</div>' +
-                  '<div class="ar-emoji-search-row">' +
-                    '<div class="ar-emoji-custom-wrap">' +
-                      '<input id="ar-emoji-custom" type="text" inputmode="text" maxlength="24" placeholder="Paste any emoji (e.g. \u{1F9CB})">' +
-                    '</div>' +
-                    '<a class="ar-emoji-help-link" href="https://emojipedia.org/" target="_blank" rel="noopener noreferrer">\u{1F50D} Search Emoji</a>' +
+                  '<div class="ar-emoji-search-bar">' +
+                    '<input id="ar-emoji-search" type="text" autocomplete="off" spellcheck="false" placeholder="\uD83D\uDD0D Search or paste an emoji\u2026">' +
                   '</div>' +
-                  '<div class="ar-emoji-grid">' + emojiGridHtml + '</div>' +
+                  '<div class="ar-emoji-grid" id="ar-emoji-grid"></div>' +
                   '<input id="ar-emoji" type="hidden" value="">' +
                 '</div>' +
               '</div>' +
@@ -373,11 +356,12 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   });
 
   // ── Emoji picker ───────────────────────────────────────────────
-  const emojiDisplay = overlay.querySelector('#ar-emoji-display');
-  const emojiHidden  = overlay.querySelector('#ar-emoji');
-  const emojiLabel = overlay.querySelector('.ar-emoji-label');
-  const emojiCustomInput = overlay.querySelector('#ar-emoji-custom');
+  const emojiDisplay    = overlay.querySelector('#ar-emoji-display');
+  const emojiHidden     = overlay.querySelector('#ar-emoji');
+  const emojiLabel      = overlay.querySelector('.ar-emoji-label');
   const emojiDisplayWrap = overlay.querySelector('.ar-emoji-selected-display');
+  const emojiSearchInput = overlay.querySelector('#ar-emoji-search');
+  const emojiGridEl     = overlay.querySelector('#ar-emoji-grid');
 
   function applySelectedEmoji(emoji, selectedBtn = null) {
     if (!emoji) return;
@@ -385,26 +369,83 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     emojiDisplay.textContent = emoji;
     emojiLabel.textContent = 'Selected!';
     emojiDisplayWrap.classList.add('is-selected');
-    overlay.querySelectorAll('.ar-emoji-btn.active').forEach(b => b.classList.remove('active'));
-    if (selectedBtn) selectedBtn.classList.add('active');
-    if (emojiCustomInput) emojiCustomInput.value = emoji;
+    emojiGridEl.querySelectorAll('.ar-emoji-btn.active').forEach(b => b.classList.remove('active'));
+    if (selectedBtn) {
+      selectedBtn.classList.add('active');
+    } else {
+      // Highlight matching button if visible in current grid
+      emojiGridEl.querySelectorAll('.ar-emoji-btn').forEach(b => {
+        if (b.dataset.emoji === emoji) b.classList.add('active');
+      });
+    }
     emojiDisplay.style.animation = 'none';
     void emojiDisplay.offsetHeight;
     emojiDisplay.style.animation = 'emojiBounce 0.4s ease';
     updatePreview();
   }
 
-  overlay.querySelectorAll('.ar-emoji-btn').forEach(btn => {
-    btn.addEventListener('click', () => applySelectedEmoji(btn.dataset.emoji, btn));
-  });
+  // Curated default grid shown when there is no search query
+  const DEFAULT_EMOJIS = [
+    '🍕','🍔','🌮','🌯','🍣','🍜','🍝','🍛','🍲','🥘',
+    '🍗','🥩','🥓','🍳','🥞','🧇','🧀','🥚','🥗','🥙',
+    '🍞','🥐','🥖','🧆','🥟','🦪','🍱','🍤','🫕','🥪',
+    '🍎','🍊','🍋','🍌','🍇','🍓','🫐','🍑','🥭','🥑',
+    '🥦','🌽','🥕','🍅','🧄','🧅','🥔','🌶️','🥒','🍄',
+    '🎂','🍰','🧁','🍩','🍪','🍫','🍮','🍯','🍦','🥧',
+    '☕','🍵','🧋','🥤','🍷','🍺','🥂','🍾','🫖','🧊',
+  ];
 
-  if (emojiCustomInput) {
-    emojiCustomInput.addEventListener('input', () => {
-      const found = extractFirstEmoji(emojiCustomInput.value);
-      if (!found) return;
-      applySelectedEmoji(found, null);
+  function renderEmojiGrid(query) {
+    const q = query.trim().toLowerCase();
+
+    // If query contains an actual emoji character, auto-select it
+    if (q) {
+      const found = extractFirstEmoji(query);
+      if (found) applySelectedEmoji(found, null);
+    }
+
+    let html = '';
+    if (!q) {
+      // Show curated default set
+      for (const emoji of DEFAULT_EMOJIS) {
+        html += '<button type="button" class="ar-emoji-btn" data-emoji="' + emoji + '">' + emoji + '</button>';
+      }
+    } else {
+      // Filter full dataset by keywords (deduplicated)
+      const seen = new Set();
+      for (const cat of EMOJI_CATEGORIES) {
+        for (const [emoji, keywords] of cat.emojis) {
+          if (!seen.has(emoji) && keywords.toLowerCase().includes(q)) {
+            seen.add(emoji);
+            html += '<button type="button" class="ar-emoji-btn" data-emoji="' + emoji + '">' + emoji + '</button>';
+          }
+        }
+      }
+      if (!seen.size) {
+        html = '<span class="ar-emoji-no-results">No emojis found for \u201C' + q + '\u201D</span>';
+      }
+    }
+
+    emojiGridEl.innerHTML = html;
+
+    // Attach click handlers to all rendered buttons
+    emojiGridEl.querySelectorAll('.ar-emoji-btn').forEach(btn => {
+      btn.addEventListener('click', () => applySelectedEmoji(btn.dataset.emoji, btn));
     });
+
+    // Re-apply active highlight to currently selected emoji
+    const current = emojiHidden.value;
+    if (current) {
+      emojiGridEl.querySelectorAll('.ar-emoji-btn').forEach(btn => {
+        if (btn.dataset.emoji === current) btn.classList.add('active');
+      });
+    }
   }
+
+  emojiSearchInput.addEventListener('input', () => renderEmojiGrid(emojiSearchInput.value));
+
+  // Initial render
+  renderEmojiGrid('');
 
   // ── Drag & Drop image ──────────────────────────────────────────
   const dropZone   = overlay.querySelector('#ar-drop-zone');

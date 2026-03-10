@@ -56,7 +56,12 @@ export function renderNav(activePage, profile = null) {
             </div>
           </div>
           <div class="avatar-dropdown-divider"></div>
-          <a href="/account.html" class="avatar-dropdown-item">&#x1F464; My Account</a>
+          <a href="/account.html" class="avatar-dropdown-item ${activePage === 'account' ? 'avatar-dropdown-item--active' : ''}">&#x2699;&#xFE0F; Account Settings</a>
+          ${profile?.uid ? `<a href="/profile.html?uid=${profile.uid}" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
+          <div class="avatar-dropdown-divider"></div>
+          <div class="avatar-dropdown-section-label">Pages</div>
+          ${NAV_LINKS.map(l => `<a href="${l.href}" class="avatar-dropdown-item ${activePage === l.page ? 'avatar-dropdown-item--active' : ''}">${l.icon} ${l.label}</a>`).join('')}
+          <div class="avatar-dropdown-divider"></div>
           <button class="avatar-dropdown-item avatar-dropdown-signout" id="logoutBtn">&#x1F6AA; Sign Out</button>
         </div>
       </div>
@@ -99,8 +104,20 @@ export function renderNav(activePage, profile = null) {
 
 // Apply saved theme immediately (before render, to avoid flash)
 (function applyTheme() {
-  const t = localStorage.getItem('tender_theme');
+  const t  = localStorage.getItem('tender_theme');
+  const tn = localStorage.getItem('tender_theme_name') || 'default';
   if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     document.documentElement.classList.add('dark-mode');
   }
+  if (tn !== 'default') document.documentElement.classList.add(`theme-${tn}`);
+  if (tn === 'code' || tn === 'synthwave') document.documentElement.classList.add('dark-mode');
+})();
+
+// Glassmorphism nav — adds .scrolled class once page scrolls past 10px
+(function initNavScroll() {
+  function update() {
+    const nav = document.getElementById('app-nav');
+    if (nav) nav.classList.toggle('scrolled', window.scrollY > 10);
+  }
+  window.addEventListener('scroll', update, { passive: true });
 })();

@@ -6,12 +6,20 @@
 }
 
 /* ── Welcome banner ──────────────────────────────────────────── */
+@keyframes banner-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .welcome-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  background: var(--gradient);
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53, #FFB347, #FF8E53, #FF6B6B);
+  background-size: 300% 300%;
+  animation: banner-drift 12s ease infinite;
   border-radius: 20px;
   padding: 32px 40px;
   margin-bottom: 32px;
@@ -798,6 +806,27 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 22px rgba(232, 98, 26, 0.4);
 }
+
+/* ── Staggered card entrance ─────────────────────────────────── */
+.recipes-mini-grid .recipe-mini-card {
+  animation: card-enter 0.38s ease both;
+}
+.recipes-mini-grid .recipe-mini-card:nth-child(1) { animation-delay: 0.04s; }
+.recipes-mini-grid .recipe-mini-card:nth-child(2) { animation-delay: 0.09s; }
+.recipes-mini-grid .recipe-mini-card:nth-child(3) { animation-delay: 0.14s; }
+.recipes-mini-grid .recipe-mini-card:nth-child(4) { animation-delay: 0.19s; }
+.recipes-mini-grid .recipe-mini-card:nth-child(5) { animation-delay: 0.24s; }
+.recipes-mini-grid .recipe-mini-card:nth-child(6) { animation-delay: 0.29s; }
+
+.my-recipes-grid .my-recipe-card {
+  animation: card-enter 0.38s ease both;
+}
+.my-recipes-grid .my-recipe-card:nth-child(1) { animation-delay: 0.05s; }
+.my-recipes-grid .my-recipe-card:nth-child(2) { animation-delay: 0.11s; }
+.my-recipes-grid .my-recipe-card:nth-child(3) { animation-delay: 0.17s; }
+.my-recipes-grid .my-recipe-card:nth-child(4) { animation-delay: 0.23s; }
+.my-recipes-grid .my-recipe-card:nth-child(5) { animation-delay: 0.29s; }
+.my-recipes-grid .my-recipe-card:nth-child(6) { animation-delay: 0.35s; }
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 600px) {

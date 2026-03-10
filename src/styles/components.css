@@ -780,74 +780,35 @@
   font-weight: 500;
 }
 
-.ar-emoji-search-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.ar-emoji-search-bar {
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
-.ar-emoji-custom-wrap {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+.ar-emoji-search-bar input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
   border: 2px solid var(--border-color);
   border-radius: 12px;
   background: var(--bg-primary);
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  color: var(--text-primary);
+  font-size: 0.85em;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.ar-emoji-custom-wrap:focus-within {
+.ar-emoji-search-bar input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(255,107,107,0.1);
-  background: rgba(255,107,107,0.03);
-}
-
-#ar-emoji-custom {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 0.86em;
-  font-family: inherit;
-  padding: 0;
-}
-
-.ar-emoji-help-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 2px solid rgba(255,107,107,0.28);
-  background: rgba(255,107,107,0.1);
-  font-size: 0.74em;
-  font-weight: 700;
-  color: var(--primary-dark);
-  text-decoration: none;
-  white-space: nowrap;
-  line-height: 1;
-  transition: transform 0.15s, border-color 0.2s, background 0.2s, color 0.2s;
-}
-
-.ar-emoji-help-link:hover {
-  border-color: var(--primary);
-  background: rgba(255,107,107,0.16);
-  color: var(--primary);
-  transform: translateY(-1px);
 }
 
 .ar-emoji-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
-  flex: 1;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  height: 200px;
   overflow-y: auto;
   padding: 6px;
   background: var(--bg-primary);
@@ -876,6 +837,32 @@
   background: rgba(255,107,107,0.15);
   border-color: var(--primary);
   transform: scale(1.15);
+}
+
+.ar-emoji-category-header {
+  grid-column: 1 / -1;
+  font-size: 0.68em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  padding: 8px 4px 2px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ar-emoji-category-header:first-child {
+  padding-top: 2px;
+}
+
+.ar-emoji-no-results {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.82em;
+  padding: 24px 10px;
+  opacity: 0.6;
 }
 
 @keyframes emojiBounce {
@@ -1224,11 +1211,7 @@
     grid-template-columns: 1fr;
     gap: 0;
   }
-  .ar-emoji-search-row { flex-wrap: wrap; }
-  .ar-emoji-custom-wrap { width: 100%; }
-  .ar-emoji-help-link { width: 100%; justify-content: center; }
-  .ar-emoji-help-link { font-size: 0.72em; }
-  .ar-emoji-grid { grid-template-columns: repeat(6, 1fr); }
+  .ar-emoji-grid { grid-template-columns: repeat(7, 1fr); }
 }
 
 @media (max-width: 500px) {
