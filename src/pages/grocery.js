@@ -4,7 +4,8 @@ import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
 import { getUserProfile } from '../api/users.js';
 import { renderNav } from '../components/nav.js';
 import { showToast } from '../components/toast.js';
-import { escapeHtml, parseIngredients } from '../utils/helpers.js';
+import { escapeHtml } from '../utils/helpers.js';
+import { collectIngredientsFromRecipes } from '../features/grocery/logic.js';
 
 class GroceryListPage {
   constructor() {
@@ -198,7 +199,7 @@ class GroceryListPage {
       }
 
       const likedRecipes = recipes.filter((recipe) => likedIds.has(recipe.id));
-      const generatedItems = this.collectIngredients(likedRecipes);
+      const generatedItems = collectIngredientsFromRecipes(likedRecipes);
 
       if (generatedItems.length === 0) {
         showToast('No ingredients found on liked recipes.', 'default');
@@ -225,32 +226,6 @@ class GroceryListPage {
     } finally {
       this.setGenerateButtonState(false);
     }
-  }
-
-  collectIngredients(recipes) {
-    const ingredientsByKey = new Map();
-
-    recipes.forEach((recipe) => {
-      const ingredients = parseIngredients(recipe.ingredients);
-      ingredients.forEach((ingredient) => {
-        const cleanIngredient = String(ingredient || '').trim();
-        if (!cleanIngredient) return;
-
-        const key = this.normalizeIngredient(cleanIngredient);
-        const existing = ingredientsByKey.get(key);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          ingredientsByKey.set(key, { name: cleanIngredient, quantity: 1 });
-        }
-      });
-    });
-
-    return Array.from(ingredientsByKey.values());
-  }
-
-  normalizeIngredient(ingredient) {
-    return ingredient.replace(/\s+/g, ' ').toLowerCase();
   }
 
   parseInput(value) {

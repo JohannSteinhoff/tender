@@ -11,10 +11,10 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-
-function normalizeGroceryName(name) {
-  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
+import {
+  normalizeGroceryName,
+  sanitizeGeneratedItems,
+} from '../features/grocery/logic.js';
 
 function toGroceryItem(snapshot) {
   const data = snapshot.data();
@@ -79,12 +79,7 @@ export class GroceryRepository {
   }
 
   async mergeByName(items) {
-    const incoming = items
-      .map((item) => ({
-        name: String(item?.name || '').trim(),
-        quantity: Math.max(1, Number.parseInt(item?.quantity, 10) || 1),
-      }))
-      .filter((item) => item.name);
+    const incoming = sanitizeGeneratedItems(items);
 
     if (incoming.length === 0) {
       return { added: 0, updated: 0, items: await this.list() };
