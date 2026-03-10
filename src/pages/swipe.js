@@ -144,7 +144,7 @@ function renderCard() {
   card.addEventListener('pointerdown', onPointerDown);
   card.addEventListener('pointermove', onPointerMove);
   card.addEventListener('pointerup', onPointerUp);
-  card.addEventListener('pointercancel', onPointerUp);
+  card.addEventListener('pointercancel', onPointerCancel);
 
   setRecipeBackdrop(recipe, card);
   fitCardToViewport();
@@ -221,11 +221,12 @@ function onPointerUp(e) {
   if (!dragging) return;
   dragging = false;
 
-  // Keep tap/release from opening modal; details are opened via the Info button.
+  // Open recipe on true click/tap (no drag movement).
   if (!hasDragged) {
     this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1)';
     this.style.transform = 'translateX(0) rotate(0)';
     setBackground(0);
+    if (deck.length > 0) openRecipeModal(deck[0], uid, likedIds, null);
     return;
   }
 
@@ -316,6 +317,15 @@ function setBackground(x) {
   const baseAlpha = 0.44 + (0.04 * strength);
   bg.style.setProperty('--swipe-base-overlay', `rgba(0, 0, 0, ${baseAlpha})`);
   bg.style.setProperty('--swipe-tint-overlay', `rgba(${c.r}, ${c.g}, ${c.b}, ${tintAlpha})`);
+}
+
+function onPointerCancel() {
+  if (!dragging) return;
+  dragging = false;
+  currentX = 0;
+  currentY = 0;
+  hasDragged = false;
+  setBackground(0);
 }
 
 function setRecipeBackdrop(recipe, cardEl = null) {

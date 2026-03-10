@@ -55,6 +55,21 @@ const STEPS = [
   { label: 'Finish' },
 ];
 
+function extractFirstEmoji(text) {
+  const value = String(text || '').trim();
+  if (!value) return '';
+
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    for (const part of segmenter.segment(value)) {
+      if (/\p{Extended_Pictographic}/u.test(part.segment)) return part.segment;
+    }
+  }
+
+  const fallback = value.match(/\p{Extended_Pictographic}/u);
+  return fallback ? fallback[0] : '';
+}
+
 export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   const existing = document.getElementById('add-recipe-modal-overlay');
   if (existing) existing.remove();
@@ -191,7 +206,13 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
                 '<div class="ar-emoji-picker-wrap" style="margin-bottom:0">' +
                   '<div class="ar-emoji-selected-display">' +
                     '<span id="ar-emoji-display">\u{1F37D}\u{FE0F}</span>' +
-                    '<span class="ar-emoji-label">Tap to choose</span>' +
+                    '<span class="ar-emoji-label">Tap to choose or paste below</span>' +
+                  '</div>' +
+                  '<div class="ar-emoji-search-row">' +
+                    '<div class="ar-emoji-custom-wrap">' +
+                      '<input id="ar-emoji-custom" type="text" inputmode="text" maxlength="24" placeholder="Paste any emoji (e.g. \u{1F9CB})">' +
+                    '</div>' +
+                    '<a class="ar-emoji-help-link" href="https://emojipedia.org/" target="_blank" rel="noopener noreferrer">\u{1F50D} Search Emoji</a>' +
                   '</div>' +
                   '<div class="ar-emoji-grid">' + emojiGridHtml + '</div>' +
                   '<input id="ar-emoji" type="hidden" value="">' +
@@ -354,21 +375,36 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   // ── Emoji picker ───────────────────────────────────────────────
   const emojiDisplay = overlay.querySelector('#ar-emoji-display');
   const emojiHidden  = overlay.querySelector('#ar-emoji');
+  const emojiLabel = overlay.querySelector('.ar-emoji-label');
+  const emojiCustomInput = overlay.querySelector('#ar-emoji-custom');
+  const emojiDisplayWrap = overlay.querySelector('.ar-emoji-selected-display');
+
+  function applySelectedEmoji(emoji, selectedBtn = null) {
+    if (!emoji) return;
+    emojiHidden.value = emoji;
+    emojiDisplay.textContent = emoji;
+    emojiLabel.textContent = 'Selected!';
+    emojiDisplayWrap.classList.add('is-selected');
+    overlay.querySelectorAll('.ar-emoji-btn.active').forEach(b => b.classList.remove('active'));
+    if (selectedBtn) selectedBtn.classList.add('active');
+    if (emojiCustomInput) emojiCustomInput.value = emoji;
+    emojiDisplay.style.animation = 'none';
+    void emojiDisplay.offsetHeight;
+    emojiDisplay.style.animation = 'emojiBounce 0.4s ease';
+    updatePreview();
+  }
 
   overlay.querySelectorAll('.ar-emoji-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      overlay.querySelectorAll('.ar-emoji-btn.active').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const e = btn.dataset.emoji;
-      emojiHidden.value = e;
-      emojiDisplay.textContent = e;
-      overlay.querySelector('.ar-emoji-label').textContent = 'Selected!';
-      emojiDisplay.style.animation = 'none';
-      void emojiDisplay.offsetHeight;
-      emojiDisplay.style.animation = 'emojiBounce 0.4s ease';
-      updatePreview();
-    });
+    btn.addEventListener('click', () => applySelectedEmoji(btn.dataset.emoji, btn));
   });
+
+  if (emojiCustomInput) {
+    emojiCustomInput.addEventListener('input', () => {
+      const found = extractFirstEmoji(emojiCustomInput.value);
+      if (!found) return;
+      applySelectedEmoji(found, null);
+    });
+  }
 
   // ── Drag & Drop image ──────────────────────────────────────────
   const dropZone   = overlay.querySelector('#ar-drop-zone');
@@ -671,12 +707,9 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     if (existingRecipe.image) overlay.querySelector('#ar-image').value = existingRecipe.image;
 
     if (existingRecipe.emoji) {
-      overlay.querySelector('#ar-emoji').value = existingRecipe.emoji;
-      overlay.querySelector('#ar-emoji-display').textContent = existingRecipe.emoji;
-      overlay.querySelector('.ar-emoji-label').textContent = 'Selected!';
-      overlay.querySelectorAll('.ar-emoji-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.emoji === existingRecipe.emoji);
-      });
+      const matchingBtn = Array.from(overlay.querySelectorAll('.ar-emoji-btn'))
+        .find(btn => btn.dataset.emoji === existingRecipe.emoji) || null;
+      applySelectedEmoji(existingRecipe.emoji, matchingBtn);
     }
 
     if (Array.isArray(existingRecipe.dietary)) {
@@ -699,3 +732,4 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     updatePreview();
   }
 }
+
