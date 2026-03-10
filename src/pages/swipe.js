@@ -20,13 +20,15 @@ let allRecipes = [];   // full recipe list for infinite looping
 let dragging = false;
 let startX = 0;
 let startY = 0;
-let startTime = 0;
 let currentX = 0;
+let currentY = 0;
+let hasDragged = false;
 
 let difficultyFilter = '';
 let emojiRainInterval = null;
 let emojiRainGen = 0;
 let swipedToday = 0;
+const CARD_ASPECT_RATIO = 19 / 26;
 
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
@@ -46,6 +48,7 @@ async function init() {
   renderCard();
   setupDifficultyButtons();
   setupActionButtons();
+  window.addEventListener('resize', fitCardToViewport);
 }
 
 // ── Load recipes ─────────────────────────────────────────────
@@ -96,6 +99,7 @@ function renderCard() {
         </div>`;
       if (actions) actions.style.display = 'none';
       stopEmojiRain();
+      setRecipeBackdrop(null);
       return;
     }
     deck = refill;
@@ -114,7 +118,7 @@ function renderCard() {
     <div class="swipe-card" id="activeSwipeCard">
       <div class="swipe-card-bg${recipe.image ? ' has-img' : ''}">
         <div class="swipe-card-bg-gradient ${cuisineClass}"></div>
-        ${recipe.image ? `<img class="swipe-card-img" src="${escapeHtml(recipe.image)}" alt="${escapeHtml(recipe.name)}">` : ''}
+        ${recipe.image ? `<img class="swipe-card-img" src="${escapeHtml(recipe.image)}" alt="${escapeHtml(recipe.name)}" draggable="false">` : ''}
         ${recipe.cuisine ? `<span class="swipe-card-cuisine">${capitalizeFirst(recipe.cuisine)}</span>` : ''}
         <span class="swipe-card-difficulty ${(recipe.difficulty || 'medium').toLowerCase()}">${capitalizeFirst(recipe.difficulty || 'medium')}</span>
         <span class="swipe-card-emoji">${recipe.emoji || '🍽️'}</span>
@@ -142,8 +146,36 @@ function renderCard() {
   card.addEventListener('pointerup', onPointerUp);
   card.addEventListener('pointercancel', onPointerUp);
 
+  setRecipeBackdrop(recipe, card);
+  fitCardToViewport();
+
   startEmojiRain(recipe.emoji || '🍽️');
   setBackground(0);
+}
+
+function fitCardToViewport() {
+  const main = document.querySelector('.swipe-main');
+  const container = document.getElementById('swipeContainer');
+  if (!main || !container) return;
+
+  const actions = document.getElementById('swipeActions');
+  const actionsVisible = !!actions && actions.style.display !== 'none';
+  const actionsHeight = actionsVisible ? actions.getBoundingClientRect().height : 0;
+  const mainRect = main.getBoundingClientRect();
+
+  const availableWidth = Math.max(260, mainRect.width - 16);
+  const availableHeight = Math.max(320, mainRect.height - actionsHeight - (actionsVisible ? 14 : 0) - 8);
+
+  let width = availableHeight * CARD_ASPECT_RATIO;
+  let height = availableHeight;
+
+  if (width > availableWidth) {
+    width = availableWidth;
+    height = width / CARD_ASPECT_RATIO;
+  }
+
+  container.style.width = `${Math.floor(width)}px`;
+  container.style.height = `${Math.floor(height)}px`;
 }
 
 // ── Drag logic ───────────────────────────────────────────────
@@ -152,8 +184,9 @@ function onPointerDown(e) {
   dragging = true;
   startX = e.clientX;
   startY = e.clientY;
-  startTime = Date.now();
   currentX = 0;
+  currentY = 0;
+  hasDragged = false;
   this.setPointerCapture(e.pointerId);
   this.style.transition = 'none';
 }
@@ -161,6 +194,8 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   if (!dragging) return;
   currentX = e.clientX - startX;
+  currentY = e.clientY - startY;
+  if (Math.abs(currentX) > 6 || Math.abs(currentY) > 6) hasDragged = true;
   const rotate = currentX * 0.08;
   this.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
   setBackground(currentX);
@@ -186,12 +221,11 @@ function onPointerUp(e) {
   if (!dragging) return;
   dragging = false;
 
-  // Tap — open detail modal (short press with minimal movement only)
-  if (Math.abs(currentX) < 10 && Date.now() - startTime < 250) {
+  // Keep tap/release from opening modal; details are opened via the Info button.
+  if (!hasDragged) {
     this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1)';
     this.style.transform = 'translateX(0) rotate(0)';
     setBackground(0);
-    if (deck.length > 0) openRecipeModal(deck[0], uid, likedIds, null);
     return;
   }
 
@@ -269,11 +303,50 @@ function setBackground(x) {
   if (!bg) return;
   const max = 220;
   const strength = Math.min(Math.abs(x) / max, 1);
-  if (strength === 0) { bg.style.backgroundColor = 'transparent'; return; }
-  const alpha = 0.18 * strength;
-  bg.style.backgroundColor = x > 0
-    ? `rgba(76,217,100,${alpha})`
-    : `rgba(255,99,71,${alpha})`;
+  if (strength === 0) {
+    bg.style.setProperty('--swipe-base-overlay', 'rgba(0, 0, 0, 0.42)');
+    bg.style.setProperty('--swipe-tint-overlay', 'rgba(0, 0, 0, 0)');
+    return;
+  }
+
+  const c = x > 0
+    ? { r: 74, g: 168, b: 108 }   // softer green like tint
+    : { r: 188, g: 96, b: 82 };   // softer red nope tint
+  const tintAlpha = 0.05 + (0.30 * strength);
+  const baseAlpha = 0.44 + (0.04 * strength);
+  bg.style.setProperty('--swipe-base-overlay', `rgba(0, 0, 0, ${baseAlpha})`);
+  bg.style.setProperty('--swipe-tint-overlay', `rgba(${c.r}, ${c.g}, ${c.b}, ${tintAlpha})`);
+}
+
+function setRecipeBackdrop(recipe, cardEl = null) {
+  const bg = document.getElementById('swipeBg');
+  if (!bg) return;
+
+  // Reset first so a bad URL never leaves a stale previous image.
+  bg.style.setProperty('--swipe-bg-image', 'linear-gradient(140deg, #141414 0%, #242424 100%)');
+  bg.style.setProperty('--swipe-base-overlay', 'rgba(0, 0, 0, 0.42)');
+  bg.style.setProperty('--swipe-tint-overlay', 'rgba(0, 0, 0, 0)');
+
+  const cardImage = cardEl?.querySelector('.swipe-card-img');
+  const cardImageUrl = cardImage?.getAttribute('src')?.trim() || '';
+  const recipeImageUrl = recipe?.image ? String(recipe.image).trim() : '';
+  const image = cardImageUrl || recipeImageUrl;
+
+  if (!image) {
+    return;
+  }
+
+  // Never use avatar/profile images for the backdrop.
+  const profileUrl = profile?.photoURL ? String(profile.photoURL).trim() : '';
+  if (
+    (profileUrl && image === profileUrl) ||
+    /(\/profile|\/avatar|profile[-_]?image|avatar[-_]?image)/i.test(image)
+  ) {
+    return;
+  }
+
+  const cssSafeUrl = image.replace(/["\\\n\r]/g, '\\$&');
+  bg.style.setProperty('--swipe-bg-image', `url("${cssSafeUrl}")`);
 }
 
 // ── Emoji rain ───────────────────────────────────────────────

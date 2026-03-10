@@ -1,10 +1,17 @@
 /* ── Swipe page layout ──────────────────────────────────────── */
+body.swipe-page-body {
+  overflow: hidden;
+}
+
 .swipe-page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: calc(100vh - 65px);
-  padding: 20px 20px 60px;
+  height: calc(100dvh - 64px);
+  min-height: calc(100dvh - 64px);
+  width: 100%;
+  overflow: hidden;
+  padding: 16px;
   position: relative;
   z-index: 2;
 }
@@ -12,10 +19,33 @@
 .swipe-bg {
   position: fixed;
   inset: 0;
-  background-color: transparent;
-  transition: background-color 0.15s ease;
+  overflow: hidden;
+  background: #121212;
   z-index: 0;
   pointer-events: none;
+}
+
+.swipe-bg::before {
+  content: '';
+  position: absolute;
+  inset: -4%;
+  background-image: var(--swipe-bg-image, linear-gradient(140deg, #141414 0%, #242424 100%));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: grayscale(100%) blur(8px);
+  transform: scale(1.02);
+  transition: background-image 0.2s ease;
+}
+
+.swipe-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--swipe-tint-overlay, rgba(0, 0, 0, 0)), var(--swipe-tint-overlay, rgba(0, 0, 0, 0))),
+    linear-gradient(var(--swipe-base-overlay, rgba(0, 0, 0, 0.42)), var(--swipe-base-overlay, rgba(0, 0, 0, 0.42)));
+  transition: background 0.1s linear;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -114,19 +144,24 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  width: min(100%, 1200px);
+  flex: 1;
+  min-height: 0;
 }
 
 /* ── Card stack ─────────────────────────────────────────────── */
 .swipe-container {
   position: relative;
-  width: 380px;
-  height: 520px;
+  width: min(88vw, 480px);
+  height: min(74vh, 660px);
   margin: 0 auto;
   z-index: 2;
 }
 
-@media (max-width: 420px) {
-  .swipe-container { width: calc(100vw - 40px); height: 480px; }
+@media (max-width: 900px) {
+  .swipe-container { width: calc(100vw - 28px); height: min(72vh, 620px); }
   .swipe-sidebar {
     position: static;
     transform: none;
@@ -139,6 +174,25 @@
     padding: 12px;
   }
   .swipe-diff-btns { flex-direction: row; }
+}
+
+@media (max-width: 640px) {
+  body.swipe-page-body { padding-bottom: 0; }
+
+  .swipe-page {
+    height: calc(100dvh - 64px - 72px);
+    min-height: calc(100dvh - 64px - 72px);
+    padding: 12px 10px 10px;
+  }
+
+  .swipe-main {
+    gap: 10px;
+    width: 100%;
+  }
+
+  .swipe-actions {
+    gap: 14px;
+  }
 }
 
 .swipe-card {
@@ -187,6 +241,9 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .swipe-card-emoji {
@@ -332,7 +389,7 @@
   gap: 20px;
   align-items: center;
   justify-content: center;
-  margin-top: 32px;
+  margin-top: 0;
   z-index: 2;
 }
 
