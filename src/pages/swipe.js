@@ -20,6 +20,7 @@ let allRecipes = [];   // full recipe list for infinite looping
 let dragging = false;
 let startX = 0;
 let startY = 0;
+let startTime = 0;
 let currentX = 0;
 
 let difficultyFilter = '';
@@ -151,6 +152,7 @@ function onPointerDown(e) {
   dragging = true;
   startX = e.clientX;
   startY = e.clientY;
+  startTime = Date.now();
   currentX = 0;
   this.setPointerCapture(e.pointerId);
   this.style.transition = 'none';
@@ -184,8 +186,8 @@ function onPointerUp(e) {
   if (!dragging) return;
   dragging = false;
 
-  // Tap — open detail modal
-  if (Math.abs(currentX) < 8) {
+  // Tap — open detail modal (short press with minimal movement only)
+  if (Math.abs(currentX) < 10 && Date.now() - startTime < 250) {
     this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1)';
     this.style.transform = 'translateX(0) rotate(0)';
     setBackground(0);

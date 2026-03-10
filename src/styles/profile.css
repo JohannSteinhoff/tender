@@ -1,0 +1,381 @@
+/* ── Profile page layout ─────────────────────────────────────── */
+.profile-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 5% 60px;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────── */
+.profile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.profile-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Back row ────────────────────────────────────────────────── */
+.profile-back-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.profile-back-btn {
+  background: none;
+  border: none;
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  font-family: inherit;
+  padding: 6px 0;
+  transition: opacity 0.15s;
+}
+
+.profile-back-btn:hover { opacity: 0.7; }
+
+.profile-own-badge {
+  font-size: 0.78em;
+  font-weight: 700;
+  background: var(--gradient);
+  color: white;
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+/* ── Hero card ───────────────────────────────────────────────── */
+.profile-hero {
+  background: var(--bg-card);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 2px 20px var(--shadow-color);
+  margin-bottom: 36px;
+  border: 1px solid var(--border-light);
+}
+
+.profile-hero-banner {
+  height: 130px;
+  background: var(--gradient);
+}
+
+.profile-hero-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 0 28px 22px;
+  margin-top: -48px;
+  position: relative;
+}
+
+.profile-hero-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: var(--gradient);
+  color: white;
+  font-size: 1.9em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 4px solid var(--bg-card);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.profile-hero-avatar.has-photo { background: none; }
+
+.profile-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hero-info {
+  padding-bottom: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-hero-name {
+  font-size: 1.65em;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.profile-skill-badge {
+  display: inline-block;
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--primary);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 20px;
+  font-size: 0.82em;
+  font-weight: 600;
+  padding: 4px 13px;
+  margin-bottom: 7px;
+}
+
+.profile-since {
+  font-size: 0.82em;
+  color: var(--text-secondary);
+}
+
+/* ── Stats row ───────────────────────────────────────────────── */
+.profile-stats-row {
+  display: flex;
+  align-items: center;
+  padding: 18px 28px;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.profile-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  text-align: center;
+  gap: 3px;
+}
+
+.profile-stat-num {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.profile-stat-lbl {
+  font-size: 0.73em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.profile-stat-divider {
+  width: 1px;
+  height: 34px;
+  background: var(--border-light);
+  flex-shrink: 0;
+}
+
+/* ── Cuisines row ────────────────────────────────────────────── */
+.profile-cuisines {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 28px 20px;
+}
+
+.profile-cuisines-label {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.profile-cuisines-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-cuisine-chip {
+  font-size: 0.78em;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+/* ── Recipes section ─────────────────────────────────────────── */
+.profile-recipes-heading {
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-recipes-count {
+  font-size: 0.73em;
+  background: var(--primary);
+  color: white;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-weight: 600;
+}
+
+/* ── Profile recipe grid ─────────────────────────────────────── */
+.profile-recipes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.profile-recipe-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 2px 12px var(--shadow-color);
+  border: 1px solid var(--border-light);
+  transition: transform 0.22s, box-shadow 0.22s;
+}
+
+.profile-recipe-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+}
+
+.profile-recipe-thumb {
+  height: 150px;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3em;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-recipe-thumb.has-img { background: none; font-size: inherit; }
+
+.profile-recipe-thumb.has-img img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-difficulty-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #555;
+  font-size: 0.73em;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.profile-recipe-body {
+  padding: 13px 16px 15px;
+}
+
+.profile-recipe-name {
+  font-size: 0.95em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 7px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+.profile-recipe-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.78em;
+  color: var(--text-secondary);
+}
+
+/* ── Empty / not-found states ────────────────────────────────── */
+.profile-no-recipes {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--text-secondary);
+}
+
+.profile-no-recipes-icon {
+  font-size: 3em;
+  margin-bottom: 12px;
+}
+
+.profile-no-recipes p {
+  margin-bottom: 18px;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.profile-discover-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9em;
+  text-decoration: none;
+  border: 1.5px solid var(--primary);
+  border-radius: 10px;
+  padding: 8px 18px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.profile-discover-link:hover { background: var(--primary); color: white; }
+
+.profile-not-found {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-secondary);
+}
+
+.profile-nf-icon { font-size: 3.5em; margin-bottom: 16px; }
+
+.profile-not-found h2 {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.profile-not-found p { margin-bottom: 20px; font-size: 0.95em; }
+
+.profile-back-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+.profile-back-link:hover { text-decoration: underline; }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .profile-page { padding: 20px 4% 50px; }
+
+  .profile-hero-body {
+    padding: 0 16px 18px;
+    gap: 14px;
+    margin-top: -40px;
+  }
+
+  .profile-hero-avatar { width: 74px; height: 74px; font-size: 1.5em; }
+  .profile-hero-name { font-size: 1.3em; }
+
+  .profile-stats-row { padding: 14px 16px; }
+  .profile-stat-num { font-size: 1.1em; }
+
+  .profile-cuisines { padding: 14px 16px 18px; }
+
+  .profile-recipes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+}

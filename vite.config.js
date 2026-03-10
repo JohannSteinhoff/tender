@@ -14,6 +14,7 @@ export default defineConfig({
         mealplan: resolve(__dirname, 'mealplan.html'),
         grocery: resolve(__dirname, 'grocery.html'),
         account: resolve(__dirname, 'account.html'),
+        profile: resolve(__dirname, 'profile.html'),
       },
     },
   },

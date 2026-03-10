@@ -9,7 +9,7 @@ import { showToast } from './toast.js';
  * @param {Set<string>} likedIds - set of liked recipe IDs
  * @param {Function} onLikeChange - called when like status changes
  */
-export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
+export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = null) {
   // Remove any existing modal
   const existing = document.getElementById('recipe-modal-overlay');
   if (existing) existing.remove();
@@ -34,6 +34,17 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
 
       <div class="modal-body">
         <h2>${escapeHtml(recipe.name)}</h2>
+
+        ${author ? `
+        <div class="modal-author${author.uid ? ' modal-author-clickable' : ''}">
+          ${author.uid ? `<a class="modal-author-inner" href="/profile.html?uid=${encodeURIComponent(author.uid)}">` : '<div class="modal-author-inner">'}
+            ${author.photoURL
+              ? `<img class="modal-author-avatar" src="${escapeHtml(author.photoURL)}" alt="${escapeHtml(author.firstName || '')}">`
+              : `<div class="modal-author-avatar modal-author-initials">${escapeHtml((author.firstName || '?')[0])}${escapeHtml((author.lastName || '')[0])}</div>`
+            }
+            <span>By ${escapeHtml(author.firstName || 'Unknown')}${author.lastName ? ' ' + escapeHtml(author.lastName[0]) + '.' : ''}</span>
+          ${author.uid ? '</a>' : '</div>'}
+        </div>` : ''}
 
         <div class="modal-meta">
           ${recipe.cuisine ? `<span>🌍 ${capitalizeFirst(recipe.cuisine)}</span>` : ''}
@@ -85,6 +96,7 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
   `;
 
   document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
 
   // Close handlers
   document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
@@ -120,6 +132,7 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange) {
 function closeModal() {
   const overlay = document.getElementById('recipe-modal-overlay');
   if (overlay) overlay.remove();
+  document.body.style.overflow = '';
   document.removeEventListener('keydown', escHandler);
 }
 

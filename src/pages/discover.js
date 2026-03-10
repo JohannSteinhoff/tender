@@ -1,6 +1,6 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile } from '../api/users.js';
-import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, addMealPlanEntry } from '../api/recipes.js';
+import { getUserProfile, getUserProfiles } from '../api/users.js';
+import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, addMealPlanEntry, deleteRecipe } from '../api/recipes.js';
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
@@ -13,6 +13,7 @@ let uid = null;
 let profile = null;
 let allRecipes = [];
 let likedIds = new Set();
+let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
 
 let activeCuisine = '';
 let activeDifficulty = '';
@@ -52,6 +53,10 @@ async function init() {
 
   allRecipes = recipes;
   likedIds = liked;
+
+  // Batch-fetch author profiles for all unique creators
+  const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
+  authorProfiles = await getUserProfiles(authorUids);
 
   renderRecipeOfDay();
   buildCuisineChips();
@@ -96,33 +101,16 @@ function renderRecipeOfDay() {
   document.getElementById('rotdMeta').textContent = meta.join('  ·  ');
 
   card.style.display = 'flex';
-  card.onclick = () => openRecipeModal(recipe, uid, likedIds, onLikeChange);
+  card.onclick = () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
 }
 
-// ── Cuisine chips ────────────────────────────────────────────
+// ── Cuisine dropdown ─────────────────────────────────────────
 function buildCuisineChips() {
   const cuisines = [...new Set(allRecipes.map(r => r.cuisine).filter(Boolean))].sort();
-
   const select = document.getElementById('cuisineFilter');
   select.innerHTML = '<option value="">All Cuisines</option>';
   cuisines.forEach(c => {
     select.innerHTML += `<option value="${c}">${capitalizeFirst(c)}</option>`;
-  });
-
-  const chips = document.getElementById('cuisineChips');
-  chips.innerHTML = `<button class="filter-chip active" data-cuisine="">All</button>`;
-  cuisines.forEach(c => {
-    chips.innerHTML += `<button class="filter-chip" data-cuisine="${c}">${capitalizeFirst(c)}</button>`;
-  });
-
-  chips.addEventListener('click', (e) => {
-    const btn = e.target.closest('.filter-chip');
-    if (!btn) return;
-    chips.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeCuisine = btn.dataset.cuisine;
-    select.value = activeCuisine;
-    filterAndRender();
   });
 }
 
@@ -200,6 +188,8 @@ function filterAndRender() {
     return matchSearch && matchCuisine && matchDiff && matchDietary;
   });
 
+  filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+
   renderGrid(filtered);
 }
 
@@ -218,6 +208,24 @@ function renderGrid(recipes) {
   grid.innerHTML = recipes.map(r => {
     const liked = likedIds.has(r.id);
     const ingredients = parseIngredients(r.ingredients);
+    const author = r.createdBy ? authorProfiles[r.createdBy] : null;
+    const authorHtml = author ? `
+      <div class="card-author">
+        ${author.photoURL
+          ? `<img class="card-author-avatar" src="${escapeHtml(author.photoURL)}" alt="${escapeHtml(author.firstName || '')}">`
+          : `<div class="card-author-avatar card-author-initials">${escapeHtml((author.firstName || '?')[0])}${escapeHtml((author.lastName || '')[0])}</div>`
+        }
+        <span>By ${escapeHtml(author.firstName || 'Unknown')}</span>
+      </div>` : '';
+    const isOwner = r.createdBy === uid;
+    const ownerMenuHtml = isOwner ? `
+      <div class="card-owner-actions">
+        <button class="card-dots-btn" data-action="dots" aria-label="Options">&#8942;</button>
+        <div class="card-dots-menu" style="display:none">
+          <button data-action="edit">&#9998;&#xFE0F; Edit</button>
+          <button data-action="delete">&#128465;&#xFE0F; Delete</button>
+        </div>
+      </div>` : '';
     return `
       <div class="discover-recipe-card" data-id="${r.id}">
         <div class="discover-recipe-image${r.image ? ' has-img' : ''}">
@@ -228,8 +236,10 @@ function renderGrid(recipes) {
         <div class="discover-recipe-body">
           <div class="discover-recipe-top">
             <h3>${escapeHtml(r.name)}</h3>
+            ${ownerMenuHtml}
           </div>
           <p class="description">${escapeHtml(r.description || '')}</p>
+          ${authorHtml}
           <div class="discover-recipe-meta">
             ${r.cookTime ? `<span>⏱ ${r.cookTime} min</span>` : ''}
             ${r.servings ? `<span>🍽 ${r.servings} servings</span>` : ''}
@@ -264,7 +274,7 @@ function renderGrid(recipes) {
           btn.className = nowLiked ? 'btn-unlike-card' : 'btn-like-card';
           btn.textContent = nowLiked ? '💔 Unlike' : '❤️ Like';
         }
-      });
+      }, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
     });
 
     card.querySelector('[data-action="like"]').addEventListener('click', async (e) => {
@@ -304,6 +314,45 @@ function renderGrid(recipes) {
       e.stopPropagation();
       openPlanModal(id, recipe.name);
     });
+
+    // Three-dots owner menu
+    const dotsBtn = card.querySelector('[data-action="dots"]');
+    if (dotsBtn) {
+      dotsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = card.querySelector('.card-dots-menu');
+        const isOpen = menu.style.display !== 'none';
+        document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
+        if (!isOpen) menu.style.display = 'block';
+      });
+
+      card.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        card.querySelector('.card-dots-menu').style.display = 'none';
+        openAddRecipeModal(uid, (updatedRecipe) => {
+          const idx = allRecipes.findIndex(r => r.id === updatedRecipe.id);
+          if (idx !== -1) allRecipes[idx] = updatedRecipe;
+          buildCuisineChips();
+          filterAndRender();
+          showToast('Recipe updated! ✏️', 'success');
+        }, recipe);
+      });
+
+      card.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        card.querySelector('.card-dots-menu').style.display = 'none';
+        const confirmed = await showConfirm(recipe.name);
+        if (!confirmed) return;
+        try {
+          await deleteRecipe(id);
+          allRecipes = allRecipes.filter(r => r.id !== id);
+          filterAndRender();
+          showToast('Recipe deleted');
+        } catch (err) {
+          showToast('Could not delete recipe', 'error');
+        }
+      });
+    }
   });
 }
 
@@ -354,9 +403,47 @@ document.getElementById('planConfirm').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
+// ── Elegant delete confirmation dialog ───────────────────────
+function showConfirm(recipeName) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-icon">🗑️</div>
+        <h3>Delete Recipe</h3>
+        <p>Are you sure you want to delete <strong>${escapeHtml(recipeName)}</strong>?<br>This cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn">Keep It</button>
+          <button class="confirm-delete-btn">Yes, Delete</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    function done(result) {
+      overlay.classList.add('confirm-hiding');
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener('keydown', escHandler);
+      resolve(result);
+    }
+
+    function escHandler(e) { if (e.key === 'Escape') done(false); }
+
+    overlay.querySelector('.confirm-cancel-btn').addEventListener('click', () => done(false));
+    overlay.querySelector('.confirm-delete-btn').addEventListener('click', () => done(true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+    document.addEventListener('keydown', escHandler);
+  });
+}
+
 // ── Wire up search/filter inputs ─────────────────────────────
 document.getElementById('searchInput').addEventListener('input', filterAndRender);
 document.getElementById('cuisineFilter').addEventListener('change', filterAndRender);
+
+// ── Close any open dots menus on outside click ───────────────
+document.addEventListener('click', () => {
+  document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
+});
 
 // ── Start ────────────────────────────────────────────────────
 init().catch(console.error);

@@ -1,15 +1,18 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile } from '../api/users.js';
-import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
+import { getUserProfile, getUserProfiles } from '../api/users.js';
+import { getAllRecipes, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openAddRecipeModal } from '../components/addRecipeModal.js';
+import { showToast } from '../components/toast.js';
 import { escapeHtml, capitalizeFirst } from '../utils/helpers.js';
 
 let uid = null;
 let profile = null;
 let likedIds = new Set();
 let allRecipes = [];
+let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
+let myRecipesView = 'grid'; // 'grid' | 'list'
 
 async function init() {
   const user = await requireAuth();
@@ -35,6 +38,7 @@ async function init() {
   renderWelcome();
   renderStats();
   renderLikedRecipes();
+  renderMyRecipes();
   renderProfile();
 
   document.getElementById('viewAllLikedBtn').addEventListener('click', openAllLikedModal);
@@ -44,6 +48,7 @@ async function init() {
       openAddRecipeModal(uid, (newRecipe) => {
         allRecipes.push(newRecipe);
         renderLikedRecipes();
+        renderMyRecipes();
       });
     } catch (err) {
       console.error('openAddRecipeModal failed:', err);
@@ -93,6 +98,181 @@ function renderLikedRecipes() {
   grid.querySelectorAll('.recipe-mini-card').forEach(card => {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
     if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange));
+  });
+}
+
+function renderMyRecipes() {
+  const grid = document.getElementById('myRecipesGrid');
+  const badge = document.getElementById('myRecipeCount');
+  const controls = document.getElementById('cookNookControls');
+  const myRecipes = allRecipes.filter(r => r.createdBy === uid);
+
+  if (badge) badge.textContent = `${myRecipes.length} recipe${myRecipes.length !== 1 ? 's' : ''}`;
+
+  // View toggle (only shown when there are recipes)
+  if (controls) {
+    if (myRecipes.length > 0) {
+      controls.innerHTML = `
+        <div class="nook-view-toggle">
+          <button class="nook-view-btn${myRecipesView === 'grid' ? ' active' : ''}" data-view="grid" title="Grid view">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1.2"/><rect x="9" y="0" width="6" height="6" rx="1.2"/><rect x="0" y="9" width="6" height="6" rx="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.2"/></svg>
+            Grid
+          </button>
+          <button class="nook-view-btn${myRecipesView === 'list' ? ' active' : ''}" data-view="list" title="List view">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="1" width="15" height="2" rx="1"/><rect x="0" y="6.5" width="15" height="2" rx="1"/><rect x="0" y="12" width="15" height="2" rx="1"/></svg>
+            List
+          </button>
+        </div>`;
+      controls.querySelectorAll('.nook-view-btn').forEach(btn => {
+        btn.addEventListener('click', () => { myRecipesView = btn.dataset.view; renderMyRecipes(); });
+      });
+    } else {
+      controls.innerHTML = '';
+    }
+  }
+
+  if (myRecipes.length === 0) {
+    grid.className = 'my-recipes-grid';
+    grid.innerHTML = `
+      <div class="cook-nook-empty">
+        <div class="cook-nook-empty-icon">&#x1F469;&#x200D;&#x1F373;</div>
+        <p>You haven't added any recipes yet.<br>Share your first creation with the community!</p>
+        <button class="cook-nook-add-btn" id="cookNookAddBtn">&#x2795; Add Your First Recipe</button>
+      </div>`;
+    document.getElementById('cookNookAddBtn').addEventListener('click', () => {
+      document.getElementById('addRecipeBtn').click();
+    });
+    return;
+  }
+
+  const dotsMenuHtml = `
+    <div class="card-owner-actions">
+      <button class="card-dots-btn" data-action="dots" aria-label="Options">&#8942;</button>
+      <div class="card-dots-menu" style="display:none">
+        <button data-action="edit">&#9998;&#xFE0F; Edit</button>
+        <button data-action="delete">&#128465;&#xFE0F; Delete</button>
+      </div>
+    </div>`;
+
+  if (myRecipesView === 'list') {
+    grid.className = 'my-recipes-list';
+    grid.innerHTML = myRecipes.map(r => {
+      const meta = [
+        r.cuisine && capitalizeFirst(r.cuisine),
+        r.cookTime && `&#x23F1; ${r.cookTime} min`,
+        r.difficulty && capitalizeFirst(r.difficulty),
+      ].filter(Boolean).join(' &middot; ');
+      return `
+        <div class="my-recipe-list-card" data-id="${r.id}">
+          <div class="my-recipe-list-thumb${r.image ? ' has-img' : ''}">
+            ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
+          </div>
+          <div class="my-recipe-list-body">
+            <div class="my-recipe-list-name">${escapeHtml(r.name)}</div>
+            <div class="my-recipe-list-meta">${meta}${meta ? ' &middot; ' : ''}&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
+          </div>
+          ${dotsMenuHtml}
+        </div>`;
+    }).join('');
+  } else {
+    grid.className = 'my-recipes-grid';
+    grid.innerHTML = myRecipes.map(r => `
+      <div class="my-recipe-card" data-id="${r.id}">
+        <div class="my-recipe-thumb${r.image ? ' has-img' : ''}">
+          ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
+        </div>
+        <div class="my-recipe-info">
+          <div class="my-recipe-name-row">
+            <div class="my-recipe-name">${escapeHtml(r.name)}</div>
+            ${dotsMenuHtml}
+          </div>
+          <div class="my-recipe-meta">
+            ${r.cuisine ? `<span>${capitalizeFirst(r.cuisine)}</span>` : ''}
+            ${r.cookTime ? `<span>&#x23F1; ${r.cookTime} min</span>` : ''}
+            ${r.difficulty ? `<span>${capitalizeFirst(r.difficulty)}</span>` : ''}
+          </div>
+          <div class="my-recipe-likes">&#x2764;&#xFE0F; ${r.likeCount || 0} like${(r.likeCount || 0) !== 1 ? 's' : ''}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Wire up card events
+  const cardSel = myRecipesView === 'list' ? '.my-recipe-list-card' : '.my-recipe-card';
+  grid.querySelectorAll(cardSel).forEach(card => {
+    const id = card.dataset.id;
+    const recipe = allRecipes.find(r => r.id === id);
+    if (!recipe) return;
+
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action]')) return;
+      openRecipeModal(recipe, uid, likedIds, null);
+    });
+
+    card.querySelector('[data-action="dots"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = card.querySelector('.card-dots-menu');
+      const isOpen = menu.style.display !== 'none';
+      document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
+      if (!isOpen) menu.style.display = 'block';
+    });
+
+    card.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      card.querySelector('.card-dots-menu').style.display = 'none';
+      openAddRecipeModal(uid, (updatedRecipe) => {
+        const idx = allRecipes.findIndex(r => r.id === updatedRecipe.id);
+        if (idx !== -1) allRecipes[idx] = updatedRecipe;
+        renderMyRecipes();
+        showToast('Recipe updated! ✏️', 'success');
+      }, recipe);
+    });
+
+    card.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      card.querySelector('.card-dots-menu').style.display = 'none';
+      const confirmed = await showConfirm(recipe.name);
+      if (!confirmed) return;
+      try {
+        await deleteRecipe(id);
+        allRecipes = allRecipes.filter(r => r.id !== id);
+        renderMyRecipes();
+        renderStats();
+        showToast('Recipe deleted');
+      } catch (err) {
+        showToast('Could not delete recipe', 'error');
+      }
+    });
+  });
+}
+
+function showConfirm(recipeName) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-icon">&#x1F5D1;&#xFE0F;</div>
+        <h3>Delete Recipe</h3>
+        <p>Are you sure you want to delete <strong>${escapeHtml(recipeName)}</strong>?<br>This cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn">Keep It</button>
+          <button class="confirm-delete-btn">Yes, Delete</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    function done(result) {
+      overlay.classList.add('confirm-hiding');
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener('keydown', escHandler);
+      resolve(result);
+    }
+
+    function escHandler(e) { if (e.key === 'Escape') done(false); }
+    overlay.querySelector('.confirm-cancel-btn').addEventListener('click', () => done(false));
+    overlay.querySelector('.confirm-delete-btn').addEventListener('click', () => done(true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+    document.addEventListener('keydown', escHandler);
   });
 }
 
@@ -203,5 +383,9 @@ function onLikeChange(recipeId, nowLiked) {
   renderStats();
   renderLikedRecipes();
 }
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
+});
 
 init().catch(console.error);
