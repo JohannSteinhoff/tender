@@ -29,7 +29,6 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
         ${recipe.image
           ? `<img src="${escapeHtml(recipe.image)}" alt="${escapeHtml(recipe.name)}">`
           : ''}
-        <span class="modal-emoji">${recipe.emoji || '🍽️'}</span>
       </div>
 
       <div class="modal-body">
