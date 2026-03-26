@@ -318,7 +318,7 @@
 }
 
 .recipe-mini-name {
-  padding: 8px;
+  padding: 8px 8px 2px;
   font-size: 0.78em;
   font-weight: 600;
   color: var(--text-primary);
@@ -326,6 +326,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.recipe-mini-likes {
+  font-size: 0.72em;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding-bottom: 6px;
 }
 
 /* ── Profile section ─────────────────────────────────────────── */

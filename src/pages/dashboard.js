@@ -34,6 +34,15 @@ async function init() {
   likedIds = liked;
   allRecipes = recipes;
 
+  // Batch-fetch author profiles for recipe creators
+  const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
+  try {
+    authorProfiles = await getUserProfiles(authorUids);
+  } catch (err) {
+    console.warn('Could not fetch author profiles:', err);
+    authorProfiles = {};
+  }
+
   renderNav('dashboard', profile);
   renderWelcome();
   renderStats();
@@ -106,12 +115,13 @@ function renderLikedRecipes() {
         ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
       </div>
       <div class="recipe-mini-name">${escapeHtml(r.name)}</div>
+      <div class="recipe-mini-likes">&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
     </div>
   `).join('');
 
   grid.querySelectorAll('.recipe-mini-card').forEach(card => {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
-    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange));
+    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null));
   });
 
   applyCardTilt(grid, '.recipe-mini-card');
@@ -221,7 +231,7 @@ function renderMyRecipes() {
 
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-action]')) return;
-      openRecipeModal(recipe, uid, likedIds, null);
+      openRecipeModal(recipe, uid, likedIds, null, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
     });
 
     card.querySelector('[data-action="dots"]').addEventListener('click', (e) => {
@@ -374,7 +384,7 @@ function openAllLikedModal() {
             </div>
             <div class="all-liked-info">
               <div class="all-liked-name">${escapeHtml(r.name)}</div>
-              <div class="all-liked-meta">${capitalizeFirst(r.cuisine || '')}${r.cookTime ? ` &middot; ${r.cookTime} min` : ''}${r.difficulty ? ` &middot; ${capitalizeFirst(r.difficulty)}` : ''}</div>
+              <div class="all-liked-meta">${capitalizeFirst(r.cuisine || '')}${r.cookTime ? ` &middot; ${r.cookTime} min` : ''}${r.difficulty ? ` &middot; ${capitalizeFirst(r.difficulty)}` : ''} &middot; &#x2764;&#xFE0F; ${r.likeCount || 0}</div>
             </div>
           </div>
         `).join('')}
@@ -392,7 +402,7 @@ function openAllLikedModal() {
 
   viewer.querySelectorAll('.all-liked-card').forEach(card => {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
-    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange));
+    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null));
   });
 }
 

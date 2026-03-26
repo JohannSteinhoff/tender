@@ -1,5 +1,5 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile } from '../api/users.js';
+import { getUserProfile, getUserProfiles } from '../api/users.js';
 import { getAllRecipes, likeRecipe, dislikeRecipe, getUserSwipes } from '../api/recipes.js';
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
@@ -16,6 +16,7 @@ let swipedIds = new Set(); // all already-swiped (like or dislike)
 let deckMaster = [];   // all recipes after dietary filter
 let deck = [];         // current shuffled working deck
 let allRecipes = [];   // full recipe list for infinite looping
+let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
 
 let dragging = false;
 let startX = 0;
@@ -62,6 +63,15 @@ async function loadDeck() {
   likedIds = new Set(Object.entries(swipes).filter(([, a]) => a === 'like').map(([id]) => id));
 
   allRecipes = recipes;
+
+  // Batch-fetch author profiles for recipe creators
+  const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
+  try {
+    authorProfiles = await getUserProfiles(authorUids);
+  } catch (err) {
+    console.warn('Could not fetch author profiles:', err);
+    authorProfiles = {};
+  }
 
   // Exclude already-swiped recipes
   const fresh = recipes.filter(r => !swipedIds.has(r.id));
@@ -129,6 +139,7 @@ function renderCard() {
         <div class="swipe-card-stats">
           <span class="swipe-card-stat"><span class="stat-icon">⏱</span> ${recipe.cookTime || '?'} min</span>
           <span class="swipe-card-stat"><span class="stat-icon">🍽</span> ${recipe.servings || '?'} servings</span>
+          <span class="swipe-card-stat"><span class="stat-icon">❤️</span> ${recipe.likeCount || 0} likes</span>
         </div>
         <div class="swipe-card-ingredients-peek">
           ${preview.map(i => `<span class="ing-tag">${escapeHtml(i)}</span>`).join('')}
@@ -236,7 +247,10 @@ function onPointerUp(e) {
     this.style.transition = 'transform 0.35s cubic-bezier(0.2,0,0,1)';
     this.style.transform = 'translateX(0) rotate(0)';
     setBackground(0);
-    if (deck.length > 0) openRecipeModal(deck[0], uid, likedIds, null);
+    if (deck.length > 0) {
+      const r = deck[0];
+      openRecipeModal(r, uid, likedIds, null, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
+    }
     return;
   }
 
@@ -270,7 +284,8 @@ export function swipeAction(direction) {
 
 export function swipeShowDetails() {
   if (deck.length === 0) return;
-  openRecipeModal(deck[0], uid, likedIds, null);
+  const r = deck[0];
+  openRecipeModal(r, uid, likedIds, null, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
 }
 
 async function completeSwipe(direction) {

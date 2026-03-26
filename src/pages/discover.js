@@ -55,8 +55,15 @@ async function init() {
   likedIds = liked;
 
   // Batch-fetch author profiles for all unique creators
+  // Wrapped in try-catch because Firestore rules only allow reading your own profile,
+  // so fetching other users' profiles may fail with a permission error.
   const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
-  authorProfiles = await getUserProfiles(authorUids);
+  try {
+    authorProfiles = await getUserProfiles(authorUids);
+  } catch (err) {
+    console.warn('Could not fetch author profiles:', err);
+    authorProfiles = {};
+  }
 
   renderRecipeOfDay();
   buildCuisineChips();

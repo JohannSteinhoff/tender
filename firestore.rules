@@ -1,10 +1,11 @@
-﻿rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // Users can read/write their own profile
     match /users/{userId} {
-      allow create, read, update: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false;
 
       // Swipes subcollection - only the owning user
@@ -23,7 +24,15 @@ service cloud.firestore {
     match /recipes/{recipeId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (
+      allow update: if request.auth != null && (
+        // Any logged-in user can update likeCount (for liking/unliking)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
+        // Full edits require being the creator or admin
+        || resource.data.createdBy == request.auth.uid
+        || resource.data.createdBy == null
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+      );
+      allow delete: if request.auth != null && (
         resource.data.createdBy == request.auth.uid ||
         resource.data.createdBy == null ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
