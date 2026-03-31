@@ -51,6 +51,7 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
           ${(recipe.prepTime || recipe.cookTime) ? `<span>⏱ ${(recipe.prepTime || 0) + (recipe.cookTime || 0)} min</span>` : ''}
           ${recipe.servings ? `<span>🍽 ${recipe.servings} servings</span>` : ''}
           ${recipe.calories ? `<span>🔥 ${recipe.calories} cal</span>` : ''}
+          <span>❤️ ${recipe.likeCount || 0} likes</span>
         </div>
 
         ${(recipe.dietary && recipe.dietary.length > 0) ? `

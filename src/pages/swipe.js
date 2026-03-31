@@ -451,7 +451,12 @@ function setupActionButtons() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'ArrowLeft')  { e.preventDefault(); flashBtn(btnNope); swipeAction('nope'); }
     if (e.key === 'ArrowRight') { e.preventDefault(); flashBtn(btnLike); swipeAction('like'); }
-    if (e.key === ' ')          { e.preventDefault(); flashBtn(btnInfo); swipeShowDetails(); }
+    if (e.key === ' ')          {
+      e.preventDefault();
+      const modal = document.getElementById('recipe-modal-overlay');
+      if (modal) { modal.querySelector('.modal-close')?.click(); }
+      else { flashBtn(btnInfo); swipeShowDetails(); }
+    }
   });
 }
 
