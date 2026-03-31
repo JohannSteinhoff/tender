@@ -1,4 +1,5 @@
 import { signOutUser } from '../auth.js';
+import { escapeHtml } from '../utils/helpers.js';
 
 const NAV_LINKS = [
   { page: 'dashboard', href: '/dashboard.html', icon: '&#x1F3E0;', label: 'Home' },
@@ -46,10 +47,10 @@ export function renderNav(activePage, profile = null) {
         </span>
       </button>
       <div class="avatar-wrapper" id="avatarWrapper">
-        <div class="user-avatar ${profile?.photoURL ? 'has-photo' : ''}" id="userAvatar">${profile?.photoURL ? `<img src="${profile.photoURL}" alt="avatar">` : initials}</div>
+        <div class="user-avatar ${profile?.photoURL ? 'has-photo' : ''}" id="userAvatar">${profile?.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
         <div class="avatar-dropdown" id="avatarDropdown">
           <div class="avatar-dropdown-header">
-            <div class="avatar-dropdown-initials ${profile?.photoURL ? 'has-photo' : ''}">${profile?.photoURL ? `<img src="${profile.photoURL}" alt="avatar">` : initials}</div>
+            <div class="avatar-dropdown-initials ${profile?.photoURL ? 'has-photo' : ''}">${profile?.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
             <div class="avatar-dropdown-info">
               <div class="avatar-dropdown-name">${profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User' : 'User'}</div>
               <div class="avatar-dropdown-email">${profile?.email || ''}</div>

@@ -11,9 +11,12 @@ import { showToast } from './toast.js';
  * @param {Function} onLikeChange - called when like status changes
  */
 export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = null) {
-  // Remove any existing modal
+  // Remove any existing modal and its keydown listener
   const existing = document.getElementById('recipe-modal-overlay');
-  if (existing) existing.remove();
+  if (existing) {
+    existing.remove();
+    document.removeEventListener('keydown', escHandler);
+  }
 
   const ingredients = parseIngredients(recipe.ingredients);
   const isLiked = likedIds.has(recipe.id);

@@ -24,7 +24,8 @@ import {
 
 // ── Auth state cache ──────────────────────────────────────────
 // isLoggedIn() must be synchronous, so we mirror auth state into localStorage.
-let _currentFirebaseUser = null;
+// Starts as undefined so waitForAuth() can distinguish "not yet resolved" from "logged out".
+let _currentFirebaseUser = undefined;
 
 onAuthStateChanged(auth, (user) => {
   _currentFirebaseUser = user;
@@ -45,6 +46,8 @@ function currentUid() {
 }
 
 async function waitForAuth() {
+  // undefined means onAuthStateChanged hasn't fired yet — wait for it.
+  // null means resolved but not logged in; a user object means logged in.
   if (_currentFirebaseUser !== undefined) return _currentFirebaseUser;
   return new Promise(resolve => {
     const unsub = onAuthStateChanged(auth, user => { unsub(); resolve(user); });
@@ -68,6 +71,7 @@ function docToRecipe(snap) {
       : (d.ingredients || ''),
     instructions: d.instructions || '',
     dietary: d.dietary || [],
+    likeCount: d.likeCount || 0,
     createdBy: d.createdBy || '',
     createdAt: d.createdAt || null,
   };

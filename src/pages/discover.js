@@ -373,55 +373,6 @@ function onLikeChange(recipeId, nowLiked) {
   else likedIds.delete(recipeId);
 }
 
-// ── Add to Plan modal ─────────────────────────────────────────
-let _planRecipeId = null;
-let _planRecipeName = null;
-
-function openPlanModal(recipeId, recipeName) {
-  _planRecipeId = recipeId;
-  _planRecipeName = recipeName;
-  document.getElementById('planRecipeName').textContent = recipeName;
-  const planDateInput = document.getElementById('planDate');
-  const defaultDate = todayISO();
-  planDateInput.min = defaultDate;
-  planDateInput.value = defaultDate;
-  document.getElementById('planModal').style.display = 'flex';
-}
-
-function closePlanModal() {
-  document.getElementById('planModal').style.display = 'none';
-  _planRecipeId = null;
-  _planRecipeName = null;
-}
-
-document.getElementById('planCancel').addEventListener('click', closePlanModal);
-document.getElementById('planModal').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) closePlanModal();
-});
-
-document.getElementById('planConfirm').addEventListener('click', async () => {
-  const date = document.getElementById('planDate').value;
-  const mealType = document.getElementById('planMeal').value;
-  const btn = document.getElementById('planConfirm');
-  btn.disabled = true;
-  try {
-    if (!date) throw new Error('Date is required');
-    const day = formatPlanDate(date);
-    const meal = mealType;
-    await addMealPlanEntry(uid, {
-      recipeId:   _planRecipeId,
-      recipeName: _planRecipeName,
-      date,
-      mealType,
-    });
-    showToast(`Added to ${day} ${meal}! 📅`, 'success');
-    closePlanModal();
-  } catch (err) {
-    showToast('Could not add to plan', 'error');
-  }
-  btn.disabled = false;
-});
-
 // ── Elegant delete confirmation dialog ───────────────────────
 function showConfirm(recipeName) {
   return new Promise((resolve) => {
