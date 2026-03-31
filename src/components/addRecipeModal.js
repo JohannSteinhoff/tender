@@ -255,7 +255,8 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   document.body.style.overflow = 'hidden';
 
   // ── State ──────────────────────────────────────────────────────
-  const isEditing = !!existingRecipe;
+  const recipeSeed = existingRecipe || null;
+  const isEditing = !!existingRecipe?.id;
   let currentStep = 1;
   const totalSteps = 4;
   let uploadedImageFile = null;
@@ -734,34 +735,34 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   showStep(1);
 
   // ── Pre-fill fields when editing ──────────────────────────────
-  if (isEditing) {
-    overlay.querySelector('#ar-name').value        = existingRecipe.name        || '';
-    overlay.querySelector('#ar-cuisine').value     = existingRecipe.cuisine     || '';
-    overlay.querySelector('#ar-difficulty').value  = existingRecipe.difficulty  || '';
-    overlay.querySelector('#ar-preptime').value    = existingRecipe.prepTime    || '';
-    overlay.querySelector('#ar-cooktime').value    = existingRecipe.cookTime    || '';
-    overlay.querySelector('#ar-servings').value    = existingRecipe.servings    || '';
-    overlay.querySelector('#ar-calories').value    = existingRecipe.calories    || '';
-    overlay.querySelector('#ar-description').value = existingRecipe.description || '';
-    overlay.querySelector('#ar-instructions').value = existingRecipe.instructions || '';
-    overlay.querySelector('#ar-source').value      = existingRecipe.sourceUrl   || '';
-    if (existingRecipe.image) overlay.querySelector('#ar-image').value = existingRecipe.image;
+  if (recipeSeed) {
+    overlay.querySelector('#ar-name').value        = recipeSeed.name        || '';
+    overlay.querySelector('#ar-cuisine').value     = recipeSeed.cuisine     || '';
+    overlay.querySelector('#ar-difficulty').value  = recipeSeed.difficulty  || '';
+    overlay.querySelector('#ar-preptime').value    = recipeSeed.prepTime    || '';
+    overlay.querySelector('#ar-cooktime').value    = recipeSeed.cookTime    || '';
+    overlay.querySelector('#ar-servings').value    = recipeSeed.servings    || '';
+    overlay.querySelector('#ar-calories').value    = recipeSeed.calories    || '';
+    overlay.querySelector('#ar-description').value = recipeSeed.description || '';
+    overlay.querySelector('#ar-instructions').value = recipeSeed.instructions || '';
+    overlay.querySelector('#ar-source').value      = recipeSeed.sourceUrl   || '';
+    if (recipeSeed.image) overlay.querySelector('#ar-image').value = recipeSeed.image;
 
-    if (existingRecipe.emoji) {
+    if (recipeSeed.emoji) {
       const matchingBtn = Array.from(overlay.querySelectorAll('.ar-emoji-btn'))
-        .find(btn => btn.dataset.emoji === existingRecipe.emoji) || null;
-      applySelectedEmoji(existingRecipe.emoji, matchingBtn);
+        .find(btn => btn.dataset.emoji === recipeSeed.emoji) || null;
+      applySelectedEmoji(recipeSeed.emoji, matchingBtn);
     }
 
-    if (Array.isArray(existingRecipe.dietary)) {
+    if (Array.isArray(recipeSeed.dietary)) {
       overlay.querySelectorAll('input[name="dietary"]').forEach(cb => {
-        cb.checked = existingRecipe.dietary.includes(cb.value);
+        cb.checked = recipeSeed.dietary.includes(cb.value);
       });
     }
 
     // Replace the three blank ingredient rows with existing ingredients
     ingredientsList.innerHTML = '';
-    const ings = parseIngredients(existingRecipe.ingredients);
+    const ings = parseIngredients(recipeSeed.ingredients);
     if (ings.length > 0) {
       ings.forEach(ing => addIngredientRow(ing, false));
     } else {

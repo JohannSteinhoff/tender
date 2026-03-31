@@ -17,18 +17,77 @@
 
   <main class="mealplan-page">
 
-    <div class="page-header">
-      <div>
+    <!-- ── Page header ─────────────────────────────────────────── -->
+    <div class="mp-page-header">
+      <div class="mp-header-left">
         <h1>&#x1F4C5; Meal Plan</h1>
-        <p>Plan your week — drag liked recipes onto each day.</p>
+        <p>Drag &amp; drop meals, add sides, and plan your week.</p>
+      </div>
+      <div class="mp-header-actions">
+        <div class="view-toggle" id="viewToggle">
+          <button class="toggle-btn active" data-days="7">7 Days</button>
+          <button class="toggle-btn" data-days="14">14 Days</button>
+        </div>
+        <button id="exportGroceryBtn" class="mp-action-btn" title="Add all planned meals' ingredients to your grocery list">
+          &#x1F6D2; Grocery
+        </button>
+        <button id="copyWeekBtn" class="mp-action-btn" title="Copy this week's plan to next week">
+          &#x1F4CB; Copy Week
+        </button>
       </div>
     </div>
 
-    <div id="mealPlanGrid" class="mealplan-grid">
-      <!-- Rendered by mealplan.js -->
+    <!-- ── Summary bar ─────────────────────────────────────────── -->
+    <div class="mp-summary-bar" id="summaryBar">
+      <span class="summary-pill" id="summaryMeals">0 meals planned</span>
+      <span class="summary-pill" id="summaryDays">0 full days</span>
+      <span class="summary-cuisines" id="summaryCuisines"></span>
+    </div>
+
+    <!-- ── Calendar navigation ─────────────────────────────────── -->
+    <div class="mp-cal-nav">
+      <button class="mp-nav-btn" id="prevBtn">&#8249; Prev</button>
+      <div class="mp-date-range" id="dateRange">Loading&hellip;</div>
+      <button class="mp-nav-btn mp-today-btn" id="todayBtn">Today</button>
+      <button class="mp-nav-btn" id="nextBtn">Next &#8250;</button>
+    </div>
+
+    <!-- ── Calendar grid (horizontally scrollable) ─────────────── -->
+    <div class="mp-cal-scroll">
+      <div class="mealplan-grid" id="mealPlanGrid">
+        <div class="mp-loading">&#x23F3; Loading your meal plan&hellip;</div>
+      </div>
     </div>
 
   </main>
+
+  <!-- ── Recipe picker drawer ────────────────────────────────────── -->
+  <div class="picker-overlay hidden" id="pickerOverlay">
+    <div class="picker-drawer" id="pickerDrawer" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+      <div class="picker-header">
+        <span class="picker-title" id="pickerTitle">Add Meal</span>
+        <button class="picker-close" id="pickerClose" aria-label="Close recipe picker">&#x2715;</button>
+      </div>
+      <div class="picker-tabs">
+        <button class="picker-tab active" data-tab="all">All Recipes</button>
+        <button class="picker-tab" data-tab="favorites">&#x2605; Favorites</button>
+      </div>
+      <div class="picker-search-wrap">
+        <input type="text" class="picker-search" id="pickerSearch"
+               placeholder="Search by name or ingredient&hellip;" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="picker-filters" id="pickerFilters">
+        <button class="filter-chip active" data-diet="">All</button>
+        <button class="filter-chip" data-diet="vegetarian">&#x1F331; Vegetarian</button>
+        <button class="filter-chip" data-diet="vegan">&#x1F343; Vegan</button>
+        <button class="filter-chip" data-diet="gluten-free">GF</button>
+        <button class="filter-chip" data-diet="dairy-free">DF</button>
+      </div>
+      <div class="picker-list" id="pickerList">
+        <!-- Populated by mealplan.js -->
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/pages/mealplan.js"></script>
 </body>

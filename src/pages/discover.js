@@ -1,10 +1,11 @@
 import { requireAuth } from '../auth.js';
 import { getUserProfile, getUserProfiles } from '../api/users.js';
-import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, addMealPlanEntry, deleteRecipe } from '../api/recipes.js';
+import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openAddRecipeModal } from '../components/addRecipeModal.js';
+import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
 import { showToast } from '../components/toast.js';
 import { escapeHtml, capitalizeFirst, parseIngredients } from '../utils/helpers.js';
 
@@ -184,9 +185,13 @@ function filterAndRender() {
 
   let filtered = allRecipes.filter(r => {
     const ingredients = parseIngredients(r.ingredients);
+    const name = (r.name || '').toLowerCase();
+    const description = (r.description || '').toLowerCase();
+    const cuisineName = (r.cuisine || '').toLowerCase();
     const matchSearch = !search
-      || r.name.toLowerCase().includes(search)
-      || (r.description || '').toLowerCase().includes(search)
+      || name.includes(search)
+      || description.includes(search)
+      || cuisineName.includes(search)
       || ingredients.some(i => i.toLowerCase().includes(search));
     const matchCuisine = !cuisine || r.cuisine === cuisine;
     const matchDiff = !activeDifficulty || r.difficulty === activeDifficulty;
@@ -319,7 +324,7 @@ function renderGrid(recipes) {
 
     card.querySelector('[data-action="plan"]').addEventListener('click', async (e) => {
       e.stopPropagation();
-      openPlanModal(id, recipe.name);
+      openMealPlanPrompt({ uid, recipe });
     });
 
     // Three-dots owner menu
@@ -376,6 +381,10 @@ function openPlanModal(recipeId, recipeName) {
   _planRecipeId = recipeId;
   _planRecipeName = recipeName;
   document.getElementById('planRecipeName').textContent = recipeName;
+  const planDateInput = document.getElementById('planDate');
+  const defaultDate = todayISO();
+  planDateInput.min = defaultDate;
+  planDateInput.value = defaultDate;
   document.getElementById('planModal').style.display = 'flex';
 }
 
@@ -391,16 +400,19 @@ document.getElementById('planModal').addEventListener('click', (e) => {
 });
 
 document.getElementById('planConfirm').addEventListener('click', async () => {
-  const day  = document.getElementById('planDay').value;
-  const meal = document.getElementById('planMeal').value;
-  const btn  = document.getElementById('planConfirm');
+  const date = document.getElementById('planDate').value;
+  const mealType = document.getElementById('planMeal').value;
+  const btn = document.getElementById('planConfirm');
   btn.disabled = true;
   try {
+    if (!date) throw new Error('Date is required');
+    const day = formatPlanDate(date);
+    const meal = mealType;
     await addMealPlanEntry(uid, {
       recipeId:   _planRecipeId,
       recipeName: _planRecipeName,
-      day,
-      meal,
+      date,
+      mealType,
     });
     showToast(`Added to ${day} ${meal}! 📅`, 'success');
     closePlanModal();

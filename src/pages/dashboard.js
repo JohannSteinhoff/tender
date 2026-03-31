@@ -3,6 +3,7 @@ import { getUserProfile, getUserProfiles } from '../api/users.js';
 import { getAllRecipes, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
+import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
 import { openAddRecipeModal } from '../components/addRecipeModal.js';
 import { showToast } from '../components/toast.js';
 import { escapeHtml, capitalizeFirst, applyCardTilt } from '../utils/helpers.js';
@@ -115,13 +116,23 @@ function renderLikedRecipes() {
         ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
       </div>
       <div class="recipe-mini-name">${escapeHtml(r.name)}</div>
-      <div class="recipe-mini-likes">&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
+      <div class="recipe-mini-actions">
+        <div class="recipe-mini-likes">&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
+        <button class="card-plan-btn recipe-mini-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+          &#x1F4C5; Plan
+        </button>
+      </div>
     </div>
   `).join('');
 
   grid.querySelectorAll('.recipe-mini-card').forEach(card => {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
-    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null));
+    if (!recipe) return;
+    card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null));
+    card.querySelector('[data-action="plan"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMealPlanPrompt({ uid, recipe });
+    });
   });
 
   applyCardTilt(grid, '.recipe-mini-card');
@@ -197,6 +208,9 @@ function renderMyRecipes() {
             <div class="my-recipe-list-name">${escapeHtml(r.name)}</div>
             <div class="my-recipe-list-meta">${meta}${meta ? ' &middot; ' : ''}&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
           </div>
+          <button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+            &#x1F4C5; Plan
+          </button>
           ${dotsMenuHtml}
         </div>`;
     }).join('');
@@ -218,6 +232,9 @@ function renderMyRecipes() {
             ${r.difficulty ? `<span>${capitalizeFirst(r.difficulty)}</span>` : ''}
           </div>
           <div class="my-recipe-likes">&#x2764;&#xFE0F; ${r.likeCount || 0} like${(r.likeCount || 0) !== 1 ? 's' : ''}</div>
+          <button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+            &#x1F4C5; Plan
+          </button>
         </div>
       </div>`).join('');
   }
@@ -232,6 +249,11 @@ function renderMyRecipes() {
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-action]')) return;
       openRecipeModal(recipe, uid, likedIds, null, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
+    });
+
+    card.querySelector('[data-action="plan"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMealPlanPrompt({ uid, recipe });
     });
 
     card.querySelector('[data-action="dots"]').addEventListener('click', (e) => {
@@ -386,6 +408,9 @@ function openAllLikedModal() {
               <div class="all-liked-name">${escapeHtml(r.name)}</div>
               <div class="all-liked-meta">${capitalizeFirst(r.cuisine || '')}${r.cookTime ? ` &middot; ${r.cookTime} min` : ''}${r.difficulty ? ` &middot; ${capitalizeFirst(r.difficulty)}` : ''} &middot; &#x2764;&#xFE0F; ${r.likeCount || 0}</div>
             </div>
+            <button class="card-plan-btn all-liked-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+              &#x1F4C5; Plan
+            </button>
           </div>
         `).join('')}
     </div>`;
@@ -402,7 +427,15 @@ function openAllLikedModal() {
 
   viewer.querySelectorAll('.all-liked-card').forEach(card => {
     const recipe = allRecipes.find(r => r.id === card.dataset.id);
-    if (recipe) card.addEventListener('click', () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null));
+    if (!recipe) return;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action]')) return;
+      openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
+    });
+    card.querySelector('[data-action="plan"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMealPlanPrompt({ uid, recipe });
+    });
   });
 }
 

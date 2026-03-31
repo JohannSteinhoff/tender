@@ -5,6 +5,50 @@ import {
 } from 'firebase/firestore';
 
 const RECIPES_COL = 'recipes';
+const VALID_MEAL_TYPES = new Set(['Breakfast', 'Lunch', 'Dinner']);
+const WEEKDAY_INDEX = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function resolveMealPlanDate(date, day) {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  if (!day || !(day in WEEKDAY_INDEX)) {
+    throw new Error('A valid meal plan date is required');
+  }
+
+  const today = new Date();
+  const candidate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
+  const diff = (WEEKDAY_INDEX[day] - candidate.getDay() + 7) % 7;
+  candidate.setDate(candidate.getDate() + diff);
+  return toISODate(candidate);
+}
+
+function docToMealPlanEntry(snap) {
+  const data = snap.data();
+  return {
+    id: snap.id,
+    recipeId: data.recipeId || null,
+    recipeName: data.recipeName || '',
+    customName: data.customName || '',
+    date: data.date || '',
+    mealType: data.mealType || '',
+    course: data.course || 'main',
+    text: data.text || '',
+  };
+}
 
 /** Fetch all recipes from Firestore. */
 export async function getAllRecipes() {
@@ -71,14 +115,38 @@ export async function unlikeRecipe(uid, recipeId) {
 }
 
 /** Add a recipe to the user's meal plan. */
-export async function addMealPlanEntry(uid, { recipeId, recipeName, day, meal }) {
-  await addDoc(collection(db, 'users', uid, 'mealplan'), {
+export async function addMealPlanEntry(uid, { recipeId, recipeName, day, date, meal, mealType, course = 'main' }) {
+  const normalizedMealType = mealType || meal;
+  if (!recipeId) throw new Error('recipeId is required');
+  if (!VALID_MEAL_TYPES.has(normalizedMealType)) throw new Error('mealType is invalid');
+
+  const normalizedDate = resolveMealPlanDate(date, day);
+  const slotId = `${normalizedDate}_${normalizedMealType}_${course}`;
+
+  await setDoc(doc(db, 'users', uid, 'mealplan', slotId), {
     recipeId,
-    recipeName,
-    day,
-    meal,
+    recipeName: recipeName || '',
+    date: normalizedDate,
+    mealType: normalizedMealType,
+    course,
     addedAt: serverTimestamp(),
   });
+
+  return {
+    id: slotId,
+    recipeId,
+    recipeName: recipeName || '',
+    date: normalizedDate,
+    mealType: normalizedMealType,
+    course,
+  };
+}
+
+/** Get all meal plan entries for a user. */
+export async function getMealPlanEntries(uid) {
+  if (!uid) throw new Error('uid is required');
+  const snap = await getDocs(collection(db, 'users', uid, 'mealplan'));
+  return snap.docs.map(docToMealPlanEntry);
 }
 
 /** Get all swipe records for a user. Returns { recipeId -> action } map. */

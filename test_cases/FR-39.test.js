@@ -3,107 +3,93 @@
  *
  * Requirement (Story.txt):
  *   Each recipe card shall have an "Add to Plan" button that opens a
- *   prompt for selecting the day and meal type for the weekly meal plan.
+ *   prompt for selecting the date and meal type for the meal plan.
  *
  * Source files:
- *   - src/pages/mealplan.js   → meal plan management
- *   - src/pages/discover.js   → (Add to Plan not yet wired in discover.js)
+ *   - src/pages/mealplan.js   -> meal plan management
+ *   - src/pages/discover.js   -> discover search + add-to-plan modal
  *
  * IMPLEMENTATION STATUS:
- *   FIX APPLIED (Fix 2): The "Add to Plan" button is NOW implemented.
- *   discover.html: #planModal overlay with day + meal selects.
+ *   discover.html: #planModal overlay with date + meal inputs.
  *   discover.js: openPlanModal(), addMealPlanEntry() Firestore call.
- *   src/api/recipes.js: addMealPlanEntry(uid, {recipeId, recipeName, day, meal})
- *     → addDoc to users/{uid}/mealplan/{entryId}
- *   Each card now has a "📅 Plan" button (data-action="plan") that opens
- *   the modal, collects day + meal type, and saves to Firestore.
+ *   src/api/recipes.js: addMealPlanEntry(uid, { recipeId, recipeName, date, mealType })
+ *     -> setDoc to users/{uid}/mealplan/{date_mealType_main}
  *
  * Test strategy:
- *   Unit-test the meal plan entry validation logic that will be needed
- *   when the button is wired up. Tests verify the data shape and
- *   business rules for a valid plan entry.
+ *   Unit-test the meal plan entry validation logic used for the
+ *   date-based add-to-plan flow.
  */
 
 import { describe, test, expect } from 'vitest';
 
-// ── Valid days of the week ────────────────────────────────────────
-const VALID_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-// ── Valid meal types ──────────────────────────────────────────────
 const VALID_MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner'];
 
 /**
  * Validates a meal plan entry before it is saved.
- * @param {{ recipeId: string, day: string, mealType: string }} entry
+ * @param {{ recipeId: string, date: string, mealType: string }} entry
  * @returns {string[]} Array of error field names; empty = valid
  */
 function validateMealPlanEntry(entry) {
   const errors = [];
-  if (!entry || !entry.recipeId)                              errors.push('recipeId');
-  if (!entry || !entry.day || !VALID_DAYS.includes(entry.day)) errors.push('day');
+  if (!entry || !entry.recipeId) errors.push('recipeId');
+  if (!entry || !entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) errors.push('date');
   if (!entry || !entry.mealType || !VALID_MEAL_TYPES.includes(entry.mealType)) errors.push('mealType');
   return errors;
 }
 
-describe('FR-39 | Add to Plan — Meal Plan Entry Validation', () => {
-
-  // ----------- Full valid entry ---------------------------------------
-
+describe('FR-39 | Add to Plan - Meal Plan Entry Validation', () => {
   test('TC-39-01: A complete meal plan entry with valid fields passes validation', () => {
-    const entry = { recipeId: 'abc123', day: 'Monday', mealType: 'Dinner' };
+    const entry = { recipeId: 'abc123', date: '2026-03-30', mealType: 'Dinner' };
     expect(validateMealPlanEntry(entry)).toHaveLength(0);
   });
 
-  // ----------- recipeId -----------------------------------------------
-
   test('TC-39-02: Missing recipeId is reported as an error', () => {
-    const entry = { day: 'Tuesday', mealType: 'Lunch' };
+    const entry = { date: '2026-03-31', mealType: 'Lunch' };
     expect(validateMealPlanEntry(entry)).toContain('recipeId');
   });
 
   test('TC-39-03: Empty recipeId string is reported as an error', () => {
-    const entry = { recipeId: '', day: 'Tuesday', mealType: 'Lunch' };
+    const entry = { recipeId: '', date: '2026-03-31', mealType: 'Lunch' };
     expect(validateMealPlanEntry(entry)).toContain('recipeId');
   });
 
-  // ----------- day ----------------------------------------------------
-
-  test('TC-39-04: Missing day is reported as an error', () => {
+  test('TC-39-04: Missing date is reported as an error', () => {
     const entry = { recipeId: 'abc', mealType: 'Breakfast' };
-    expect(validateMealPlanEntry(entry)).toContain('day');
+    expect(validateMealPlanEntry(entry)).toContain('date');
   });
 
-  test('TC-39-05: Invalid day value is reported as an error', () => {
-    const entry = { recipeId: 'abc', day: 'Someday', mealType: 'Lunch' };
-    expect(validateMealPlanEntry(entry)).toContain('day');
+  test('TC-39-05: Invalid date value is reported as an error', () => {
+    const entry = { recipeId: 'abc', date: 'Someday', mealType: 'Lunch' };
+    expect(validateMealPlanEntry(entry)).toContain('date');
   });
 
-  test('TC-39-06: All 7 days of the week are valid', () => {
-    VALID_DAYS.forEach(day => {
-      const entry = { recipeId: 'abc', day, mealType: 'Lunch' };
-      expect(validateMealPlanEntry(entry)).not.toContain('day');
+  test('TC-39-06: ISO formatted dates are accepted', () => {
+    ['2026-03-30', '2026-04-01', '2026-12-31'].forEach(date => {
+      const entry = { recipeId: 'abc', date, mealType: 'Lunch' };
+      expect(validateMealPlanEntry(entry)).not.toContain('date');
     });
   });
 
-  test('TC-39-07: VALID_DAYS contains exactly 7 entries', () => {
-    expect(VALID_DAYS).toHaveLength(7);
+  test('TC-39-07: Non-ISO dates are rejected', () => {
+    ['03/30/2026', '2026/03/30', '30-03-2026'].forEach(date => {
+      const entry = { recipeId: 'abc', date, mealType: 'Lunch' };
+      expect(validateMealPlanEntry(entry)).toContain('date');
+    });
   });
 
-  // ----------- mealType -----------------------------------------------
-
   test('TC-39-08: Missing mealType is reported as an error', () => {
-    const entry = { recipeId: 'abc', day: 'Friday' };
+    const entry = { recipeId: 'abc', date: '2026-04-03' };
     expect(validateMealPlanEntry(entry)).toContain('mealType');
   });
 
   test('TC-39-09: Invalid mealType "Brunch" is reported as an error', () => {
-    const entry = { recipeId: 'abc', day: 'Friday', mealType: 'Brunch' };
+    const entry = { recipeId: 'abc', date: '2026-04-03', mealType: 'Brunch' };
     expect(validateMealPlanEntry(entry)).toContain('mealType');
   });
 
   test('TC-39-10: All three valid meal types are accepted', () => {
     VALID_MEAL_TYPES.forEach(mealType => {
-      const entry = { recipeId: 'abc', day: 'Monday', mealType };
+      const entry = { recipeId: 'abc', date: '2026-03-30', mealType };
       expect(validateMealPlanEntry(entry)).not.toContain('mealType');
     });
   });
@@ -115,26 +101,10 @@ describe('FR-39 | Add to Plan — Meal Plan Entry Validation', () => {
     expect(VALID_MEAL_TYPES).toHaveLength(3);
   });
 
-  // ----------- Multiple errors ----------------------------------------
-
   test('TC-39-12: All three fields missing are all reported at once', () => {
     const errors = validateMealPlanEntry({});
     expect(errors).toContain('recipeId');
-    expect(errors).toContain('day');
+    expect(errors).toContain('date');
     expect(errors).toContain('mealType');
   });
-
-  /*
-   * NOTE — Browser concerns (require e2e):
-   *
-   *   - The "Add to Plan" button and modal (#planModal) are now implemented
-   *     (Fix 2). Click events, day/meal select values, and confirm/cancel
-   *     interactions require Playwright or Cypress to verify in the browser.
-   *
-   *   - Saving the entry to Firestore (users/{uid}/mealplan/{entryId})
-   *     requires Firebase Emulator Suite for integration testing.
-   *
-   *   - addMealPlanEntry() in src/api/recipes.js uses addDoc() with fields:
-   *     { recipeId, recipeName, day, meal, addedAt: serverTimestamp() }
-   */
 });

@@ -17,6 +17,11 @@ service cloud.firestore {
       match /grocery/{itemId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Meal plan subcollection - only the owning user
+      match /mealplan/{itemId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Recipes - any logged-in user can read and create;

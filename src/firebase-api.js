@@ -80,7 +80,16 @@ function docToGrocery(snap) {
 
 function docToMealPlan(snap) {
   const d = snap.data();
-  return { id: snap.id, recipeId: d.recipeId, date: d.date, mealType: d.mealType, course: d.course || 'main' };
+  return {
+    id: snap.id,
+    recipeId: d.recipeId || null,
+    recipeName: d.recipeName || '',
+    customName: d.customName || '',
+    date: d.date,
+    mealType: d.mealType,
+    course: d.course || 'main',
+    text: d.text || '',
+  };
 }
 
 // ── Seed sample recipes on first load ────────────────────────
@@ -364,6 +373,26 @@ const TenderAPI = {
     return { id: slotId, recipeId, date, mealType, course };
   },
 
+  async addCustomToMealPlan(customName, date, mealType, course = 'main') {
+    const uid = currentUid();
+    const trimmedName = String(customName || '').trim();
+    if (!trimmedName) throw new Error('customName is required');
+
+    const entryId = course === 'side'
+      ? `${date}_${mealType}_side_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+      : `${date}_${mealType}_${course}`;
+
+    await setDoc(doc(db, 'users', uid, 'mealplan', entryId), {
+      customName: trimmedName,
+      date,
+      mealType,
+      course,
+      addedAt: serverTimestamp(),
+    });
+
+    return { id: entryId, customName: trimmedName, date, mealType, course, text: '' };
+  },
+
   async removeFromMealPlan(date, mealType) {
     const uid = currentUid();
     const slotId = `${date}_${mealType}_main`;
@@ -394,6 +423,90 @@ const TenderAPI = {
     const uid = currentUid();
     const slotId = `${date}_${mealType}_secondary`;
     await deleteDoc(doc(db, 'users', uid, 'mealplan', slotId));
+  },
+
+  // Add an unlimited side dish to a meal slot (timestamp-based unique ID)
+  async addSideToMealPlan(recipeId, date, mealType) {
+    const uid = currentUid();
+    const sideId = `${date}_${mealType}_side_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    await setDoc(doc(db, 'users', uid, 'mealplan', sideId), {
+      recipeId, date, mealType, course: 'side', addedAt: serverTimestamp(),
+    });
+    return { id: sideId, recipeId, date, mealType, course: 'side', text: '' };
+  },
+
+  // Store or remove a text note for a meal slot
+  async setMealPlanNote(date, mealType, text) {
+    const uid = currentUid();
+    const noteId = `${date}_${mealType}_note`;
+    if (text && text.trim()) {
+      await setDoc(doc(db, 'users', uid, 'mealplan', noteId), {
+        date, mealType, course: 'note', text: text.trim(), updatedAt: serverTimestamp(),
+      });
+    } else {
+      await deleteDoc(doc(db, 'users', uid, 'mealplan', noteId));
+    }
+  },
+
+  // Move a full meal slot (main + sides + note) to a new date/mealType
+  // entries = array of { id, recipeId, date, mealType, course, text? }
+  async moveMealPlanSlotFull(entries, toDate, toMealType) {
+    const uid = currentUid();
+    const batch = writeBatch(db);
+    for (const entry of entries) {
+      let newId;
+      if (entry.course === 'main') {
+        newId = `${toDate}_${toMealType}_main`;
+      } else if (entry.course === 'note') {
+        newId = `${toDate}_${toMealType}_note`;
+      } else if (entry.course === 'secondary') {
+        newId = `${toDate}_${toMealType}_secondary`;
+      } else {
+        // side_* — replace the date_mealType prefix
+        const fromPrefix = `${entry.date}_${entry.mealType}_`;
+        const suffix = entry.id.startsWith(fromPrefix)
+          ? entry.id.slice(fromPrefix.length)
+          : `side_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        newId = `${toDate}_${toMealType}_${suffix}`;
+      }
+      const newData = { date: toDate, mealType: toMealType, course: entry.course, addedAt: serverTimestamp() };
+      if (entry.recipeId) newData.recipeId = entry.recipeId;
+      if (entry.recipeName) newData.recipeName = entry.recipeName;
+      if (entry.customName) newData.customName = entry.customName;
+      if (entry.text) newData.text = entry.text;
+      batch.set(doc(db, 'users', uid, 'mealplan', newId), newData);
+      batch.delete(doc(db, 'users', uid, 'mealplan', entry.id));
+    }
+    await batch.commit();
+  },
+
+  // Export all planned recipes' ingredients into the grocery list
+  async exportMealPlanToGrocery(recipeIds) {
+    const uid = currentUid();
+    const uniqueIds = [...new Set(recipeIds)];
+    const ingredientMap = new Map(); // lowercase name -> quantity
+    for (const id of uniqueIds) {
+      const snap = await getDoc(doc(db, 'recipes', id));
+      if (!snap.exists()) continue;
+      const d = snap.data();
+      const ingredients = Array.isArray(d.ingredients)
+        ? d.ingredients
+        : (d.ingredients || '').split('\n');
+      ingredients
+        .map(i => i.trim())
+        .filter(Boolean)
+        .forEach(i => {
+          const key = i.toLowerCase();
+          ingredientMap.set(key, (ingredientMap.get(key) || 0) + 1);
+        });
+    }
+    const batch = writeBatch(db);
+    for (const [name, quantity] of ingredientMap) {
+      const ref = doc(collection(db, 'users', uid, 'grocery'));
+      batch.set(ref, { name, quantity, checked: false, addedAt: serverTimestamp() });
+    }
+    await batch.commit();
+    return ingredientMap.size;
   },
 
   // ── Stats ────────────────────────────────────────────────────

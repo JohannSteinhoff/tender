@@ -1,5 +1,6 @@
 import { escapeHtml, capitalizeFirst, parseIngredients } from '../utils/helpers.js';
 import { likeRecipe, unlikeRecipe } from '../api/recipes.js';
+import { openMealPlanPrompt } from './mealPlanPrompt.js';
 import { showToast } from './toast.js';
 
 /**
@@ -90,6 +91,9 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
           <button class="${isLiked ? 'btn-unlike' : 'btn-like'}" id="modalLikeBtn">
             ${isLiked ? '💔 Remove from Liked' : '❤️ Like this Recipe'}
           </button>
+          <button class="btn-plan-modal" id="modalPlanBtn">
+            &#x1F4C5; Add to Meal Plan
+          </button>
         </div>
       </div>
     </div>
@@ -126,6 +130,11 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
       showToast('Something went wrong', 'error');
     }
     btn.disabled = false;
+  });
+
+  document.getElementById('modalPlanBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openMealPlanPrompt({ uid, recipe });
   });
 }
 

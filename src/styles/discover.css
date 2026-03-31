@@ -419,7 +419,8 @@
   color: var(--text-secondary);
 }
 
-.plan-field select {
+.plan-field select,
+.plan-field input {
   padding: 10px 12px;
   border: 2px solid var(--border-color);
   border-radius: 10px;
@@ -427,10 +428,14 @@
   font-size: 0.9em;
   background: var(--bg-input);
   color: var(--text-primary);
+}
+
+.plan-field select {
   cursor: pointer;
 }
 
-.plan-field select:focus {
+.plan-field select:focus,
+.plan-field input:focus {
   outline: none;
   border-color: var(--primary);
 }

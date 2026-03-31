@@ -232,6 +232,10 @@
   min-width: 0;
 }
 
+.all-liked-plan-btn {
+  flex-shrink: 0;
+}
+
 .all-liked-name {
   font-weight: 600;
   font-size: 0.95em;
@@ -333,6 +337,24 @@
   color: var(--text-tertiary);
   text-align: center;
   padding-bottom: 6px;
+}
+
+.recipe-mini-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 10px;
+}
+
+.recipe-mini-actions .recipe-mini-likes {
+  padding-bottom: 0;
+}
+
+.recipe-mini-plan-btn {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.72em;
 }
 
 /* ── Profile section ─────────────────────────────────────────── */
@@ -594,6 +616,11 @@
   color: var(--text-tertiary);
 }
 
+.my-recipe-plan-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
 /* ── Cook Nook controls bar ─────────────────────────────────── */
 .cook-nook-controls {
   display: flex;
@@ -699,6 +726,12 @@
 .my-recipe-list-body {
   flex: 1;
   min-width: 0;
+}
+
+.my-recipe-list-card .my-recipe-plan-btn {
+  width: auto;
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .my-recipe-list-name {

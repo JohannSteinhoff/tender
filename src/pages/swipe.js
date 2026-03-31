@@ -4,6 +4,7 @@ import { getAllRecipes, likeRecipe, dislikeRecipe, getUserSwipes } from '../api/
 import { seedRecipesIfEmpty } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
+import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
 import { showToast } from '../components/toast.js';
 import { shuffleArray, capitalizeFirst, getCuisineClass, parseIngredients, escapeHtml } from '../utils/helpers.js';
 
@@ -145,6 +146,11 @@ function renderCard() {
           ${preview.map(i => `<span class="ing-tag">${escapeHtml(i)}</span>`).join('')}
           ${ingredients.length > 4 ? `<span class="ing-tag">+${ingredients.length - 4} more</span>` : ''}
         </div>
+        <div class="swipe-card-actions-row">
+          <button class="card-plan-btn swipe-card-plan-btn" id="swipePlanBtn" type="button" aria-label="Add ${escapeHtml(recipe.name)} to meal plan">
+            &#x1F4C5; Add to Meal Plan
+          </button>
+        </div>
       </div>
       <div class="swipe-stamp swipe-stamp-like" id="stampLike">LIKE</div>
       <div class="swipe-stamp swipe-stamp-nope" id="stampNope">NOPE</div>
@@ -156,6 +162,13 @@ function renderCard() {
   card.addEventListener('pointermove', onPointerMove);
   card.addEventListener('pointerup', onPointerUp);
   card.addEventListener('pointercancel', onPointerCancel);
+
+  const planBtn = document.getElementById('swipePlanBtn');
+  planBtn?.addEventListener('pointerdown', (e) => e.stopPropagation());
+  planBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openMealPlanPrompt({ uid, recipe });
+  });
 
   setRecipeBackdrop(recipe, card);
   fitCardToViewport();
