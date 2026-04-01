@@ -32,6 +32,26 @@ let emojiRainGen = 0;
 let swipedToday = 0;
 const CARD_ASPECT_RATIO = 19 / 26;
 
+function getSwipePool({ includeSwiped = false } = {}) {
+  const base = allRecipes.filter(r => !likedIds.has(r.id));
+  return includeSwiped ? base : base.filter(r => !swipedIds.has(r.id));
+}
+
+function removeRecipeFromDecks(recipeId) {
+  deckMaster = deckMaster.filter(r => r.id !== recipeId);
+  deck = deck.filter(r => r.id !== recipeId);
+}
+
+function handleSwipeModalLikeChange(recipeId, nowLiked) {
+  if (!nowLiked) return;
+  likedIds.add(recipeId);
+  swipedIds.add(recipeId);
+  const removedCurrent = deck[0]?.id === recipeId;
+  removeRecipeFromDecks(recipeId);
+  updateCounter();
+  if (removedCurrent) renderCard();
+}
+
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
   // Theme applied by nav.js immediately on import
@@ -74,10 +94,9 @@ async function loadDeck() {
     authorProfiles = {};
   }
 
-  // Exclude already-swiped recipes
-  const fresh = recipes.filter(r => !swipedIds.has(r.id));
-
-  deckMaster = shuffleArray(fresh.length > 0 ? fresh : recipes);
+  // Prefer unseen recipes, but never re-show already liked ones.
+  const fresh = getSwipePool();
+  deckMaster = shuffleArray(fresh.length > 0 ? fresh : getSwipePool({ includeSwiped: true }));
   applyDifficultyFilter();
 }
 
@@ -98,8 +117,8 @@ function renderCard() {
   const actions = document.getElementById('swipeActions');
 
   if (deck.length === 0) {
-    // Refill from all recipes (loop infinitely)
-    let refill = shuffleArray(allRecipes.length > 0 ? allRecipes : deckMaster);
+    // Refill from the remaining eligible recipes, excluding anything already liked.
+    let refill = shuffleArray(getSwipePool({ includeSwiped: true }));
     if (difficultyFilter) refill = refill.filter(r => (r.difficulty || 'medium') === difficultyFilter);
     if (refill.length === 0) {
       container.innerHTML = `
@@ -262,7 +281,7 @@ function onPointerUp(e) {
     setBackground(0);
     if (deck.length > 0) {
       const r = deck[0];
-      openRecipeModal(r, uid, likedIds, null, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
+      openRecipeModal(r, uid, likedIds, handleSwipeModalLikeChange, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
     }
     return;
   }
@@ -298,7 +317,7 @@ export function swipeAction(direction) {
 export function swipeShowDetails() {
   if (deck.length === 0) return;
   const r = deck[0];
-  openRecipeModal(r, uid, likedIds, null, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
+  openRecipeModal(r, uid, likedIds, handleSwipeModalLikeChange, r.createdBy ? { ...authorProfiles[r.createdBy], uid: r.createdBy } : null);
 }
 
 async function completeSwipe(direction) {
@@ -325,6 +344,7 @@ async function completeSwipe(direction) {
       await dislikeRecipe(uid, recipe.id);
     }
     swipedIds.add(recipe.id);
+    removeRecipeFromDecks(recipe.id);
   } catch (err) {
     console.error('Swipe failed:', err);
   }
@@ -332,7 +352,6 @@ async function completeSwipe(direction) {
   updateCounter();
 
   setTimeout(() => {
-    deck.shift();
     renderCard();
   }, 350);
 }

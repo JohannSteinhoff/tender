@@ -12,8 +12,44 @@ let uid = null;
 let profile = null;
 let likedIds = new Set();
 let allRecipes = [];
-let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
-let myRecipesView = 'grid'; // 'grid' | 'list'
+let authorProfiles = {};
+let myRecipesView = 'grid';
+
+function isDraftRecipe(recipe) {
+  return recipe?.status === 'draft';
+}
+
+function getRecipeDisplayName(recipe) {
+  const name = recipe?.name?.trim();
+  if (name) return name;
+  return isDraftRecipe(recipe) ? 'Untitled Draft' : 'Untitled Recipe';
+}
+
+function getRecipeThumb(recipe) {
+  return recipe.image
+    ? `<img src="${escapeHtml(recipe.image)}" alt="${escapeHtml(getRecipeDisplayName(recipe))}">`
+    : (recipe.emoji || (isDraftRecipe(recipe) ? '&#x1F4DD;' : '&#x1F37D;&#xFE0F;'));
+}
+
+function upsertRecipe(recipe) {
+  const idx = allRecipes.findIndex(r => r.id === recipe.id);
+  if (idx === -1) allRecipes.push(recipe);
+  else allRecipes[idx] = recipe;
+}
+
+function renderOwnerRecipe(recipe) {
+  openAddRecipeModal(uid, (updatedRecipe) => {
+    upsertRecipe(updatedRecipe);
+    renderLikedRecipes();
+    renderMyRecipes();
+    const successMessage = updatedRecipe.status === 'draft'
+      ? 'Draft updated'
+      : recipe.status === 'draft'
+        ? 'Recipe published!'
+        : 'Recipe updated! ✏️';
+    showToast(successMessage, 'success');
+  }, recipe);
+}
 
 async function init() {
   const user = await requireAuth();
@@ -24,7 +60,7 @@ async function init() {
   const [prof, liked, recipes] = await Promise.all([
     getUserProfile(uid),
     getLikedRecipeIds(uid),
-    getAllRecipes(),
+    getAllRecipes({ includeDraftsForUser: uid }),
   ]);
 
   profile = prof || { uid };
@@ -35,7 +71,6 @@ async function init() {
   likedIds = liked;
   allRecipes = recipes;
 
-  // Batch-fetch author profiles for recipe creators
   const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
   try {
     authorProfiles = await getUserProfiles(authorUids);
@@ -56,7 +91,7 @@ async function init() {
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
     try {
       openAddRecipeModal(uid, (newRecipe) => {
-        allRecipes.push(newRecipe);
+        upsertRecipe(newRecipe);
         renderLikedRecipes();
         renderMyRecipes();
       });
@@ -74,12 +109,15 @@ function renderWelcome() {
 
 function animateCounter(el, value) {
   const num = parseInt(value, 10);
-  if (isNaN(num) || num <= 1) { el.textContent = value; return; }
+  if (isNaN(num) || num <= 1) {
+    el.textContent = value;
+    return;
+  }
   const duration = 700;
   const start = performance.now();
   (function tick(now) {
     const t = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const eased = 1 - Math.pow(1 - t, 3);
     el.textContent = Math.round(eased * num);
     if (t < 1) requestAnimationFrame(tick);
     else el.textContent = value;
@@ -87,9 +125,9 @@ function animateCounter(el, value) {
 }
 
 function renderStats() {
-  animateCounter(document.getElementById('statLiked'),    likedIds.size);
+  animateCounter(document.getElementById('statLiked'), likedIds.size);
   animateCounter(document.getElementById('statServings'), profile?.householdSize ?? '-');
-  animateCounter(document.getElementById('statMeals'),    profile?.mealsPerWeek  ?? '-');
+  animateCounter(document.getElementById('statMeals'), profile?.mealsPerWeek ?? '-');
 
   let days = '-';
   if (profile?.createdAt) {
@@ -113,12 +151,12 @@ function renderLikedRecipes() {
   grid.innerHTML = liked.slice(0, 6).map(r => `
     <div class="recipe-mini-card" data-id="${r.id}">
       <div class="recipe-mini-thumb">
-        ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
+        ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(getRecipeDisplayName(r))}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
       </div>
-      <div class="recipe-mini-name">${escapeHtml(r.name)}</div>
+      <div class="recipe-mini-name">${escapeHtml(getRecipeDisplayName(r))}</div>
       <div class="recipe-mini-actions">
         <div class="recipe-mini-likes">&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
-        <button class="card-plan-btn recipe-mini-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+        <button class="card-plan-btn recipe-mini-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(getRecipeDisplayName(r))} to meal plan">
           &#x1F4C5; Plan
         </button>
       </div>
@@ -143,10 +181,12 @@ function renderMyRecipes() {
   const badge = document.getElementById('myRecipeCount');
   const controls = document.getElementById('cookNookControls');
   const myRecipes = allRecipes.filter(r => r.createdBy === uid);
+  const draftCount = myRecipes.filter(isDraftRecipe).length;
 
-  if (badge) badge.textContent = `${myRecipes.length} recipe${myRecipes.length !== 1 ? 's' : ''}`;
+  if (badge) {
+    badge.textContent = `${myRecipes.length} recipe${myRecipes.length !== 1 ? 's' : ''}${draftCount ? ` · ${draftCount} draft${draftCount !== 1 ? 's' : ''}` : ''}`;
+  }
 
-  // View toggle (only shown when there are recipes)
   if (controls) {
     if (myRecipes.length > 0) {
       controls.innerHTML = `
@@ -161,7 +201,10 @@ function renderMyRecipes() {
           </button>
         </div>`;
       controls.querySelectorAll('.nook-view-btn').forEach(btn => {
-        btn.addEventListener('click', () => { myRecipesView = btn.dataset.view; renderMyRecipes(); });
+        btn.addEventListener('click', () => {
+          myRecipesView = btn.dataset.view;
+          renderMyRecipes();
+        });
       });
     } else {
       controls.innerHTML = '';
@@ -194,52 +237,79 @@ function renderMyRecipes() {
   if (myRecipesView === 'list') {
     grid.className = 'my-recipes-list';
     grid.innerHTML = myRecipes.map(r => {
+      const recipeName = getRecipeDisplayName(r);
+      const isDraft = isDraftRecipe(r);
       const meta = [
         r.cuisine && capitalizeFirst(r.cuisine),
         r.cookTime && `&#x23F1; ${r.cookTime} min`,
         r.difficulty && capitalizeFirst(r.difficulty),
       ].filter(Boolean).join(' &middot; ');
+
       return `
-        <div class="my-recipe-list-card" data-id="${r.id}">
+        <div class="my-recipe-list-card${isDraft ? ' is-draft' : ''}" data-id="${r.id}">
           <div class="my-recipe-list-thumb${r.image ? ' has-img' : ''}">
-            ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
+            ${getRecipeThumb(r)}
           </div>
           <div class="my-recipe-list-body">
-            <div class="my-recipe-list-name">${escapeHtml(r.name)}</div>
-            <div class="my-recipe-list-meta">${meta}${meta ? ' &middot; ' : ''}&#x2764;&#xFE0F; ${r.likeCount || 0}</div>
+            <div class="my-recipe-list-name-row">
+              <div class="my-recipe-list-name">${escapeHtml(recipeName)}</div>
+              ${isDraft ? '<span class="my-recipe-status-pill is-draft">Draft</span>' : ''}
+            </div>
+            <div class="my-recipe-list-meta">${isDraft
+              ? (meta || 'Private draft · Finish it before posting')
+              : `${meta}${meta ? ' &middot; ' : ''}&#x2764;&#xFE0F; ${r.likeCount || 0}`}</div>
           </div>
-          <button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
-            &#x1F4C5; Plan
-          </button>
+          ${isDraft
+            ? `<button class="card-plan-btn my-recipe-plan-btn my-recipe-draft-btn" data-action="continue" aria-label="Continue drafting ${escapeHtml(recipeName)}">
+                 &#9998;&#xFE0F; Continue Draft
+               </button>`
+            : `<button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(recipeName)} to meal plan">
+                 &#x1F4C5; Plan
+               </button>`}
           ${dotsMenuHtml}
         </div>`;
     }).join('');
   } else {
     grid.className = 'my-recipes-grid';
-    grid.innerHTML = myRecipes.map(r => `
-      <div class="my-recipe-card" data-id="${r.id}">
-        <div class="my-recipe-thumb${r.image ? ' has-img' : ''}">
-          ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '&#x1F37D;&#xFE0F;')}
-        </div>
-        <div class="my-recipe-info">
-          <div class="my-recipe-name-row">
-            <div class="my-recipe-name">${escapeHtml(r.name)}</div>
-            ${dotsMenuHtml}
+    grid.innerHTML = myRecipes.map(r => {
+      const recipeName = getRecipeDisplayName(r);
+      const isDraft = isDraftRecipe(r);
+
+      return `
+        <div class="my-recipe-card${isDraft ? ' is-draft' : ''}" data-id="${r.id}">
+          <div class="my-recipe-thumb${r.image ? ' has-img' : ''}">
+            ${getRecipeThumb(r)}
           </div>
-          <div class="my-recipe-meta">
-            ${r.cuisine ? `<span>${capitalizeFirst(r.cuisine)}</span>` : ''}
-            ${r.cookTime ? `<span>&#x23F1; ${r.cookTime} min</span>` : ''}
-            ${r.difficulty ? `<span>${capitalizeFirst(r.difficulty)}</span>` : ''}
+          <div class="my-recipe-info">
+            <div class="my-recipe-name-row">
+              <div class="my-recipe-name">${escapeHtml(recipeName)}</div>
+              ${dotsMenuHtml}
+            </div>
+            ${isDraft ? '<div class="my-recipe-status-pill is-draft">Private Draft</div>' : ''}
+            <div class="my-recipe-meta">
+              ${r.cuisine ? `<span>${capitalizeFirst(r.cuisine)}</span>` : ''}
+              ${r.cookTime ? `<span>&#x23F1; ${r.cookTime} min</span>` : ''}
+              ${r.difficulty ? `<span>${capitalizeFirst(r.difficulty)}</span>` : ''}
+            </div>
+            <div class="my-recipe-likes">${isDraft
+              ? 'Only you can see this draft until you publish it.'
+              : `&#x2764;&#xFE0F; ${r.likeCount || 0} like${(r.likeCount || 0) !== 1 ? 's' : ''}`}</div>
+            ${isDraft
+              ? `<button class="card-plan-btn my-recipe-plan-btn my-recipe-draft-btn" data-action="continue" aria-label="Continue drafting ${escapeHtml(recipeName)}">
+                   &#9998;&#xFE0F; Continue Draft
+                 </button>`
+              : `<button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(recipeName)} to meal plan">
+                   &#x1F4C5; Plan
+                 </button>`}
           </div>
-          <div class="my-recipe-likes">&#x2764;&#xFE0F; ${r.likeCount || 0} like${(r.likeCount || 0) !== 1 ? 's' : ''}</div>
-          <button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
-            &#x1F4C5; Plan
-          </button>
-        </div>
-      </div>`).join('');
+        </div>`;
+    }).join('');
   }
 
-  // Wire up card events
+  const openEditor = (recipe) => {
+    renderOwnerRecipe(recipe);
+  };
+
   const cardSel = myRecipesView === 'list' ? '.my-recipe-list-card' : '.my-recipe-card';
   grid.querySelectorAll(cardSel).forEach(card => {
     const id = card.dataset.id;
@@ -248,12 +318,21 @@ function renderMyRecipes() {
 
     card.addEventListener('click', (e) => {
       if (e.target.closest('[data-action]')) return;
+      if (isDraftRecipe(recipe)) {
+        openEditor(recipe);
+        return;
+      }
       openRecipeModal(recipe, uid, likedIds, null, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
     });
 
-    card.querySelector('[data-action="plan"]').addEventListener('click', (e) => {
+    card.querySelector('[data-action="plan"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       openMealPlanPrompt({ uid, recipe });
+    });
+
+    card.querySelector('[data-action="continue"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEditor(recipe);
     });
 
     card.querySelector('[data-action="dots"]').addEventListener('click', (e) => {
@@ -267,25 +346,20 @@ function renderMyRecipes() {
     card.querySelector('[data-action="edit"]').addEventListener('click', (e) => {
       e.stopPropagation();
       card.querySelector('.card-dots-menu').style.display = 'none';
-      openAddRecipeModal(uid, (updatedRecipe) => {
-        const idx = allRecipes.findIndex(r => r.id === updatedRecipe.id);
-        if (idx !== -1) allRecipes[idx] = updatedRecipe;
-        renderMyRecipes();
-        showToast('Recipe updated! ✏️', 'success');
-      }, recipe);
+      openEditor(recipe);
     });
 
     card.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
       e.stopPropagation();
       card.querySelector('.card-dots-menu').style.display = 'none';
-      const confirmed = await showConfirm(recipe.name);
+      const confirmed = await showConfirm(getRecipeDisplayName(recipe));
       if (!confirmed) return;
       try {
         await deleteRecipe(id);
         allRecipes = allRecipes.filter(r => r.id !== id);
         renderMyRecipes();
         renderStats();
-        showToast('Recipe deleted');
+        showToast(isDraftRecipe(recipe) ? 'Draft deleted' : 'Recipe deleted');
       } catch (err) {
         showToast('Could not delete recipe', 'error');
       }
@@ -293,7 +367,7 @@ function renderMyRecipes() {
   });
 
   if (myRecipesView === 'grid') {
-    applyCardTilt(grid, '.my-recipe-card');
+    applyCardTilt(grid, '.my-recipe-card:not(.is-draft)');
   }
 }
 
@@ -320,10 +394,15 @@ function showConfirm(recipeName) {
       resolve(result);
     }
 
-    function escHandler(e) { if (e.key === 'Escape') done(false); }
+    function escHandler(e) {
+      if (e.key === 'Escape') done(false);
+    }
+
     overlay.querySelector('.confirm-cancel-btn').addEventListener('click', () => done(false));
     overlay.querySelector('.confirm-delete-btn').addEventListener('click', () => done(true));
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) done(false);
+    });
     document.addEventListener('keydown', escHandler);
   });
 }
@@ -347,14 +426,14 @@ function renderProfile() {
   }
 
   const rows = [
-    { icon: '✉️', label: 'Email', value: profile.email || '-' },
-    { icon: '👨‍🍳', label: 'Cooking Skill', value: capitalizeFirst(profile.cookingSkill || '-') },
-    { icon: '🏠', label: 'Household Size', value: profile.householdSize ? `${profile.householdSize} people` : '-' },
-    { icon: '📅', label: 'Meals / Week', value: profile.mealsPerWeek ? `${profile.mealsPerWeek} meals` : '-' },
-    { icon: '💰', label: 'Weekly Budget', value: profile.weeklyBudget ? `$${profile.weeklyBudget}` : '-' },
-    { icon: '🥗', label: 'Dietary', value: (profile.dietary || []).join(', ') || 'None' },
-    { icon: '🌍', label: 'Cuisines', value: (profile.cuisines || []).map(capitalizeFirst).join(', ') || 'Any' },
-    { icon: '🗓️', label: 'Member Since', value: memberSince },
+    { icon: '&#x2709;&#xFE0F;', label: 'Email', value: profile.email || '-' },
+    { icon: '&#x1F468;&#x200D;&#x1F373;', label: 'Cooking Skill', value: capitalizeFirst(profile.cookingSkill || '-') },
+    { icon: '&#x1F3E0;', label: 'Household Size', value: profile.householdSize ? `${profile.householdSize} people` : '-' },
+    { icon: '&#x1F4C5;', label: 'Meals / Week', value: profile.mealsPerWeek ? `${profile.mealsPerWeek} meals` : '-' },
+    { icon: '&#x1F4B0;', label: 'Weekly Budget', value: profile.weeklyBudget ? `$${profile.weeklyBudget}` : '-' },
+    { icon: '&#x1F967;', label: 'Dietary', value: (profile.dietary || []).join(', ') || 'None' },
+    { icon: '&#x1F30D;', label: 'Cuisines', value: (profile.cuisines || []).map(capitalizeFirst).join(', ') || 'Any' },
+    { icon: '&#x1F5D3;&#xFE0F;', label: 'Member Since', value: memberSince },
   ];
 
   el.innerHTML = `
@@ -401,14 +480,14 @@ function openAllLikedModal() {
           <div class="all-liked-card" data-id="${r.id}">
             <div class="all-liked-thumb">
               ${r.image
-                ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">`
+                ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(getRecipeDisplayName(r))}">`
                 : `<span class="all-liked-emoji">${r.emoji || '&#x1F37D;&#xFE0F;'}</span>`}
             </div>
             <div class="all-liked-info">
-              <div class="all-liked-name">${escapeHtml(r.name)}</div>
+              <div class="all-liked-name">${escapeHtml(getRecipeDisplayName(r))}</div>
               <div class="all-liked-meta">${capitalizeFirst(r.cuisine || '')}${r.cookTime ? ` &middot; ${r.cookTime} min` : ''}${r.difficulty ? ` &middot; ${capitalizeFirst(r.difficulty)}` : ''} &middot; &#x2764;&#xFE0F; ${r.likeCount || 0}</div>
             </div>
-            <button class="card-plan-btn all-liked-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(r.name)} to meal plan">
+            <button class="card-plan-btn all-liked-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(getRecipeDisplayName(r))} to meal plan">
               &#x1F4C5; Plan
             </button>
           </div>

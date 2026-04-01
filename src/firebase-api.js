@@ -54,6 +54,25 @@ async function waitForAuth() {
   });
 }
 
+function normalizeRecipeStatus(status) {
+  return status === 'draft' ? 'draft' : 'published';
+}
+
+function canReadRecipe(recipe, includeDraftsForUser) {
+  if (normalizeRecipeStatus(recipe?.status) !== 'draft') return true;
+  return !!includeDraftsForUser && recipe?.createdBy === includeDraftsForUser;
+}
+
+function prepareRecipeForWrite(data, { defaultStatus } = {}) {
+  const next = { ...data };
+  if ('status' in next) {
+    next.status = normalizeRecipeStatus(next.status);
+  } else if (defaultStatus) {
+    next.status = normalizeRecipeStatus(defaultStatus);
+  }
+  return next;
+}
+
 function docToRecipe(snap) {
   const d = snap.data();
   return {
@@ -72,8 +91,12 @@ function docToRecipe(snap) {
     instructions: d.instructions || '',
     dietary: d.dietary || [],
     likeCount: d.likeCount || 0,
+    prepTime: d.prepTime || 0,
+    calories: d.calories || 0,
+    sourceUrl: d.sourceUrl || '',
     createdBy: d.createdBy || '',
     createdAt: d.createdAt || null,
+    status: normalizeRecipeStatus(d.status),
   };
 }
 
@@ -219,7 +242,9 @@ const TenderAPI = {
   async getRecipes() {
     await seedIfEmpty();
     const snap = await getDocs(query(collection(db, 'recipes'), orderBy('createdAt', 'asc')));
-    return snap.docs.map(docToRecipe);
+    return snap.docs
+      .map(docToRecipe)
+      .filter(recipe => canReadRecipe(recipe, null));
   },
 
   async getDiscoverRecipes(limit = 50) {
@@ -229,7 +254,9 @@ const TenderAPI = {
   async getRecipe(id) {
     const snap = await getDoc(doc(db, 'recipes', id));
     if (!snap.exists()) throw new Error('Recipe not found');
-    return docToRecipe(snap);
+    const recipe = docToRecipe(snap);
+    if (!canReadRecipe(recipe, null)) throw new Error('Recipe not found');
+    return recipe;
   },
 
   async getLikedRecipes() {
@@ -245,7 +272,7 @@ const TenderAPI = {
     const recipes = await Promise.all(
       likedIds.map(id => getDoc(doc(db, 'recipes', id)).then(s => s.exists() ? docToRecipe(s) : null))
     );
-    return recipes.filter(Boolean);
+    return recipes.filter(recipe => recipe && canReadRecipe(recipe, null));
   },
 
   async likeRecipe(id) {
@@ -271,17 +298,19 @@ const TenderAPI = {
 
   async createRecipe(data) {
     const uid = currentUid();
+    const recipeData = prepareRecipeForWrite(data, { defaultStatus: 'published' });
     const ref = await addDoc(collection(db, 'recipes'), {
-      ...data,
+      ...recipeData,
       createdBy: uid,
       createdAt: serverTimestamp(),
     });
-    return { id: ref.id, ...data };
+    return { id: ref.id, ...recipeData };
   },
 
   async updateRecipe(id, data) {
-    await updateDoc(doc(db, 'recipes', id), data);
-    return { id, ...data };
+    const recipeData = prepareRecipeForWrite(data);
+    await updateDoc(doc(db, 'recipes', id), recipeData);
+    return { id, ...recipeData };
   },
 
   async deleteRecipe(id) {

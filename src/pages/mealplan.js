@@ -157,6 +157,7 @@ function hideCustomRecipeInvite() {
     S.customInviteFrame = null;
   }
   document.getElementById('mpCustomInvite')?.remove();
+  document.body.classList.remove('mp-has-custom-invite');
 }
 
 function showCustomRecipeInvite(customName) {
@@ -180,6 +181,10 @@ function showCustomRecipeInvite(customName) {
   invite.querySelector('.mp-custom-invite-btn').addEventListener('click', () => {
     hideCustomRecipeInvite();
     openAddRecipeModal(S.uid, (newRecipe) => {
+      if (newRecipe.status === 'draft') {
+        showToast('Draft saved to Cook Nook', 'success');
+        return;
+      }
       if (!S.allRecipes.some(r => r.id === newRecipe.id)) S.allRecipes.push(newRecipe);
       showToast('Recipe added to the database!', 'success');
     }, {
@@ -191,6 +196,7 @@ function showCustomRecipeInvite(customName) {
   });
 
   document.body.appendChild(invite);
+  document.body.classList.add('mp-has-custom-invite');
 
   const startedAt = performance.now();
   const updateInviteProgress = (now) => {

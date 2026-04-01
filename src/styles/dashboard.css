@@ -558,6 +558,18 @@
   border-color: rgba(255, 138, 50, 0.45);
 }
 
+.my-recipe-card.is-draft {
+  background: linear-gradient(180deg, rgba(255, 179, 71, 0.09), var(--bg-input));
+  border-color: rgba(232, 98, 26, 0.32);
+  box-shadow: 0 10px 26px rgba(232, 98, 26, 0.08);
+}
+
+.my-recipe-card.is-draft:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(232, 98, 26, 0.12);
+  border-color: rgba(232, 98, 26, 0.44);
+}
+
 .my-recipe-thumb {
   width: 100%;
   height: 110px;
@@ -619,6 +631,30 @@
 .my-recipe-plan-btn {
   margin-top: 10px;
   width: 100%;
+}
+
+.my-recipe-draft-btn {
+  box-shadow: 0 5px 16px rgba(232, 98, 26, 0.2);
+}
+
+.my-recipe-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin-bottom: 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.my-recipe-status-pill.is-draft {
+  background: rgba(232, 98, 26, 0.12);
+  color: #d96a21;
+  border: 1px solid rgba(232, 98, 26, 0.18);
 }
 
 /* ── Cook Nook controls bar ─────────────────────────────────── */
@@ -700,6 +736,16 @@
   border-color: rgba(255, 138, 50, 0.35);
 }
 
+.my-recipe-list-card.is-draft {
+  background: linear-gradient(90deg, rgba(255, 179, 71, 0.08), var(--bg-input));
+  border-color: rgba(232, 98, 26, 0.28);
+}
+
+.my-recipe-list-card.is-draft:hover {
+  background: linear-gradient(90deg, rgba(255, 179, 71, 0.11), var(--bg-card));
+  border-color: rgba(232, 98, 26, 0.36);
+}
+
 .my-recipe-list-thumb {
   width: 54px;
   height: 54px;
@@ -728,6 +774,13 @@
   min-width: 0;
 }
 
+.my-recipe-list-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .my-recipe-list-card .my-recipe-plan-btn {
   width: auto;
   margin-top: 0;
@@ -747,6 +800,18 @@
 .my-recipe-list-meta {
   font-size: 0.78em;
   color: var(--text-secondary);
+}
+
+html.dark-mode .my-recipe-card.is-draft,
+html.dark-mode .my-recipe-list-card.is-draft {
+  border-color: rgba(255, 179, 71, 0.34);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+html.dark-mode .my-recipe-status-pill.is-draft {
+  background: rgba(255, 179, 71, 0.18);
+  color: #ffd27f;
+  border-color: rgba(255, 179, 71, 0.22);
 }
 
 /* ── Cook Nook dots menu (mirrors discover, scoped to dashboard) */

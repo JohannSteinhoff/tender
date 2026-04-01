@@ -6,6 +6,8 @@ import {
 
 const RECIPES_COL = 'recipes';
 const VALID_MEAL_TYPES = new Set(['Breakfast', 'Lunch', 'Dinner']);
+const DRAFT_STATUS = 'draft';
+const PUBLISHED_STATUS = 'published';
 const WEEKDAY_INDEX = {
   Sunday: 0,
   Monday: 1,
@@ -50,40 +52,74 @@ function docToMealPlanEntry(snap) {
   };
 }
 
+function normalizeRecipeStatus(status) {
+  return status === DRAFT_STATUS ? DRAFT_STATUS : PUBLISHED_STATUS;
+}
+
+function normalizeRecipe(recipe) {
+  return {
+    ...recipe,
+    status: normalizeRecipeStatus(recipe?.status),
+  };
+}
+
+function prepareRecipeForWrite(data, { defaultStatus } = {}) {
+  const next = { ...data };
+  if ('status' in next) {
+    next.status = normalizeRecipeStatus(next.status);
+  } else if (defaultStatus) {
+    next.status = normalizeRecipeStatus(defaultStatus);
+  }
+  return next;
+}
+
+function canReadRecipe(recipe, includeDraftsForUser) {
+  if (normalizeRecipeStatus(recipe?.status) !== DRAFT_STATUS) return true;
+  return !!includeDraftsForUser && recipe?.createdBy === includeDraftsForUser;
+}
+
 /** Fetch all recipes from Firestore. */
-export async function getAllRecipes() {
+export async function getAllRecipes(options = {}) {
+  const includeDraftsForUser = typeof options === 'string'
+    ? options
+    : options?.includeDraftsForUser || null;
   const snap = await getDocs(query(collection(db, RECIPES_COL), orderBy('createdAt', 'asc')));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map(d => normalizeRecipe({ id: d.id, ...d.data() }))
+    .filter(recipe => canReadRecipe(recipe, includeDraftsForUser));
 }
 
 /** Fetch a single recipe by Firestore doc ID. */
-export async function getRecipeById(id) {
+export async function getRecipeById(id, options = {}) {
+  const includeDraftsForUser = typeof options === 'string'
+    ? options
+    : options?.includeDraftsForUser || null;
   const snap = await getDoc(doc(db, RECIPES_COL, id));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  const recipe = normalizeRecipe({ id: snap.id, ...snap.data() });
+  return canReadRecipe(recipe, includeDraftsForUser) ? recipe : null;
 }
 
 /** Create a new recipe. Returns the new recipe object. */
 export async function createRecipe(uid, data) {
+  const recipeData = prepareRecipeForWrite(data, { defaultStatus: PUBLISHED_STATUS });
   const docRef = await addDoc(collection(db, RECIPES_COL), {
-    ...data,
+    ...recipeData,
     createdBy: uid,
     createdAt: serverTimestamp(),
   });
-  return { id: docRef.id, ...data, createdBy: uid };
+  return { id: docRef.id, ...recipeData, createdBy: uid };
 }
 
-/** Update an existing recipe (owner or admin only — enforced by Firestore rules). */
+/** Update an existing recipe (owner or admin only - enforced by Firestore rules). */
 export async function updateRecipe(id, data) {
-  await updateDoc(doc(db, RECIPES_COL, id), data);
+  await updateDoc(doc(db, RECIPES_COL, id), prepareRecipeForWrite(data));
 }
 
 /** Delete a recipe. */
 export async function deleteRecipe(id) {
   await deleteDoc(doc(db, RECIPES_COL, id));
 }
-
-// ── Swipe actions ────────────────────────────────────────────
 
 const swipesPath = (uid) => collection(db, 'users', uid, 'swipes');
 

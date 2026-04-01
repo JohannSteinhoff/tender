@@ -61,7 +61,8 @@ function extractFirstEmoji(text) {
 
 export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   const existing = document.getElementById('add-recipe-modal-overlay');
-  if (existing) existing.remove();
+  if (existing?._arDestroy) existing._arDestroy();
+  else if (existing) existing.remove();
 
   // ── Build HTML parts ───────────────────────────────────────────
   const cuisineOptionsHtml = CUISINE_OPTIONS
@@ -257,9 +258,13 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   // ── State ──────────────────────────────────────────────────────
   const recipeSeed = existingRecipe || null;
   const isEditing = !!existingRecipe?.id;
+  const wasDraft = recipeSeed?.status === 'draft';
   let currentStep = 1;
   const totalSteps = 4;
   let uploadedImageFile = null;
+  let initialFormSnapshot = '';
+  let isSaving = false;
+  let isClosePromptOpen = false;
 
   // ── Step navigation ────────────────────────────────────────────
   function showStep(n) {
@@ -302,9 +307,11 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     const nextBtn = overlay.querySelector('#ar-next-btn');
     if (n === totalSteps) {
       nextBtn.className = 'ar-submit-btn';
-      nextBtn.innerHTML = isEditing
-        ? '<span class="ar-submit-icon">\u{1F4BE}</span> Save Changes'
-        : '<span class="ar-submit-icon">\u{1F31F}</span> Add Recipe';
+      nextBtn.innerHTML = wasDraft
+        ? '<span class="ar-submit-icon">\u{1F680}</span> Publish Recipe'
+        : isEditing
+          ? '<span class="ar-submit-icon">\u{1F4BE}</span> Save Changes'
+          : '<span class="ar-submit-icon">\u{1F31F}</span> Add Recipe';
     } else {
       nextBtn.className = 'ar-next-btn';
       nextBtn.innerHTML = 'Next <span class="ar-next-arrow">\u2192</span>';
@@ -332,9 +339,9 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   }
 
   // ── Back / Cancel ──────────────────────────────────────────────
-  overlay.querySelector('#ar-back-cancel').addEventListener('click', () => {
+  overlay.querySelector('#ar-back-cancel').addEventListener('click', async () => {
     if (currentStep === 1) {
-      close();
+      await attemptClose();
     } else {
       showStep(currentStep - 1);
     }
@@ -596,24 +603,165 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   });
 
   // ── Close ──────────────────────────────────────────────────────
-  function close() { overlay.remove(); document.body.style.overflow = ''; }
+  function getPrimaryActionHtml() {
+    return wasDraft
+      ? '<span class="ar-submit-icon">\u{1F680}</span> Publish Recipe'
+      : isEditing
+        ? '<span class="ar-submit-icon">\u{1F4BE}</span> Save Changes'
+        : '<span class="ar-submit-icon">\u{1F31F}</span> Add Recipe';
+  }
 
-  overlay.querySelector('#ar-close-btn').addEventListener('click', close);
+  function resetPrimaryButton() {
+    const nextBtn = overlay.querySelector('#ar-next-btn');
+    nextBtn.disabled = false;
+    if (currentStep === totalSteps) {
+      nextBtn.innerHTML = getPrimaryActionHtml();
+    } else {
+      nextBtn.innerHTML = 'Next <span class="ar-next-arrow">\u2192</span>';
+    }
+  }
+
+  function serializeFormState() {
+    const ingredients = Array.from(ingredientsList.querySelectorAll('.ar-ingredient-input'))
+      .map(i => i.value.trim())
+      .filter(Boolean);
+
+    const dietary = Array.from(overlay.querySelectorAll('input[name="dietary"]:checked'))
+      .map(cb => cb.value)
+      .sort();
+
+    return JSON.stringify({
+      name: overlay.querySelector('#ar-name').value.trim(),
+      cuisine: overlay.querySelector('#ar-cuisine').value || '',
+      difficulty: overlay.querySelector('#ar-difficulty').value || '',
+      prepTime: overlay.querySelector('#ar-preptime').value || '',
+      cookTime: overlay.querySelector('#ar-cooktime').value || '',
+      servings: overlay.querySelector('#ar-servings').value || '',
+      calories: overlay.querySelector('#ar-calories').value || '',
+      description: overlay.querySelector('#ar-description').value.trim(),
+      instructions: overlay.querySelector('#ar-instructions').value.trim(),
+      image: overlay.querySelector('#ar-image').value.trim(),
+      sourceUrl: overlay.querySelector('#ar-source').value.trim(),
+      emoji: overlay.querySelector('#ar-emoji').value.trim(),
+      ingredients,
+      dietary,
+      uploadedImageFile: uploadedImageFile
+        ? `${uploadedImageFile.name}:${uploadedImageFile.size}:${uploadedImageFile.lastModified}`
+        : '',
+    });
+  }
+
+  function captureInitialFormState() {
+    initialFormSnapshot = serializeFormState();
+  }
+
+  function hasUnsavedChanges() {
+    return serializeFormState() !== initialFormSnapshot;
+  }
+
+  function beforeUnloadHandler(e) {
+    if (!hasUnsavedChanges() || isSaving) return;
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
+  function close() {
+    document.removeEventListener('keydown', escHandler);
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    overlay.remove();
+    document.body.style.overflow = '';
+  }
+
+  overlay._arDestroy = close;
+
+  function showClosePrompt() {
+    const canSaveDraft = !isEditing || wasDraft;
+    return new Promise((resolve) => {
+      isClosePromptOpen = true;
+      const prompt = document.createElement('div');
+      prompt.className = 'confirm-overlay ar-unsaved-overlay';
+      prompt.innerHTML = `
+        <div class="confirm-dialog ar-unsaved-dialog">
+          <div class="confirm-icon">🍳</div>
+          <h3>${canSaveDraft ? 'Leave this recipe for now?' : 'Discard your changes?'}</h3>
+          <p>${canSaveDraft
+            ? 'You have unsaved progress. You can keep editing, save a private draft to Cook Nook, or discard what you have so far.'
+            : 'You have unsaved changes on this recipe. You can keep editing or discard those changes.'}</p>
+          <div class="confirm-actions ar-unsaved-actions${canSaveDraft ? ' has-draft' : ''}">
+            <button class="confirm-cancel-btn" data-action="keep">Keep Editing</button>
+            ${canSaveDraft ? '<button class="ar-save-draft-btn" data-action="draft">Save Draft</button>' : ''}
+            <button class="confirm-delete-btn" data-action="discard">${canSaveDraft ? 'Discard' : 'Discard Changes'}</button>
+          </div>
+        </div>`;
+      document.body.appendChild(prompt);
+
+      const escPromptHandler = (e) => {
+        if (e.key === 'Escape') finish('keep');
+      };
+
+      function finish(result) {
+        isClosePromptOpen = false;
+        document.removeEventListener('keydown', escPromptHandler);
+        prompt.classList.add('confirm-hiding');
+        setTimeout(() => prompt.remove(), 180);
+        resolve(result);
+      }
+
+      document.addEventListener('keydown', escPromptHandler);
+      prompt.querySelector('[data-action="keep"]').addEventListener('click', () => finish('keep'));
+      prompt.querySelector('[data-action="discard"]').addEventListener('click', () => finish('discard'));
+      prompt.querySelector('[data-action="draft"]')?.addEventListener('click', () => finish('draft'));
+    });
+  }
+
+  async function attemptClose() {
+    if (isSaving) return;
+    if (!hasUnsavedChanges()) {
+      close();
+      return;
+    }
+
+    const action = await showClosePrompt();
+    if (action === 'draft') {
+      const recipe = await persistRecipe('draft');
+      if (!recipe) return;
+      close();
+      showToast(wasDraft ? 'Draft updated in Cook Nook' : 'Draft saved to Cook Nook', 'success');
+      if (onSuccess) onSuccess(recipe);
+      return;
+    }
+
+    if (action === 'discard') {
+      close();
+    }
+  }
+
+  async function escHandler(e) {
+    if (isClosePromptOpen) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      await attemptClose();
+    }
+  }
+
+  overlay.querySelector('#ar-close-btn').addEventListener('click', attemptClose);
   let _mousedownOnOverlay = false;
   overlay.addEventListener('mousedown', (e) => { _mousedownOnOverlay = e.target === overlay; });
-  overlay.addEventListener('click', (e) => { if (e.target === overlay && _mousedownOnOverlay) close(); });
-
-  const escHandler = (e) => { if (e.key === 'Escape') close(); };
+  overlay.addEventListener('click', async (e) => {
+    if (e.target === overlay && _mousedownOnOverlay) await attemptClose();
+  });
   document.addEventListener('keydown', escHandler);
+  window.addEventListener('beforeunload', beforeUnloadHandler);
 
   // ── Submit ─────────────────────────────────────────────────────
-  async function handleSubmit() {
+  function buildRecipeData(status) {
+    const isDraftSave = status === 'draft';
     const name = overlay.querySelector('#ar-name').value.trim();
-    if (!name) {
+    if (!isDraftSave && !name) {
       showStep(1);
       showError('Recipe name is required.');
       overlay.querySelector('#ar-name').focus();
-      return;
+      return null;
     }
 
     const ingredients = Array.from(ingredientsList.querySelectorAll('.ar-ingredient-input'))
@@ -623,39 +771,51 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     const dietary = Array.from(overlay.querySelectorAll('input[name="dietary"]:checked'))
       .map(cb => cb.value);
 
+    const data = {
+      name: isDraftSave ? name : name || null,
+      description: overlay.querySelector('#ar-description').value.trim() || null,
+      emoji: overlay.querySelector('#ar-emoji').value.trim() || null,
+      cuisine: overlay.querySelector('#ar-cuisine').value || null,
+      difficulty: overlay.querySelector('#ar-difficulty').value || (isDraftSave ? null : 'medium'),
+      prepTime: parseInt(overlay.querySelector('#ar-preptime').value) || null,
+      cookTime: parseInt(overlay.querySelector('#ar-cooktime').value) || null,
+      servings: parseInt(overlay.querySelector('#ar-servings').value) || null,
+      calories: parseInt(overlay.querySelector('#ar-calories').value) || null,
+      ingredients: ingredients.length > 0 ? ingredients : null,
+      instructions: overlay.querySelector('#ar-instructions').value.trim() || null,
+      image: overlay.querySelector('#ar-image').value.trim() || null,
+      sourceUrl: overlay.querySelector('#ar-source').value.trim() || null,
+      dietary: dietary.length > 0 ? dietary : null,
+      status,
+    };
+
+    Object.keys(data).forEach(k => {
+      if (data[k] === null) delete data[k];
+    });
+
+    if (isDraftSave && !('name' in data)) {
+      data.name = '';
+    }
+
+    return data;
+  }
+
+  async function persistRecipe(status) {
+    const data = buildRecipeData(status);
+    if (!data) return null;
+
     const nextBtn = overlay.querySelector('#ar-next-btn');
+    isSaving = true;
     nextBtn.disabled = true;
     nextBtn.innerHTML = '<span class="ar-submit-spinner"></span> Saving...';
     hideError();
 
     try {
-      let imageUrl = overlay.querySelector('#ar-image').value.trim() || null;
-
-      // Upload file to Firebase Storage if one was dropped
       if (uploadedImageFile) {
         const storageRef = ref(storage, 'recipe-images/' + uid + '/' + Date.now() + '_' + uploadedImageFile.name);
         const snapshot = await uploadBytes(storageRef, uploadedImageFile);
-        imageUrl = await getDownloadURL(snapshot.ref);
+        data.image = await getDownloadURL(snapshot.ref);
       }
-
-      const data = {
-        name,
-        description:  overlay.querySelector('#ar-description').value.trim() || null,
-        emoji:        overlay.querySelector('#ar-emoji').value.trim() || null,
-        cuisine:      overlay.querySelector('#ar-cuisine').value || null,
-        difficulty:   overlay.querySelector('#ar-difficulty').value || 'medium',
-        prepTime:     parseInt(overlay.querySelector('#ar-preptime').value) || null,
-        cookTime:     parseInt(overlay.querySelector('#ar-cooktime').value) || null,
-        servings:     parseInt(overlay.querySelector('#ar-servings').value) || null,
-        calories:     parseInt(overlay.querySelector('#ar-calories').value) || null,
-        ingredients:  ingredients.length > 0 ? ingredients : null,
-        instructions: overlay.querySelector('#ar-instructions').value.trim() || null,
-        image:        imageUrl,
-        sourceUrl:    overlay.querySelector('#ar-source').value.trim() || null,
-        dietary:      dietary.length > 0 ? dietary : null,
-      };
-
-      Object.keys(data).forEach(k => { if (data[k] === null) delete data[k]; });
 
       let recipe;
       if (isEditing) {
@@ -664,19 +824,29 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       } else {
         recipe = await createRecipe(uid, data);
       }
-      const chosenEmoji = data.emoji || '';
-      document.removeEventListener('keydown', escHandler);
-      close();
-      if (!isEditing) celebrate(chosenEmoji);
-      if (onSuccess) onSuccess(recipe);
+
+      captureInitialFormState();
+      return recipe;
     } catch (err) {
       console.error('Failed to save recipe:', err);
-      showError('Failed to save the recipe. Please try again.');
-      nextBtn.disabled = false;
-      nextBtn.innerHTML = isEditing
-        ? '<span class="ar-submit-icon">\u{1F4BE}</span> Save Changes'
-        : '<span class="ar-submit-icon">\u{1F31F}</span> Add Recipe';
+      showError(status === 'draft'
+        ? 'Failed to save your draft. Please try again.'
+        : 'Failed to save the recipe. Please try again.');
+      return null;
+    } finally {
+      isSaving = false;
+      resetPrimaryButton();
     }
+  }
+
+  async function handleSubmit() {
+    const recipe = await persistRecipe('published');
+    if (!recipe) return;
+
+    const chosenEmoji = recipe.emoji || '';
+    close();
+    if (!isEditing || wasDraft) celebrate(chosenEmoji);
+    if (onSuccess) onSuccess(recipe);
   }
 
   // ── Error helpers ──────────────────────────────────────────────
@@ -773,5 +943,9 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
 
     updatePreview();
   }
+
+  updatePreview();
+  captureInitialFormState();
+  resetPrimaryButton();
 }
 

@@ -75,6 +75,7 @@ async function init() {
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
     try {
       openAddRecipeModal(uid, (newRecipe) => {
+        if (newRecipe.status === 'draft') return;
         allRecipes.push(newRecipe);
         buildCuisineChips();
         filterAndRender();
@@ -342,6 +343,7 @@ function renderGrid(recipes) {
         e.stopPropagation();
         card.querySelector('.card-dots-menu').style.display = 'none';
         openAddRecipeModal(uid, (updatedRecipe) => {
+          if (updatedRecipe.status === 'draft') return;
           const idx = allRecipes.findIndex(r => r.id === updatedRecipe.id);
           if (idx !== -1) allRecipes[idx] = updatedRecipe;
           buildCuisineChips();

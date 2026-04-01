@@ -22,6 +22,16 @@
 .toast.success { background: #27ae60; }
 .toast.error { background: var(--primary); }
 
+@media (max-width: 640px) {
+  body.mp-has-custom-invite .toast {
+    top: 84px;
+    bottom: auto;
+    max-width: min(calc(100vw - 28px), 420px);
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* ── Delete confirmation dialog ─────────────────────────────── */
 .confirm-overlay {
   position: fixed;
@@ -120,6 +130,44 @@
   background: #c0392b;
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(231,76,60,0.4);
+}
+
+.ar-unsaved-dialog {
+  max-width: 460px;
+  text-align: left;
+}
+
+.ar-unsaved-dialog .confirm-icon {
+  margin-bottom: 12px;
+}
+
+.ar-unsaved-dialog h3,
+.ar-unsaved-dialog p {
+  text-align: left;
+}
+
+.ar-unsaved-actions.has-draft {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ar-save-draft-btn {
+  padding: 11px;
+  background: linear-gradient(135deg, #ffb347, #e8621a);
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.95em;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(232, 98, 26, 0.26);
+}
+
+.ar-save-draft-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px rgba(232, 98, 26, 0.32);
 }
 
 /* ── Empty state ────────────────────────────────────────────── */
@@ -1879,6 +1927,8 @@ html.dark-mode .mealplan-prompt-day-chip {
   .ar-step-bar { padding: 10px 16px 8px; }
   .ar-step-lbl { display: none; }
   .ar-next-btn, .ar-cancel-btn { padding: 10px 16px; }
+  .ar-unsaved-actions.has-draft { grid-template-columns: 1fr; }
+  .ar-unsaved-dialog { padding: 26px 22px 20px; }
 }
 
 /* ── Add Recipe FAB button ──────────────────────────────────── */
@@ -1906,4 +1956,11 @@ html.dark-mode .mealplan-prompt-day-chip {
 .add-recipe-fab:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 28px rgba(255,107,107,0.5);
+}
+
+@media (max-width: 640px) {
+  .add-recipe-fab {
+    right: 16px;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+  }
 }
