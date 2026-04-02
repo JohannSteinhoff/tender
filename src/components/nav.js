@@ -28,7 +28,12 @@ export function renderNav(activePage, profile = null) {
     </a>`).join('');
 
   nav.innerHTML = `
-    <a href="/dashboard.html" class="logo">&#x1F373; Tender</a>
+    <a href="/dashboard.html" class="logo nav-brand-panel" aria-label="Tender home">
+      <span class="nav-brand-logo">
+        <img src="/logo.png" alt="" class="logo-img" aria-hidden="true">
+      </span>
+      <span class="nav-brand-name">Tender</span>
+    </a>
     <div class="nav-menu">${menuLinks}</div>
     <div class="nav-right">
       <button class="theme-toggle" id="themeBtn" title="Toggle dark mode" aria-label="Toggle dark mode">
