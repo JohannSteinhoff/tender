@@ -21,7 +21,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { filterByCuisine, CUISINE_OPTIONS, capitalizeFirst } from './helpers/discoverHelpers.js';
+import { filterByCuisine, CUISINE_OPTIONS, capitalizeFirst } from '../../helpers/discoverHelpers.js';
 
 const recipes = [
   { id: 'r1', name: 'Pasta Carbonara',  cuisine: 'italian' },

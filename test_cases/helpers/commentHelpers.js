@@ -95,6 +95,26 @@ export function toggleLike(comment, userId) {
   };
 }
 
+export function isAuthenticated(user) {
+  return Boolean(user?.uid);
+}
+
+export function canPerformEngagementAction(user) {
+  return isAuthenticated(user);
+}
+
+export function appendCommentWithoutRefresh(existingComments, comment) {
+  return [...existingComments, comment];
+}
+
+export function addReplyNested(comments, parentCommentId, reply) {
+  return comments.map((comment) => {
+    if (comment.commentId !== parentCommentId) return comment;
+    const replies = Array.isArray(comment.replies) ? comment.replies : [];
+    return { ...comment, replies: [...replies, reply] };
+  });
+}
+
 export function shouldNotifyRecipeOwner({ actorId, recipeOwnerId, preferences }) {
   if (!recipeOwnerId || actorId === recipeOwnerId) return false;
   return Boolean(preferences?.commentOnMyRecipeEnabled);
@@ -129,4 +149,19 @@ export function buildNotification({
     isRead: false,
     timestampIso
   };
+}
+
+export function splitNotificationsByReadState(notifications) {
+  const unread = [];
+  const read = [];
+
+  notifications.forEach((notification) => {
+    if (notification.isRead) {
+      read.push(notification);
+      return;
+    }
+    unread.push(notification);
+  });
+
+  return { unread, read };
 }

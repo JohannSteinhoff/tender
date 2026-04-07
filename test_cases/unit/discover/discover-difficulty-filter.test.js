@@ -25,7 +25,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { filterByDifficulty, DIFFICULTY_OPTIONS } from './helpers/discoverHelpers.js';
+import { filterByDifficulty, DIFFICULTY_OPTIONS } from '../../helpers/discoverHelpers.js';
 
 const recipes = [
   { id: 'r1', name: 'Scrambled Eggs',   difficulty: 'easy'   },

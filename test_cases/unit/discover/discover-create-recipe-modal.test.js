@@ -32,7 +32,7 @@ import {
   DIFFICULTY_OPTIONS,
   escapeHtml,
   capitalizeFirst,
-} from './helpers/discoverHelpers.js';
+} from '../../helpers/discoverHelpers.js';
 
 // A complete valid recipe payload
 const validRecipe = () => ({

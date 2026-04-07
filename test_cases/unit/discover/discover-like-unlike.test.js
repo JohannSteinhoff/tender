@@ -25,7 +25,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { isLiked, addLike, removeLike } from './helpers/discoverHelpers.js';
+import { isLiked, addLike, removeLike } from '../../helpers/discoverHelpers.js';
 
 // Initial liked state — user has liked two recipes
 const initialLikedIds = new Set(['recipe-abc', 'recipe-xyz']);

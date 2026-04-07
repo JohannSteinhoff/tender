@@ -20,7 +20,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { REQUIRED_CARD_FIELDS, escapeHtml, capitalizeFirst } from './helpers/discoverHelpers.js';
+import { REQUIRED_CARD_FIELDS, escapeHtml, capitalizeFirst } from '../../helpers/discoverHelpers.js';
 
 // A complete recipe card object matching the Firestore data shape
 const mockCard = {
