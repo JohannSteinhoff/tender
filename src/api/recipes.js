@@ -1,10 +1,11 @@
 import { db } from '../firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, orderBy, setDoc, serverTimestamp, increment,
+  query, orderBy, setDoc, serverTimestamp, increment, runTransaction, arrayRemove, arrayUnion,
 } from 'firebase/firestore';
 
 const RECIPES_COL = 'recipes';
+export const MAX_COMMENT_LENGTH = 1000;
 const VALID_MEAL_TYPES = new Set(['Breakfast', 'Lunch', 'Dinner']);
 const DRAFT_STATUS = 'draft';
 const PUBLISHED_STATUS = 'published';
@@ -61,6 +62,31 @@ function normalizeRecipe(recipe) {
     ...recipe,
     status: normalizeRecipeStatus(recipe?.status),
   };
+}
+
+function recipeCommentsPath(recipeId) {
+  return collection(db, RECIPES_COL, recipeId, 'comments');
+}
+
+function recipeCommentDoc(recipeId, commentId) {
+  return doc(db, RECIPES_COL, recipeId, 'comments', commentId);
+}
+
+function recipeRepliesPath(recipeId, commentId) {
+  return collection(db, RECIPES_COL, recipeId, 'comments', commentId, 'replies');
+}
+
+function sanitizeCommentText(text) {
+  return String(text || '').trim();
+}
+
+function validateCommentText(text) {
+  const trimmed = sanitizeCommentText(text);
+  if (!trimmed) throw new Error('Comment text is required');
+  if (trimmed.length > MAX_COMMENT_LENGTH) {
+    throw new Error(`Comment exceeds max length (${MAX_COMMENT_LENGTH})`);
+  }
+  return trimmed;
 }
 
 function prepareRecipeForWrite(data, { defaultStatus } = {}) {
@@ -202,4 +228,90 @@ export async function getUserSwipes(uid) {
 export async function getLikedRecipeIds(uid) {
   const swipes = await getUserSwipes(uid);
   return new Set(Object.entries(swipes).filter(([, a]) => a === 'like').map(([id]) => id));
+}
+
+/** List comments for a recipe including replies. */
+export async function getRecipeComments(recipeId) {
+  const commentSnap = await getDocs(query(recipeCommentsPath(recipeId), orderBy('createdAt', 'asc')));
+
+  const comments = await Promise.all(commentSnap.docs.map(async (d) => {
+    const data = d.data();
+    const replySnap = await getDocs(query(recipeRepliesPath(recipeId, d.id), orderBy('createdAt', 'asc')));
+    const replies = replySnap.docs.map(r => ({ id: r.id, ...r.data() }));
+
+    return {
+      id: d.id,
+      ...data,
+      replies,
+      likedBy: Array.isArray(data.likedBy) ? data.likedBy : [],
+      likeCount: Number(data.likeCount || 0),
+    };
+  }));
+
+  return comments;
+}
+
+/** Create a top-level comment on a recipe. */
+export async function addRecipeComment(recipeId, { userId, displayName, text }) {
+  const cleanText = validateCommentText(text);
+  const payload = {
+    userId,
+    displayName: (displayName || 'Anonymous').trim(),
+    profilePath: `/profile.html?uid=${encodeURIComponent(userId)}`,
+    text: cleanText,
+    likeCount: 0,
+    likedBy: [],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  const ref = await addDoc(recipeCommentsPath(recipeId), payload);
+
+  return {
+    id: ref.id,
+    ...payload,
+    createdAt: new Date(),
+    replies: [],
+  };
+}
+
+/** Create a reply under a specific comment. */
+export async function addRecipeReply(recipeId, commentId, { userId, displayName, text }) {
+  const cleanText = validateCommentText(text);
+  const payload = {
+    userId,
+    parentCommentId: commentId,
+    displayName: (displayName || 'Anonymous').trim(),
+    profilePath: `/profile.html?uid=${encodeURIComponent(userId)}`,
+    text: cleanText,
+    createdAt: serverTimestamp(),
+  };
+
+  const ref = await addDoc(recipeRepliesPath(recipeId, commentId), payload);
+  return { id: ref.id, ...payload, createdAt: new Date() };
+}
+
+/** Toggle like on a comment and return { liked, likeCount }. */
+export async function toggleRecipeCommentLike(recipeId, commentId, userId) {
+  return runTransaction(db, async (tx) => {
+    const ref = recipeCommentDoc(recipeId, commentId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error('Comment not found');
+
+    const data = snap.data();
+    const likedBy = Array.isArray(data.likedBy) ? data.likedBy : [];
+    const alreadyLiked = likedBy.includes(userId);
+    const currentCount = Number(data.likeCount || 0);
+
+    tx.update(ref, {
+      likedBy: alreadyLiked ? arrayRemove(userId) : arrayUnion(userId),
+      likeCount: alreadyLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      liked: !alreadyLiked,
+      likeCount: alreadyLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
+    };
+  });
 }

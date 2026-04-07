@@ -1,5 +1,5 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile } from '../api/users.js';
+import { getNotifications, getNotificationPrefs, getUserProfile, markNotificationRead, updateNotificationPrefs } from '../api/users.js';
 import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
@@ -43,11 +43,29 @@ async function init() {
 
   const theirRecipes = allRecipes.filter(r => r.createdBy === profileUid);
   const isOwnProfile = currentUid === profileUid;
+  const [notificationPrefs, notifications] = isOwnProfile
+    ? await Promise.all([getNotificationPrefs(currentUid), getNotifications(currentUid)])
+    : [null, []];
 
-  render(targetProfile, profileUid, theirRecipes, isOwnProfile, currentUid, likedIds);
+  render(targetProfile, profileUid, theirRecipes, isOwnProfile, currentUid, likedIds, notificationPrefs, notifications);
 }
 
-function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds) {
+function formatNotificationDate(ts) {
+  if (!ts) return 'Just now';
+  let d = ts;
+  if (d?.toDate) d = d.toDate();
+  else if (!(d instanceof Date)) d = new Date(d);
+  if (!(d instanceof Date) || isNaN(d)) return 'Just now';
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds, notificationPrefs, notifications) {
   const page = document.getElementById('profilePage');
 
   const initials = `${(profile.firstName || '')[0] || ''}${(profile.lastName || '')[0] || ''}`.toUpperCase() || '?';
@@ -64,6 +82,8 @@ function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds
   const cuisines = (profile.cuisines || []).map(c => capitalizeFirst(c));
   const totalLikes = recipes.reduce((sum, r) => sum + (r.likeCount || 0), 0);
   const firstName = escapeHtml(profile.firstName || 'This chef');
+  const unread = (notifications || []).filter(n => !n.isRead);
+  const read = (notifications || []).filter(n => n.isRead);
 
   page.innerHTML = `
     <div class="profile-back-row">
@@ -120,6 +140,47 @@ function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds
         </div>
       </div>` : ''}
     </div>
+
+    ${isOwnProfile ? `
+    <section class="profile-notifications-section">
+      <h2 class="profile-recipes-heading">Notifications</h2>
+      <div class="notif-prefs">
+        <label>
+          <input type="checkbox" id="prefComment" ${notificationPrefs?.commentOnMyRecipeEnabled ? 'checked' : ''}>
+          Notify me when someone comments on my recipes
+        </label>
+        <label>
+          <input type="checkbox" id="prefReply" ${notificationPrefs?.replyToMyCommentEnabled ? 'checked' : ''}>
+          Notify me when someone replies to my comments
+        </label>
+      </div>
+
+      <div class="notif-columns">
+        <div class="notif-column">
+          <h3>Unread (${unread.length})</h3>
+          ${unread.length === 0 ? '<p class="notif-empty">No unread notifications.</p>' : unread.map(n => `
+            <article class="notif-item unread" data-notification-id="${n.id}">
+              <p>${escapeHtml(n.message || 'New notification')}</p>
+              <div class="notif-meta">
+                <span>${escapeHtml(formatNotificationDate(n.createdAt))}</span>
+                <button type="button" data-action="mark-read">Mark read</button>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+        <div class="notif-column">
+          <h3>Read (${read.length})</h3>
+          ${read.length === 0 ? '<p class="notif-empty">No read notifications yet.</p>' : read.map(n => `
+            <article class="notif-item">
+              <p>${escapeHtml(n.message || 'Notification')}</p>
+              <div class="notif-meta">
+                <span>${escapeHtml(formatNotificationDate(n.createdAt))}</span>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+      </div>
+    </section>` : ''}
 
     <section class="profile-recipes-section">
       <h2 class="profile-recipes-heading">
@@ -181,6 +242,29 @@ function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds
       );
     }
   });
+
+  if (isOwnProfile) {
+    const prefComment = document.getElementById('prefComment');
+    const prefReply = document.getElementById('prefReply');
+
+    prefComment?.addEventListener('change', async () => {
+      await updateNotificationPrefs(currentUid, { commentOnMyRecipeEnabled: prefComment.checked });
+    });
+
+    prefReply?.addEventListener('change', async () => {
+      await updateNotificationPrefs(currentUid, { replyToMyCommentEnabled: prefReply.checked });
+    });
+
+    page.querySelectorAll('[data-action="mark-read"]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const card = e.currentTarget.closest('[data-notification-id]');
+        const id = card?.dataset.notificationId;
+        if (!id) return;
+        await markNotificationRead(currentUid, id, true);
+        window.location.reload();
+      });
+    });
+  }
 }
 
 init().catch(console.error);
