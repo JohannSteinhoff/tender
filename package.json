@@ -8,13 +8,17 @@
     "deploy": "npm run build && firebase deploy --only hosting,firestore",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "preview": "vite preview",
+    "sync:grocery-brands": "node sync-grocery-brand-recommendations.js",
+    "test:grocery-brands": "vitest run tests/grocery-brand-recommendations.test.js --reporter=verbose",
     "test:fr": "node tests/fr1-10/run-tests.js",
     "test": "npm run test:fr"
   },
   "dependencies": {
-    "firebase": "^12.10.0"
+    "firebase": "^12.10.0",
+    "firebase-admin": "^13.4.0"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^2.1.8"
   }
 }

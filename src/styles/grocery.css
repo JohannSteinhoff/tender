@@ -163,7 +163,7 @@
 /* ── Individual items ────────────────────────────────────────── */
 .grocery-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border-light);
@@ -184,9 +184,66 @@
 }
 
 .grocery-item-name {
-  flex: 1;
+  display: block;
   font-size: 0.95em;
+  font-weight: 600;
   color: var(--text-primary);
+}
+
+.grocery-item-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grocery-item-brand-selection {
+  font-size: 0.82em;
+  color: var(--text-secondary);
+}
+
+.grocery-item-brands {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grocery-item-brands-label {
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.grocery-item-brands-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.grocery-brand-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8em;
+  line-height: 1.2;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.grocery-brand-chip:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.grocery-brand-chip.selected {
+  border-color: var(--primary);
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--primary);
 }
 
 .grocery-item-qty {
@@ -201,6 +258,11 @@
 
 .grocery-item.checked .grocery-item-name {
   text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.grocery-item.checked .grocery-item-brand-selection,
+.grocery-item.checked .grocery-item-brands-label {
   color: var(--text-tertiary);
 }
 
@@ -248,3 +310,14 @@
 }
 
 .btn-clear-checked:hover { color: var(--primary); background: rgba(255,107,107,0.06); }
+
+@media (max-width: 640px) {
+  .grocery-item {
+    flex-wrap: wrap;
+  }
+
+  .grocery-item-qty,
+  .grocery-item-delete {
+    margin-left: 34px;
+  }
+}

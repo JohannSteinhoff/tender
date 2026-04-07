@@ -44,6 +44,13 @@ service cloud.firestore {
       );
     }
 
+    // Shared grocery brand recommendations are readable by signed-in users.
+    // They are populated out-of-band from USDA data and are not client-writable.
+    match /groceryBrandRecommendations/{ingredientId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
