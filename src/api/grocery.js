@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import {
   normalizeGroceryName,
+  sanitizeBrandSelection,
   sanitizeGeneratedItems,
 } from '../features/grocery/logic.js';
 
@@ -23,6 +24,7 @@ function toGroceryItem(snapshot) {
     name: data.name || '',
     quantity: Number.isFinite(data.quantity) ? data.quantity : 1,
     checked: Boolean(data.checked),
+    selectedBrand: sanitizeBrandSelection(data.selectedBrand),
   };
 }
 
@@ -45,6 +47,7 @@ export class GroceryRepository {
       name: cleanName,
       quantity: cleanQuantity,
       checked: false,
+      selectedBrand: null,
       addedAt: serverTimestamp(),
     });
 
@@ -53,6 +56,7 @@ export class GroceryRepository {
       name: cleanName,
       quantity: cleanQuantity,
       checked: false,
+      selectedBrand: null,
     };
   }
 
@@ -64,6 +68,12 @@ export class GroceryRepository {
 
   async delete(id) {
     await deleteDoc(doc(db, 'users', this.uid, 'grocery', id));
+  }
+
+  async setSelectedBrand(id, brand) {
+    await updateDoc(doc(db, 'users', this.uid, 'grocery', id), {
+      selectedBrand: sanitizeBrandSelection(brand),
+    });
   }
 
   async clearChecked() {
@@ -118,6 +128,7 @@ export class GroceryRepository {
         name: incomingItem.name,
         quantity: incomingItem.quantity,
         checked: false,
+        selectedBrand: null,
       };
       batch.set(ref, {
         name: item.name,

@@ -17,8 +17,10 @@ import {
   validateStep1,
 } from "../../src/features/registration/logic.js";
 import {
+  attachBrandRecommendations,
   collectIngredientsFromRecipes,
   mergeGeneratedItems,
+  sanitizeRecommendationRecord,
 } from "../../src/features/grocery/logic.js";
 
 const tests = [
@@ -164,6 +166,63 @@ const tests = [
       assert.equal(byName.eggs.quantity, 4);
       assert.equal(byName.butter.quantity, 1);
       assert.equal(byName.butter.checked, false);
+    },
+  },
+  {
+    id: "FR-13",
+    run: () => {
+      const items = [
+        { id: "1", name: " Milk ", quantity: 1, checked: false },
+        { id: "2", name: "Bananas", quantity: 4, checked: false },
+        { id: "3", name: "Pasta Sauce", quantity: 1, checked: false },
+      ];
+      const recommendations = new Map([
+        [
+          "milk",
+          sanitizeRecommendationRecord({
+            normalizedName: "milk",
+            eligible: true,
+            brands: [
+              { name: "Great Value", productName: "Whole Milk" },
+              { name: "Fairlife", productName: "2% Reduced Fat Milk" },
+              { name: "Organic Valley", productName: "Whole Milk" },
+              { name: "Horizon Organic", productName: "Whole Milk" },
+            ],
+          }),
+        ],
+        [
+          "banana",
+          sanitizeRecommendationRecord({
+            normalizedName: "banana",
+            eligible: false,
+            brands: [],
+          }),
+        ],
+        [
+          "pasta sauce",
+          sanitizeRecommendationRecord({
+            normalizedName: "pasta sauce",
+            eligible: true,
+            brands: [
+              { brandOwner: "Rao's", description: "Marinara Sauce" },
+              { description: "Missing a brand name on purpose" },
+            ],
+          }),
+        ],
+      ]);
+
+      const result = attachBrandRecommendations(items, recommendations);
+      const byId = Object.fromEntries(result.map((item) => [item.id, item]));
+
+      assert.deepEqual(
+        byId["1"].recommendedBrands.map((brand) => brand.name),
+        ["Great Value", "Fairlife", "Organic Valley"]
+      );
+      assert.equal(byId["2"].recommendedBrands.length, 0);
+      assert.deepEqual(
+        byId["3"].recommendedBrands.map((brand) => brand.name),
+        ["Rao's"]
+      );
     },
   },
 ];

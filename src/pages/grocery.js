@@ -1,30 +1,38 @@
-﻿import { requireAuth } from '../auth.js';
-import { GroceryRepository } from '../api/grocery.js';
-import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
-import { getUserProfile } from '../api/users.js';
-import { renderNav } from '../components/nav.js';
-import { showToast } from '../components/toast.js';
-import { escapeHtml } from '../utils/helpers.js';
-import { collectIngredientsFromRecipes } from '../features/grocery/logic.js';
+import { requireAuth } from "../auth.js";
+import { GroceryRepository } from "../api/grocery.js";
+import { GroceryBrandRecommendationRepository } from "../api/grocery-recommendations.js";
+import { getAllRecipes, getLikedRecipeIds } from "../api/recipes.js";
+import { getUserProfile } from "../api/users.js";
+import { renderNav } from "../components/nav.js";
+import { showToast } from "../components/toast.js";
+import {
+  applyBrandRecommendations,
+  collectIngredientsFromRecipes,
+} from "../features/grocery/logic.js";
+import {
+  isSameBrand,
+  renderGroceryItemMarkup,
+} from "../features/grocery/view.js";
 
 class GroceryListPage {
   constructor() {
     this.uid = null;
     this.repo = null;
+    this.recommendationRepo = new GroceryBrandRecommendationRepository();
     this.items = [];
     this.loading = false;
     this.generating = false;
 
     this.elements = {
-      list: document.getElementById('groceryList'),
-      form: document.getElementById('addItemForm'),
-      input: document.getElementById('newItemInput'),
-      addBtn: document.getElementById('btnAddItem'),
-      cancelBtn: document.getElementById('btnCancelAdd'),
+      list: document.getElementById("groceryList"),
+      form: document.getElementById("addItemForm"),
+      input: document.getElementById("newItemInput"),
+      addBtn: document.getElementById("btnAddItem"),
+      cancelBtn: document.getElementById("btnCancelAdd"),
       generateBtn: null,
-      total: document.getElementById('totalItems'),
-      checked: document.getElementById('checkedItems'),
-      remaining: document.getElementById('remainingItems'),
+      total: document.getElementById("totalItems"),
+      checked: document.getElementById("checkedItems"),
+      remaining: document.getElementById("remainingItems"),
     };
   }
 
@@ -33,12 +41,12 @@ class GroceryListPage {
     this.uid = user.uid;
     this.repo = new GroceryRepository(this.uid);
 
-    renderNav('grocery');
+    renderNav("grocery");
     this.insertGenerateButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
-    renderNav('grocery', profile);
+    renderNav("grocery", profile);
 
     await this.loadItems();
   }
@@ -46,43 +54,51 @@ class GroceryListPage {
   bindEvents() {
     const { addBtn, cancelBtn, form, input, list, generateBtn } = this.elements;
 
-    addBtn.addEventListener('click', () => {
-      form.classList.remove('hidden');
+    addBtn.addEventListener("click", () => {
+      form.classList.remove("hidden");
       input.focus();
     });
 
-    cancelBtn.addEventListener('click', () => {
+    cancelBtn.addEventListener("click", () => {
       this.hideAddForm();
     });
 
-    form.addEventListener('submit', async (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       await this.handleAddItem();
     });
 
-    generateBtn?.addEventListener('click', async () => {
+    generateBtn?.addEventListener("click", async () => {
       await this.handleGenerateFromLikes();
     });
 
-    list.addEventListener('change', async (event) => {
-      const checkbox = event.target.closest('.grocery-item-check');
+    list.addEventListener("change", async (event) => {
+      const checkbox = event.target.closest(".grocery-item-check");
       if (!checkbox) return;
 
-      const row = checkbox.closest('.grocery-item');
+      const row = checkbox.closest(".grocery-item");
       if (!row?.dataset.id) return;
       await this.handleToggle(row.dataset.id, checkbox.checked);
     });
 
-    list.addEventListener('click', async (event) => {
-      const deleteBtn = event.target.closest('.grocery-item-delete');
+    list.addEventListener("click", async (event) => {
+      const brandButton = event.target.closest(".grocery-brand-chip");
+      if (brandButton) {
+        const row = brandButton.closest(".grocery-item");
+        if (!row?.dataset.id) return;
+        await this.handleSelectBrand(row.dataset.id, Number.parseInt(brandButton.dataset.brandIndex, 10));
+        return;
+      }
+
+      const deleteBtn = event.target.closest(".grocery-item-delete");
       if (deleteBtn) {
-        const row = deleteBtn.closest('.grocery-item');
+        const row = deleteBtn.closest(".grocery-item");
         if (!row?.dataset.id) return;
         await this.handleDelete(row.dataset.id);
         return;
       }
 
-      const clearBtn = event.target.closest('.btn-clear-checked');
+      const clearBtn = event.target.closest(".btn-clear-checked");
       if (clearBtn) {
         await this.handleClearChecked();
       }
@@ -95,13 +111,26 @@ class GroceryListPage {
 
     try {
       this.items = await this.repo.list();
+      await this.refreshRecommendations();
       this.sortItems();
     } catch (error) {
-      console.error('Failed to load grocery items:', error);
-      showToast('Could not load grocery list from Firebase.', 'error');
+      console.error("Failed to load grocery items:", error);
+      showToast("Could not load grocery list from Firebase.", "error");
     } finally {
       this.loading = false;
       this.render();
+    }
+  }
+
+  // Recommendation lookups are intentionally isolated so a missing Firestore
+  // doc never blocks the grocery list from loading or updating.
+  async refreshRecommendations() {
+    const result = await applyBrandRecommendations(this.items, this.recommendationRepo);
+    this.items = result.items;
+
+    if (result.error) {
+      const error = result.error;
+      console.error("Failed to load brand recommendations:", error);
     }
   }
 
@@ -114,13 +143,14 @@ class GroceryListPage {
     try {
       const newItem = await this.repo.add({ name, quantity });
       this.items.push(newItem);
+      await this.refreshRecommendations();
       this.sortItems();
       this.hideAddForm();
       this.render();
-      showToast(`Added "${name}"`, 'success');
+      showToast(`Added "${name}"`, "success");
     } catch (error) {
-      console.error('Failed to add grocery item:', error);
-      showToast('Could not add item. Please try again.', 'error');
+      console.error("Failed to add grocery item:", error);
+      showToast("Could not add item. Please try again.", "error");
     }
   }
 
@@ -139,8 +169,8 @@ class GroceryListPage {
       item.checked = previous;
       this.sortItems();
       this.render();
-      console.error('Failed to update grocery item:', error);
-      showToast('Could not update item status.', 'error');
+      console.error("Failed to update grocery item:", error);
+      showToast("Could not update item status.", "error");
     }
   }
 
@@ -153,13 +183,13 @@ class GroceryListPage {
 
     try {
       await this.repo.delete(id);
-      showToast(`Removed "${removed.name}"`, 'success');
+      showToast(`Removed "${removed.name}"`, "success");
     } catch (error) {
       this.items.splice(index, 0, removed);
       this.sortItems();
       this.render();
-      console.error('Failed to delete grocery item:', error);
-      showToast('Could not delete item. Please try again.', 'error');
+      console.error("Failed to delete grocery item:", error);
+      showToast("Could not delete item. Please try again.", "error");
     }
   }
 
@@ -173,13 +203,13 @@ class GroceryListPage {
 
     try {
       const deletedCount = await this.repo.clearChecked();
-      showToast(`Cleared ${deletedCount} checked item${deletedCount === 1 ? '' : 's'}.`, 'success');
+      showToast(`Cleared ${deletedCount} checked item${deletedCount === 1 ? "" : "s"}.`, "success");
     } catch (error) {
       this.items = previousItems;
       this.sortItems();
       this.render();
-      console.error('Failed to clear checked grocery items:', error);
-      showToast('Could not clear checked items.', 'error');
+      console.error("Failed to clear checked grocery items:", error);
+      showToast("Could not clear checked items.", "error");
     }
   }
 
@@ -194,7 +224,7 @@ class GroceryListPage {
       ]);
 
       if (likedIds.size === 0) {
-        showToast('No liked recipes found yet. Like some recipes first.', 'default');
+        showToast("No liked recipes found yet. Like some recipes first.", "default");
         return;
       }
 
@@ -202,29 +232,58 @@ class GroceryListPage {
       const generatedItems = collectIngredientsFromRecipes(likedRecipes);
 
       if (generatedItems.length === 0) {
-        showToast('No ingredients found on liked recipes.', 'default');
+        showToast("No ingredients found on liked recipes.", "default");
         return;
       }
 
       const result = await this.repo.mergeByName(generatedItems);
       this.items = result.items;
+      await this.refreshRecommendations();
       this.sortItems();
       this.render();
 
       if (result.added === 0 && result.updated === 0) {
-        showToast('No grocery updates were needed.', 'default');
+        showToast("No grocery updates were needed.", "default");
         return;
       }
 
       showToast(
         `Generated list from likes: ${result.added} added, ${result.updated} updated.`,
-        'success'
+        "success"
       );
     } catch (error) {
-      console.error('Failed to generate grocery items from likes:', error);
-      showToast('Could not generate grocery list from liked recipes.', 'error');
+      console.error("Failed to generate grocery items from likes:", error);
+      showToast("Could not generate grocery list from liked recipes.", "error");
     } finally {
       this.setGenerateButtonState(false);
+    }
+  }
+
+  async handleSelectBrand(id, brandIndex) {
+    const item = this.items.find((entry) => entry.id === id);
+    if (!item) return;
+
+    const selectedBrand = item.recommendedBrands?.[brandIndex] || null;
+    if (!selectedBrand) return;
+
+    const previousBrand = item.selectedBrand ? { ...item.selectedBrand } : null;
+    const nextBrand = isSameBrand(item.selectedBrand, selectedBrand) ? null : selectedBrand;
+
+    item.selectedBrand = nextBrand;
+    this.render();
+
+    try {
+      await this.repo.setSelectedBrand(id, nextBrand);
+      if (nextBrand) {
+        showToast(`Selected ${nextBrand.name} for "${item.name}".`, "success");
+      } else {
+        showToast(`Cleared brand for "${item.name}".`, "default");
+      }
+    } catch (error) {
+      item.selectedBrand = previousBrand;
+      this.render();
+      console.error("Failed to save selected grocery brand:", error);
+      showToast("Could not save the selected brand.", "error");
     }
   }
 
@@ -239,8 +298,8 @@ class GroceryListPage {
   }
 
   hideAddForm() {
-    this.elements.form.classList.add('hidden');
-    this.elements.input.value = '';
+    this.elements.form.classList.add("hidden");
+    this.elements.input.value = "";
   }
 
   sortItems() {
@@ -283,25 +342,27 @@ class GroceryListPage {
     const checkedCount = this.items.filter((item) => item.checked).length;
 
     list.innerHTML = `
-      ${this.items.map((item) => `
-        <div class="grocery-item${item.checked ? ' checked' : ''}" data-id="${item.id}">
-          <input class="grocery-item-check" type="checkbox" ${item.checked ? 'checked' : ''} aria-label="Check ${escapeHtml(item.name)}">
-          <span class="grocery-item-name">${escapeHtml(item.name)}</span>
-          <span class="grocery-item-qty" aria-label="Quantity">${item.quantity}x</span>
-          <button class="grocery-item-delete" aria-label="Remove">&#x2715;</button>
-        </div>`).join('')}
-      ${checkedCount > 0 ? `<div class="grocery-actions"><button class="btn-clear-checked">Clear checked (${checkedCount})</button></div>` : ''}`;
+      ${this.items
+        .map(
+          (item) => renderGroceryItemMarkup(item)
+        )
+        .join("")}
+      ${
+        checkedCount > 0
+          ? `<div class="grocery-actions"><button class="btn-clear-checked">Clear checked (${checkedCount})</button></div>`
+          : ""
+      }`;
   }
 
   insertGenerateButton() {
     if (this.elements.generateBtn || !this.elements.addBtn) return;
 
-    const generateBtn = document.createElement('button');
-    generateBtn.type = 'button';
-    generateBtn.id = 'btnGenerateFromLiked';
-    generateBtn.className = 'btn-generate-liked';
-    generateBtn.textContent = 'Generate from Likes';
-    this.elements.addBtn.insertAdjacentElement('beforebegin', generateBtn);
+    const generateBtn = document.createElement("button");
+    generateBtn.type = "button";
+    generateBtn.id = "btnGenerateFromLiked";
+    generateBtn.className = "btn-generate-liked";
+    generateBtn.textContent = "Generate from Likes";
+    this.elements.addBtn.insertAdjacentElement("beforebegin", generateBtn);
     this.elements.generateBtn = generateBtn;
   }
 
@@ -310,13 +371,13 @@ class GroceryListPage {
     if (!this.elements.generateBtn) return;
     this.elements.generateBtn.disabled = isLoading;
     this.elements.generateBtn.textContent = isLoading
-      ? 'Generating...'
-      : 'Generate from Likes';
+      ? "Generating..."
+      : "Generate from Likes";
   }
 }
 
 const page = new GroceryListPage();
 page.init().catch((error) => {
   console.error(error);
-  showToast('Failed to initialize grocery page.', 'error');
+  showToast("Failed to initialize grocery page.", "error");
 });
