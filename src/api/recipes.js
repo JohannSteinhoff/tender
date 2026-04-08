@@ -73,31 +73,36 @@ function prepareRecipeForWrite(data, { defaultStatus } = {}) {
   return next;
 }
 
-function canReadRecipe(recipe, includeDraftsForUser) {
+function canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts = false) {
+  if (includeAllDrafts) return true;
   if (normalizeRecipeStatus(recipe?.status) !== DRAFT_STATUS) return true;
   return !!includeDraftsForUser && recipe?.createdBy === includeDraftsForUser;
 }
 
 /** Fetch all recipes from Firestore. */
 export async function getAllRecipes(options = {}) {
-  const includeDraftsForUser = typeof options === 'string'
-    ? options
-    : options?.includeDraftsForUser || null;
+  const normalizedOptions = typeof options === 'string'
+    ? { includeDraftsForUser: options }
+    : (options || {});
+  const includeDraftsForUser = normalizedOptions.includeDraftsForUser || null;
+  const includeAllDrafts = !!normalizedOptions.includeAllDrafts;
   const snap = await getDocs(query(collection(db, RECIPES_COL), orderBy('createdAt', 'asc')));
   return snap.docs
     .map(d => normalizeRecipe({ id: d.id, ...d.data() }))
-    .filter(recipe => canReadRecipe(recipe, includeDraftsForUser));
+    .filter(recipe => canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts));
 }
 
 /** Fetch a single recipe by Firestore doc ID. */
 export async function getRecipeById(id, options = {}) {
-  const includeDraftsForUser = typeof options === 'string'
-    ? options
-    : options?.includeDraftsForUser || null;
+  const normalizedOptions = typeof options === 'string'
+    ? { includeDraftsForUser: options }
+    : (options || {});
+  const includeDraftsForUser = normalizedOptions.includeDraftsForUser || null;
+  const includeAllDrafts = !!normalizedOptions.includeAllDrafts;
   const snap = await getDoc(doc(db, RECIPES_COL, id));
   if (!snap.exists()) return null;
   const recipe = normalizeRecipe({ id: snap.id, ...snap.data() });
-  return canReadRecipe(recipe, includeDraftsForUser) ? recipe : null;
+  return canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts) ? recipe : null;
 }
 
 /** Create a new recipe. Returns the new recipe object. */

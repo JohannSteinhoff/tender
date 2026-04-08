@@ -64,6 +64,7 @@ export function renderNav(activePage, profile = null) {
           <div class="avatar-dropdown-divider"></div>
           <a href="/account.html" class="avatar-dropdown-item ${activePage === 'account' ? 'avatar-dropdown-item--active' : ''}">&#x2699;&#xFE0F; Account Settings</a>
           ${profile?.uid ? `<a href="/profile.html?uid=${profile.uid}" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
+          ${profile?.isAdmin ? `<a href="/admin.html" class="avatar-dropdown-item ${activePage === 'admin' ? 'avatar-dropdown-item--active' : ''}">&#x1F6E1;&#xFE0F; Admin</a>` : ''}
           <div class="avatar-dropdown-divider"></div>
           <div class="avatar-dropdown-section-label">Pages</div>
           ${NAV_LINKS.map(l => `<a href="${l.href}" class="avatar-dropdown-item ${activePage === l.page ? 'avatar-dropdown-item--active' : ''}">${l.icon} ${l.label}</a>`).join('')}

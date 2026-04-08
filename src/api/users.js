@@ -1,5 +1,12 @@
 import { db } from '../firebase.js';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+} from 'firebase/firestore';
 
 /** Fetch the Firestore profile for a user. */
 export async function getUserProfile(uid) {
@@ -25,4 +32,33 @@ export async function getUserProfiles(uids) {
     if (snap.exists()) map[uids[i]] = snap.data();
   });
   return map;
+}
+
+/** Fetch all Firestore user profiles. */
+export async function getAllUsers() {
+  const snap = await getDocs(collection(db, 'users'));
+  return snap.docs.map(userDoc => ({
+    uid: userDoc.id,
+    ...userDoc.data(),
+  }));
+}
+
+/** Promote or demote a user by toggling their isAdmin flag. */
+export async function setUserAdminStatus(uid, isAdmin) {
+  await setDoc(doc(db, 'users', uid), { isAdmin: !!isAdmin }, { merge: true });
+}
+
+async function deleteSubcollectionDocs(uid, subcollection) {
+  const snap = await getDocs(collection(db, 'users', uid, subcollection));
+  await Promise.all(snap.docs.map(subDoc => deleteDoc(subDoc.ref)));
+}
+
+/** Delete a user's Firestore profile and known nested data. */
+export async function deleteUserData(uid) {
+  await Promise.all([
+    deleteSubcollectionDocs(uid, 'swipes'),
+    deleteSubcollectionDocs(uid, 'grocery'),
+    deleteSubcollectionDocs(uid, 'mealplan'),
+  ]);
+  await deleteDoc(doc(db, 'users', uid));
 }

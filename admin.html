@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/logo.png">
+  <title>Admin - Tender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/base.css">
+  <link rel="stylesheet" href="/src/styles/nav.css">
+  <link rel="stylesheet" href="/src/styles/components.css">
+  <link rel="stylesheet" href="/src/styles/admin.css">
+</head>
+<body>
+  <nav id="app-nav"></nav>
+
+  <main class="admin-page">
+    <section class="admin-hero">
+      <div>
+        <p class="admin-eyebrow">Admin Console</p>
+        <h1>Manage recipes and users</h1>
+        <p class="admin-subtitle">Delete recipes, remove user data, and promote or demote other admins.</p>
+      </div>
+      <div class="admin-summary" id="adminSummary">
+        <div class="admin-summary-card">
+          <span class="admin-summary-label">Users</span>
+          <strong id="userCount">0</strong>
+        </div>
+        <div class="admin-summary-card">
+          <span class="admin-summary-label">Recipes</span>
+          <strong id="recipeCount">0</strong>
+        </div>
+        <div class="admin-summary-card">
+          <span class="admin-summary-label">Admins</span>
+          <strong id="adminCount">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-layout">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <h2>Users</h2>
+            <p>Promote admins or delete a user's Firestore data.</p>
+          </div>
+          <input id="userSearch" class="admin-search" type="search" placeholder="Search by name, email, or uid">
+        </div>
+        <div class="admin-list" id="userList">
+          <div class="admin-empty">Loading users...</div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <h2>Recipes</h2>
+            <p>Delete any recipe in the database.</p>
+          </div>
+          <input id="recipeSearch" class="admin-search" type="search" placeholder="Search by recipe name, creator, or id">
+        </div>
+        <div class="admin-list" id="recipeList">
+          <div class="admin-empty">Loading recipes...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/pages/admin.js"></script>
+</body>
+</html>

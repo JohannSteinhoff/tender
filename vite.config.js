@@ -15,6 +15,7 @@ export default defineConfig({
         grocery: resolve(__dirname, 'grocery.html'),
         account: resolve(__dirname, 'account.html'),
         profile: resolve(__dirname, 'profile.html'),
+        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },
