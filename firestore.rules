@@ -1,53 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isSelfPromotionAttempt() {
+      return request.resource.data.isAdmin == true
+        && (!resource.data.keys().hasAny(['isAdmin']) || resource.data.isAdmin != true);
+    }
 
     // Users can read/write their own profile
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false;
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && request.resource.data.isAdmin != true;
+      allow update: if isAdmin() || (
+        isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin'])
+        && !isSelfPromotionAttempt()
+      );
+      allow delete: if isAdmin();
 
       // Swipes subcollection - only the owning user
       match /swipes/{recipeId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       // Grocery subcollection - only the owning user
       match /grocery/{itemId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       // Meal plan subcollection - only the owning user
       match /mealplan/{itemId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
     // Recipes - any logged-in user can read and create;
     // only the creator or an admin can update/delete
     match /recipes/{recipeId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && (
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
         // Any logged-in user can update likeCount (for liking/unliking)
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount'])
         // Full edits require being the creator or admin
         || resource.data.createdBy == request.auth.uid
         || resource.data.createdBy == null
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+        || isAdmin()
       );
-      allow delete: if request.auth != null && (
+      allow delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid ||
         resource.data.createdBy == null ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+        isAdmin()
       );
     }
 
     // Shared grocery brand recommendations are readable by signed-in users.
     // They are populated out-of-band from USDA data and are not client-writable.
     match /groceryBrandRecommendations/{ingredientId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
