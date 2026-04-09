@@ -53,10 +53,26 @@ export function renderRecommendedBrands(item) {
     </div>`;
 }
 
-export function renderGroceryItemMarkup(item) {
+// price: undefined = no store selected (hide column)
+//        "loading" = fetching in progress
+//        null      = item not found in store
+//        { price, brand, size } = price data
+function renderPriceBadge(price) {
+  if (price === undefined) return "";
+  if (price === "loading") {
+    return `<span class="grocery-item-price grocery-item-price--loading" aria-label="Loading price"></span>`;
+  }
+  if (price === null || price.price === null) {
+    return `<span class="grocery-item-price grocery-item-price--none" aria-label="Price unavailable">—</span>`;
+  }
+  return `<span class="grocery-item-price" aria-label="Price $${price.price.toFixed(2)}">$${price.price.toFixed(2)}</span>`;
+}
+
+export function renderGroceryItemMarkup(item, price) {
   return `
     <div class="grocery-item${item.checked ? " checked" : ""}" data-id="${item.id}">
       <input class="grocery-item-check" type="checkbox" ${item.checked ? "checked" : ""} aria-label="Check ${escapeHtml(item.name)}">
+      ${renderPriceBadge(price)}
       <div class="grocery-item-copy">
         <span class="grocery-item-name">${escapeHtml(item.name)}</span>
         ${renderSelectedBrand(item)}

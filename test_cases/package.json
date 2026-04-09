@@ -15,7 +15,8 @@
     "test:fr37": "vitest run FR-37 --reporter=verbose",
     "test:fr38": "vitest run FR-38 --reporter=verbose",
     "test:fr39": "vitest run FR-39 --reporter=verbose",
-    "test:fr40": "vitest run FR-40 --reporter=verbose"
+    "test:fr40": "vitest run FR-40 --reporter=verbose",
+    "test:fr47-57": "vitest run FR-47-57 --reporter=verbose"
   },
   "devDependencies": {
     "vitest": "^1.6.0"

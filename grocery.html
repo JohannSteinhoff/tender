@@ -49,6 +49,18 @@
       <button type="button" id="btnCancelAdd">Cancel</button>
     </form>
 
+    <!-- Store price comparison -->
+    <div class="store-picker">
+      <div class="store-picker-header">
+        <span class="store-picker-title">&#x1F3F7;&#xFE0F; Compare Prices</span>
+        <button type="button" id="btnClearPrices" class="btn-clear-prices hidden">Clear</button>
+      </div>
+      <div class="store-picker-controls">
+        <button type="button" id="btnGetPrices" class="btn-get-prices">Show Kroger Prices</button>
+      </div>
+      <div id="storePickerStatus" class="store-picker-status hidden"></div>
+    </div>
+
     <!-- List -->
     <div id="groceryList" class="grocery-list-container">
       <!-- Rendered by grocery.js -->
