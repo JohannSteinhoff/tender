@@ -1,7 +1,6 @@
 import { requireAuth } from "../auth.js";
 import { GroceryRepository } from "../api/grocery.js";
 import { GroceryBrandRecommendationRepository } from "../api/grocery-recommendations.js";
-import { getStorePrices } from "../api/storePrices.js";
 import { getAllRecipes, getLikedRecipeIds } from "../api/recipes.js";
 import { getUserProfile } from "../api/users.js";
 import { renderNav } from "../components/nav.js";
@@ -23,8 +22,6 @@ class GroceryListPage {
     this.items = [];
     this.loading = false;
     this.generating = false;
-    this.prices = null;        // null = no prices loaded; object = prices loaded
-    this.loadingPrices = false;
 
     this.elements = {
       list: document.getElementById("groceryList"),
@@ -36,9 +33,6 @@ class GroceryListPage {
       total: document.getElementById("totalItems"),
       checked: document.getElementById("checkedItems"),
       remaining: document.getElementById("remainingItems"),
-      getPricesBtn: document.getElementById("btnGetPrices"),
-      clearPricesBtn: document.getElementById("btnClearPrices"),
-      storePickerStatus: document.getElementById("storePickerStatus"),
     };
   }
 
@@ -58,15 +52,7 @@ class GroceryListPage {
   }
 
   bindEvents() {
-    const { addBtn, cancelBtn, form, input, list, generateBtn, getPricesBtn, clearPricesBtn } = this.elements;
-
-    getPricesBtn?.addEventListener("click", async () => {
-      await this.handleGetPrices();
-    });
-
-    clearPricesBtn?.addEventListener("click", () => {
-      this.handleClearPrices();
-    });
+    const { addBtn, cancelBtn, form, input, list, generateBtn } = this.elements;
 
     addBtn.addEventListener("click", () => {
       form.classList.remove("hidden");
@@ -160,16 +146,6 @@ class GroceryListPage {
       await this.refreshRecommendations();
       this.sortItems();
       this.hideAddForm();
-
-      if (this.prices) {
-        try {
-          const newPrices = await getStorePrices([newItem]);
-          this.prices = { ...this.prices, ...newPrices };
-        } catch {
-          this.prices[newItem.id] = null;
-        }
-      }
-
       this.render();
       showToast(`Added "${name}"`, "success");
     } catch (error) {
@@ -311,56 +287,6 @@ class GroceryListPage {
     }
   }
 
-  async handleGetPrices() {
-    this.loadingPrices = true;
-    this.prices = null;
-    this.render();
-    this.setPickerStatus("Loading prices...");
-    if (this.elements.getPricesBtn) this.elements.getPricesBtn.disabled = true;
-
-    try {
-      this.prices = await getStorePrices(this.items);
-      const found = Object.values(this.prices).filter(Boolean).length;
-      this.setPickerStatus(`Kroger prices shown for ${found} item${found !== 1 ? "s" : ""}. Sourced April 7, 2026 — subject to change.`);
-      this.elements.clearPricesBtn?.classList.remove("hidden");
-    } catch (error) {
-      console.error("Failed to get prices:", error);
-      showToast("Could not load prices. Please try again.", "error");
-      this.setPickerStatus("Failed to load prices.", true);
-      this.prices = null;
-    } finally {
-      this.loadingPrices = false;
-      if (this.elements.getPricesBtn) this.elements.getPricesBtn.disabled = false;
-      this.render();
-    }
-  }
-
-  handleClearPrices() {
-    this.prices = null;
-    this.loadingPrices = false;
-    this.elements.clearPricesBtn?.classList.add("hidden");
-    this.setPickerStatus("");
-    this.render();
-  }
-
-  setPickerStatus(text, isError = false) {
-    const el = this.elements.storePickerStatus;
-    if (!el) return;
-    el.textContent = text;
-    el.className = `store-picker-status${isError ? " error" : ""}${!text ? " hidden" : ""}`;
-  }
-
-  // Returns the price sentinel for a given item:
-  //   undefined  = no store selected, hide price column
-  //   "loading"  = fetch in progress
-  //   null       = item not found at store
-  //   { price, brand, size } = found
-  getPriceForItem(item) {
-    if (this.prices === null && !this.loadingPrices) return undefined;
-    if (this.loadingPrices) return "loading";
-    return this.prices[item.id] ?? null;
-  }
-
   parseInput(value) {
     const match = /^(\d+)\s*[xX]?\s+(.+)$/u.exec(value);
     if (!match) return { name: value, quantity: 1 };
@@ -417,7 +343,9 @@ class GroceryListPage {
 
     list.innerHTML = `
       ${this.items
-        .map((item) => renderGroceryItemMarkup(item, this.getPriceForItem(item)))
+        .map(
+          (item) => renderGroceryItemMarkup(item)
+        )
         .join("")}
       ${
         checkedCount > 0

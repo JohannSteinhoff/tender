@@ -21,8 +21,7 @@
     "test:fr38": "vitest run unit/discover/discover-like-unlike.test.js --reporter=verbose",
     "test:fr39": "vitest run unit/discover/discover-add-to-plan.test.js --reporter=verbose",
     "test:fr40": "vitest run unit/discover/discover-create-recipe-modal.test.js --reporter=verbose",
-    "test:fr41": "vitest run unit/comments/comments-acceptance.test.js --reporter=verbose",
-    "test:fr47-57": "vitest run FR-47-57 --reporter=verbose"
+    "test:fr41": "vitest run unit/comments/comments-acceptance.test.js --reporter=verbose"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",
