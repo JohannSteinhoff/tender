@@ -21,7 +21,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { filterByDietary, DIETARY_OPTIONS } from './helpers/discoverHelpers.js';
+import { filterByDietary, DIETARY_OPTIONS } from '../../helpers/discoverHelpers.js';
 
 const recipes = [
   { id: 'r1', name: 'Garden Salad',      dietary: ['vegetarian', 'vegan', 'gluten-free'] },

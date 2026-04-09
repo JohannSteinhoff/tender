@@ -15,7 +15,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { applyAllFilters } from './helpers/discoverHelpers.js';
+import { applyAllFilters } from '../../helpers/discoverHelpers.js';
 
 // Representative sample of recipes as they arrive from Firestore
 const allRecipes = [

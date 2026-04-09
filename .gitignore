@@ -8,3 +8,4 @@ dist/
 CLAUDE.md
 *.claude
 serviceAccountKey.json
+test_cases/firestore-debug.log

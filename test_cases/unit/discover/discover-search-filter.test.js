@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { filterBySearch } from './helpers/discoverHelpers.js';
+import { filterBySearch } from '../../helpers/discoverHelpers.js';
 
 // Sample recipe set — ingredients stored as arrays (Firestore format)
 const recipes = [

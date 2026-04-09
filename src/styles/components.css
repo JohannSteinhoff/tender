@@ -423,6 +423,151 @@
   box-shadow: 0 8px 20px rgba(255,107,107,0.12);
 }
 
+.comments-section {
+  margin-top: 24px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 18px;
+}
+
+.comments-heading {
+  margin-bottom: 12px;
+}
+
+.comment-form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.comment-input,
+.comment-reply-form textarea {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  min-height: 74px;
+  resize: vertical;
+}
+
+.comment-input:focus,
+.comment-reply-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.comment-form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-limit {
+  font-size: 0.78em;
+  color: var(--text-secondary);
+}
+
+.comment-submit-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--gradient);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comments-list {
+  display: grid;
+  gap: 12px;
+}
+
+.comment-item,
+.reply-item {
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+}
+
+.reply-item {
+  background: var(--bg-card);
+  border-style: dashed;
+}
+
+.comment-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.comment-author {
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+.comment-author:hover {
+  text-decoration: underline;
+}
+
+.comment-time {
+  font-size: 0.78em;
+  color: var(--text-secondary);
+}
+
+.comment-text {
+  margin: 8px 0;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.comment-actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.comment-like-btn,
+.comment-reply-toggle-btn {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-card);
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 0.82em;
+  cursor: pointer;
+}
+
+.comment-like-btn.active {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.comment-reply-form {
+  margin-top: 8px;
+}
+
+.comment-replies {
+  margin-top: 10px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-light);
+  display: grid;
+  gap: 8px;
+}
+
+.comments-loading,
+.comments-empty {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
 .card-plan-btn {
   display: inline-flex;
   align-items: center;
