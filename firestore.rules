@@ -19,6 +19,33 @@ service cloud.firestore {
         && (!resource.data.keys().hasAny(['isAdmin']) || resource.data.isAdmin != true);
     }
 
+    function validShortText(value, maxLen) {
+      return value is string && value.size() > 0 && value.size() <= maxLen;
+    }
+
+    function validCommentPayload() {
+      return request.resource.data.userId == request.auth.uid
+        && validShortText(request.resource.data.text, 1000)
+        && request.resource.data.likeCount is int
+        && request.resource.data.likeCount >= 0
+        && request.resource.data.likedBy is list
+        && request.resource.data.displayName is string;
+    }
+
+    function validReplyPayload(commentId) {
+      return request.resource.data.userId == request.auth.uid
+        && request.resource.data.parentCommentId == commentId
+        && validShortText(request.resource.data.text, 1000)
+        && request.resource.data.displayName is string;
+    }
+
+    function validNotificationCreate(recipientId) {
+      return request.resource.data.recipientUserId == recipientId
+        && request.resource.data.actorUserId == request.auth.uid
+        && request.resource.data.type in ['recipe_comment', 'comment_reply']
+        && request.resource.data.isRead == false;
+    }
+
     // Users can read/write their own profile
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -44,6 +71,22 @@ service cloud.firestore {
       match /mealplan/{itemId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
+
+      // Notification settings doc - only the owning user
+      match /settings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Notifications - recipient can read/update; any authenticated actor can create for recipient
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && validNotificationCreate(userId);
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+        allow delete: if false;
+      }
     }
 
     // Recipes - any logged-in user can read and create;
@@ -64,6 +107,26 @@ service cloud.firestore {
         resource.data.createdBy == null ||
         isAdmin()
       );
+
+      // Recipe comments
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && validCommentPayload();
+        allow update: if request.auth != null && (
+          resource.data.userId == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount', 'updatedAt'])
+        );
+        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+        // Replies under a comment
+        match /replies/{replyId} {
+          allow read: if request.auth != null;
+          allow create: if request.auth != null
+            && validReplyPayload(commentId);
+          allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+        }
+      }
     }
 
     // Shared grocery brand recommendations are readable by signed-in users.

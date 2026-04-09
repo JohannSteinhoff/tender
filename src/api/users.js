@@ -1,12 +1,22 @@
 import { db } from '../firebase.js';
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore';
+
+const NOTIFICATION_PREF_DEFAULTS = {
+  commentOnMyRecipeEnabled: true,
+  replyToMyCommentEnabled: true,
+};
 
 /** Fetch the Firestore profile for a user. */
 export async function getUserProfile(uid) {
@@ -61,4 +71,53 @@ export async function deleteUserData(uid) {
     deleteSubcollectionDocs(uid, 'mealplan'),
   ]);
   await deleteDoc(doc(db, 'users', uid));
+}
+
+function prefsDocRef(uid) {
+  return doc(db, 'users', uid, 'settings', 'notifications');
+}
+
+/** Get notification preferences for a user. */
+export async function getNotificationPrefs(uid) {
+  const snap = await getDoc(prefsDocRef(uid));
+  if (!snap.exists()) return { ...NOTIFICATION_PREF_DEFAULTS };
+  return { ...NOTIFICATION_PREF_DEFAULTS, ...snap.data() };
+}
+
+/** Update one or more notification preferences for a user. */
+export async function updateNotificationPrefs(uid, prefs) {
+  await setDoc(prefsDocRef(uid), prefs, { merge: true });
+}
+
+/** Create a notification document for a recipient user. */
+export async function createNotification(recipientUserId, { actorUserId, type, message, targetId = null }) {
+  if (!recipientUserId || !actorUserId || !type) return null;
+  if (recipientUserId === actorUserId) return null;
+
+  const ref = await addDoc(collection(db, 'users', recipientUserId, 'notifications'), {
+    recipientUserId,
+    actorUserId,
+    type,
+    message: message || '',
+    targetId,
+    isRead: false,
+    createdAt: serverTimestamp(),
+  });
+
+  return ref.id;
+}
+
+/** List notifications for a user newest first. */
+export async function getNotifications(uid) {
+  const snap = await getDocs(query(
+    collection(db, 'users', uid, 'notifications'),
+    orderBy('createdAt', 'desc'),
+  ));
+
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/** Mark a notification read/unread. */
+export async function markNotificationRead(uid, notificationId, isRead = true) {
+  await updateDoc(doc(db, 'users', uid, 'notifications', notificationId), { isRead: !!isRead });
 }

@@ -26,7 +26,7 @@ import {
   parseIngredients,
   validateRecipeDetailFields,
   escapeHtml,
-} from './helpers/discoverHelpers.js';
+} from '../../helpers/discoverHelpers.js';
 
 // Full recipe object matching the Firestore data shape
 const mockDetail = {
