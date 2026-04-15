@@ -61,6 +61,18 @@
 .discover-header h1 { font-size: 1.8em; color: var(--text-primary); }
 .discover-header p { color: var(--text-secondary); font-size: 0.95em; }
 
+.discover-feed-hint {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.88em;
+  font-weight: 500;
+}
+
 .btn-create-recipe {
   background: var(--gradient);
   border: none;
@@ -345,6 +357,8 @@
   background: var(--bg-card);
   border-radius: 16px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   transition: transform 0.25s, box-shadow 0.25s;
   box-shadow: 0 2px 12px var(--shadow-color);
@@ -380,6 +394,19 @@
   z-index: 2;
 }
 
+.recommendation-badge {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 700;
+  z-index: 2;
+  background: rgba(255, 107, 107, 0.92);
+  color: #fff;
+}
+
 .difficulty-badge {
   top: 10px;
   right: 10px;
@@ -395,7 +422,12 @@
 }
 
 /* ── Card body ──────────────────────────────────────────────── */
-.discover-recipe-body { padding: 16px; }
+.discover-recipe-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
 
 .discover-recipe-top {
   display: flex;
@@ -403,13 +435,21 @@
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 6px;
+  min-height: 2.7em;
 }
 
 .discover-recipe-body h3 {
   font-size: 1em;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.35;
   color: var(--text-primary);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-height: 2.7em;
 }
 
 .discover-recipe-body .description {
@@ -419,8 +459,37 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-bottom: 10px;
+  min-height: 2.46em;
+  margin: 0;
   line-height: 1.5;
+}
+
+.discover-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 98px;
+  margin-bottom: 10px;
+}
+
+.recommendation-reason {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78em;
+  line-height: 1.35;
+  min-height: 2.7em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recommendation-reason.is-fallback {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-tertiary);
 }
 
 .discover-recipe-meta {
@@ -436,11 +505,26 @@
 
 .discover-recipe-actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+  margin-top: auto;
+}
+
+.discover-recipe-actions-main {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.discover-recipe-actions--stacked .discover-recipe-actions-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+  align-items: stretch;
 }
 
 .btn-like-card, .btn-unlike-card {
   flex: 1;
+  min-width: 0;
   padding: 8px;
   border: none;
   border-radius: 8px;
@@ -554,6 +638,7 @@
 /* ── Add to Plan card button ─────────────────────────────────── */
 .btn-plan-card {
   padding: 8px 12px;
+  min-width: 0;
   border: 1.5px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.82em;
@@ -576,8 +661,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 100%;
+  min-height: 32px;
   padding: 0;
   border: 1.5px solid var(--border-color);
   border-radius: 8px;
@@ -590,6 +676,33 @@
 .btn-share-card:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.btn-reject-card {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #e8c5c5;
+  border-radius: 8px;
+  font-size: 0.78em;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  background: #fff4f4;
+  color: #a54545;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-reject-card:hover {
+  border-color: #d97a7a;
+  background: #ffe8e8;
+}
+
+.btn-reject-placeholder {
+  display: block;
+  width: 100%;
+  height: 34px;
+  visibility: hidden;
 }
 
 /* ── Add to Plan modal ───────────────────────────────────────── */
