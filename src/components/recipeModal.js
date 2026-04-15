@@ -11,6 +11,8 @@ import {
 import { createNotification, getNotificationPrefs, getUserProfile } from '../api/users.js';
 import { openMealPlanPrompt } from './mealPlanPrompt.js';
 import { showToast } from './toast.js';
+import { toggleGuestLike } from '../utils/guestLikes.js';
+import { showAuthGate } from './authGate.js';
 
 /**
  * Opens the recipe detail modal.
@@ -103,10 +105,18 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
           <button class="btn-plan-modal" id="modalPlanBtn">
             &#x1F4C5; Add to Meal Plan
           </button>
+          <button class="btn-share-modal" id="modalShareBtn" title="Copy link to recipe" aria-label="Share recipe">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+          </button>
         </div>
 
         <section class="comments-section" id="commentsSection">
           <h3 class="comments-heading">Comments</h3>
+          ${uid ? `
           <form id="commentForm" class="comment-form">
             <textarea
               id="commentInput"
@@ -120,6 +130,11 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
               <button type="submit" class="comment-submit-btn">Post Comment</button>
             </div>
           </form>
+          ` : `
+          <div class="guest-comment-prompt">
+            <a href="/login.html">Sign in</a> or <a href="/signup.html">create an account</a> to post comments and join the conversation.
+          </div>
+          `}
           <div id="commentsList" class="comments-list">
             <div class="comments-loading">Loading comments...</div>
           </div>
@@ -138,18 +153,32 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
   document.getElementById('modalLikeBtn').addEventListener('click', async () => {
     const btn = document.getElementById('modalLikeBtn');
     btn.disabled = true;
+
+    if (!uid) {
+      // Guest: persist locally and show a warning
+      const nowLiked = !likedIds.has(recipe.id);
+      toggleGuestLike(recipe.id);
+      if (nowLiked) likedIds.add(recipe.id); else likedIds.delete(recipe.id);
+      btn.className = nowLiked ? 'btn-unlike' : 'btn-like';
+      btn.innerHTML = nowLiked ? '&#x1F494; Remove from Liked' : '&#x2764;&#xFE0F; Like this Recipe';
+      if (onLikeChange) onLikeChange(recipe.id, nowLiked);
+      showToast(nowLiked ? 'Liked locally \u2014 sign in to save permanently' : 'Removed from local likes', nowLiked ? 'success' : undefined);
+      btn.disabled = false;
+      return;
+    }
+
     try {
       if (likedIds.has(recipe.id)) {
         await unlikeRecipe(uid, recipe.id);
         likedIds.delete(recipe.id);
         btn.className = 'btn-like';
-        btn.textContent = '\u2764\uFE0F Like this Recipe';
+        btn.innerHTML = '&#x2764;&#xFE0F; Like this Recipe';
         showToast('Removed from liked recipes');
       } else {
         await likeRecipe(uid, recipe.id);
         likedIds.add(recipe.id);
         btn.className = 'btn-unlike';
-        btn.textContent = '\u{1F494} Remove from Liked';
+        btn.innerHTML = '&#x1F494; Remove from Liked';
         showToast('Added to liked recipes!', 'success');
       }
       if (onLikeChange) onLikeChange(recipe.id, likedIds.has(recipe.id));
@@ -161,7 +190,15 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
 
   document.getElementById('modalPlanBtn').addEventListener('click', (e) => {
     e.stopPropagation();
+    if (!uid) {
+      showAuthGate('add recipes to your meal plan');
+      return;
+    }
     openMealPlanPrompt({ uid, recipe });
+  });
+
+  document.getElementById('modalShareBtn').addEventListener('click', () => {
+    copyRecipeLink(recipe.id);
   });
 
   wireComments({
@@ -242,28 +279,68 @@ async function wireComments({ overlay, recipe, uid }) {
     }).join('');
   }
 
-  async function notifyRecipeOwner(actorProfile) {
+  function truncate(str, max = 80) {
+    const s = (str || '').trim();
+    return s.length > max ? s.slice(0, max).trimEnd() + '…' : s;
+  }
+
+  async function notifyRecipeOwner(actorProfile, commentText) {
     if (!recipe.createdBy || recipe.createdBy === uid) return;
     const prefs = await getNotificationPrefs(recipe.createdBy);
     if (!prefs.commentOnMyRecipeEnabled) return;
+    const actor = actorProfile.firstName || actorProfile.displayName || 'A user';
+    const preview = truncate(commentText);
     await createNotification(recipe.createdBy, {
       actorUserId: uid,
       type: 'recipe_comment',
       targetId: recipe.id,
-      message: `${actorProfile.firstName || actorProfile.displayName || 'A user'} commented on your recipe "${recipe.name}".`,
+      message: `${actor} commented on "${recipe.name}": "${preview}"`,
+      // Rich display data embedded at write-time
+      actorName: actor,
+      actorPhotoURL: actorProfile.photoURL || null,
+      recipeName: recipe.name,
+      recipeImage: recipe.image || null,
+      recipeEmoji: recipe.emoji || null,
+      commentPreview: preview,
     });
   }
 
-  async function notifyCommentAuthor(comment, actorProfile) {
+  async function notifyCommentAuthor(comment, actorProfile, replyText) {
     if (!comment?.userId || comment.userId === uid) return;
     const prefs = await getNotificationPrefs(comment.userId);
     if (!prefs.replyToMyCommentEnabled) return;
+    const actor = actorProfile.firstName || actorProfile.displayName || 'A user';
+    const preview = truncate(replyText);
     await createNotification(comment.userId, {
       actorUserId: uid,
       type: 'comment_reply',
       targetId: comment.id,
-      message: `${actorProfile.firstName || actorProfile.displayName || 'A user'} replied to your comment on "${recipe.name}".`,
+      message: `${actor} replied to your comment on "${recipe.name}": "${preview}"`,
+      // Rich display data embedded at write-time
+      actorName: actor,
+      actorPhotoURL: actorProfile.photoURL || null,
+      recipeName: recipe.name,
+      recipeImage: recipe.image || null,
+      recipeEmoji: recipe.emoji || null,
+      replyPreview: preview,
     });
+  }
+
+  // Guests: skip wiring the comment form (it isn't rendered) and gate interactive actions
+  if (!uid) {
+    listEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="toggle-like"]') || e.target.closest('[data-action="toggle-reply-form"]')) {
+        showAuthGate('like and reply to comments');
+      }
+    });
+    try {
+      comments = await getRecipeComments(recipe.id);
+      renderComments();
+    } catch (err) {
+      console.error('Failed loading comments', err);
+      listEl.innerHTML = '<div class="comments-empty">Could not load comments right now.</div>';
+    }
+    return;
   }
 
   formEl.addEventListener('submit', async (e) => {
@@ -292,7 +369,8 @@ async function wireComments({ overlay, recipe, uid }) {
       renderComments();
       formEl.reset();
       showToast('Comment posted', 'success');
-      await notifyRecipeOwner(me || {});
+      // Notification is best-effort — never block or error the comment UI
+      notifyRecipeOwner(me || {}, text).catch(err => console.warn('Could not send comment notification:', err));
     } catch (err) {
       console.error('Failed posting comment', err);
       showToast(err?.message || 'Failed to post comment', 'error');
@@ -374,7 +452,8 @@ async function wireComments({ overlay, recipe, uid }) {
         : c);
       renderComments();
       showToast('Reply posted', 'success');
-      await notifyCommentAuthor(parentComment, me || {});
+      // Notification is best-effort — never block or error the reply UI
+      notifyCommentAuthor(parentComment, me || {}, text).catch(err => console.warn('Could not send reply notification:', err));
     } catch (err) {
       console.error('Failed posting reply', err);
       showToast(err?.message || 'Failed to post reply', 'error');
@@ -389,6 +468,17 @@ async function wireComments({ overlay, recipe, uid }) {
   } catch (err) {
     console.error('Failed loading comments', err);
     listEl.innerHTML = '<div class="comments-empty">Could not load comments right now.</div>';
+  }
+}
+
+function copyRecipeLink(recipeId) {
+  const url = `${window.location.origin}/discover.html?recipe=${encodeURIComponent(recipeId)}`;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied to clipboard!', 'success'))
+      .catch(() => { window.prompt('Copy this link:', url); });
+  } else {
+    window.prompt('Copy this link:', url);
   }
 }
 

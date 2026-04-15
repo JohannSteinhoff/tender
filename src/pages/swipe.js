@@ -1,12 +1,14 @@
-import { requireAuth } from '../auth.js';
+import { getAuthUser } from '../auth.js';
 import { getUserProfile, getUserProfiles } from '../api/users.js';
 import { getAllRecipes, likeRecipe, dislikeRecipe, getUserSwipes } from '../api/recipes.js';
-import { seedRecipesIfEmpty } from '../seed.js';
+import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
 import { showToast } from '../components/toast.js';
 import { shuffleArray, capitalizeFirst, getCuisineClass, parseIngredients, escapeHtml } from '../utils/helpers.js';
+import { getGuestLikedIds, toggleGuestLike } from '../utils/guestLikes.js';
+import { showAuthGate } from '../components/authGate.js';
 
 // ── State ────────────────────────────────────────────────────
 let uid = null;
@@ -27,6 +29,8 @@ let currentY = 0;
 let hasDragged = false;
 
 let difficultyFilter = '';
+const FRIDGE_KEY = 'tender_fridge_ingredients';
+let fridgeIngredients = [];
 let emojiRainInterval = null;
 let emojiRainGen = 0;
 let swipedToday = 0;
@@ -54,21 +58,21 @@ function handleSwipeModalLikeChange(recipeId, nowLiked) {
 
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
-  // Theme applied by nav.js immediately on import
-  const user = await requireAuth();
-  uid = user.uid;
+  const user = await getAuthUser(); // null for guests — swipe page is open to all
+  uid = user ? user.uid : null;
 
-  renderNav('swipe'); // show nav immediately
+  renderNav('swipe', null); // show nav immediately
 
-  profile = await getUserProfile(uid);
-  renderNav('swipe', profile); // update with real initials
-
-  // Seed if Firestore is empty
-  await seedRecipesIfEmpty();
+  if (uid) {
+    profile = await getUserProfile(uid);
+    renderNav('swipe', profile);
+    await ensureSeedRecipesOwnedByUser(uid);
+  }
 
   await loadDeck();
   renderCard();
   setupDifficultyButtons();
+  setupFridgePanel();
   setupActionButtons();
   window.addEventListener('resize', fitCardToViewport);
 }
@@ -77,11 +81,16 @@ async function init() {
 async function loadDeck() {
   const [recipes, swipes] = await Promise.all([
     getAllRecipes(),
-    getUserSwipes(uid),
+    uid ? getUserSwipes(uid) : Promise.resolve({}),
   ]);
 
-  swipedIds = new Set(Object.keys(swipes));
-  likedIds = new Set(Object.entries(swipes).filter(([, a]) => a === 'like').map(([id]) => id));
+  if (uid) {
+    swipedIds = new Set(Object.keys(swipes));
+    likedIds = new Set(Object.entries(swipes).filter(([, a]) => a === 'like').map(([id]) => id));
+  } else {
+    swipedIds = new Set(); // session-only for guests — not persisted
+    likedIds = getGuestLikedIds();
+  }
 
   allRecipes = recipes;
 
@@ -105,6 +114,11 @@ function applyDifficultyFilter() {
     deck = deckMaster.filter(r => (r.difficulty || 'medium') === difficultyFilter);
   } else {
     deck = [...deckMaster];
+  }
+
+  // Sort deck so fridge-matching recipes appear first
+  if (fridgeIngredients.length > 0) {
+    deck.sort((a, b) => countFridgeMatches(b) - countFridgeMatches(a));
   }
 
   updateCounter();
@@ -143,6 +157,10 @@ function renderCard() {
   const ingredients = parseIngredients(recipe.ingredients);
   const preview = ingredients.slice(0, 4);
   const cuisineClass = getCuisineClass(recipe.cuisine);
+  const matchCount = countFridgeMatches(recipe);
+  const fridgeMatchHtml = matchCount > 0
+    ? `<span class="swipe-fridge-match${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length} from your fridge</span>`
+    : '';
 
   container.innerHTML = `
     <div class="swipe-card" id="activeSwipeCard">
@@ -160,6 +178,7 @@ function renderCard() {
           <span class="swipe-card-stat"><span class="stat-icon">⏱</span> ${recipe.cookTime || '?'} min</span>
           <span class="swipe-card-stat"><span class="stat-icon">🍽</span> ${recipe.servings || '?'} servings</span>
           <span class="swipe-card-stat"><span class="stat-icon">❤️</span> ${recipe.likeCount || 0} likes</span>
+          ${fridgeMatchHtml}
         </div>
         <div class="swipe-card-ingredients-peek">
           ${preview.map(i => `<span class="ing-tag">${escapeHtml(i)}</span>`).join('')}
@@ -186,6 +205,10 @@ function renderCard() {
   planBtn?.addEventListener('pointerdown', (e) => e.stopPropagation());
   planBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (!uid) {
+      showAuthGate('add recipes to your meal plan');
+      return;
+    }
     openMealPlanPrompt({ uid, recipe });
   });
 
@@ -334,19 +357,31 @@ async function completeSwipe(direction) {
   card.style.transform = `translateX(${xOut}px) rotate(${direction === 'like' ? 30 : -30}deg)`;
   card.style.opacity = '0';
 
-  try {
+  if (!uid) {
+    // Guest: persist likes to localStorage, skip Firestore
     if (direction === 'like') {
-      await likeRecipe(uid, recipe.id);
+      toggleGuestLike(recipe.id);
       likedIds.add(recipe.id);
       swipedToday++;
-      showToast(`❤️ Liked ${recipe.name}!`, 'success');
-    } else {
-      await dislikeRecipe(uid, recipe.id);
+      showToast(`❤️ Liked locally — sign in to save permanently`, 'success');
     }
     swipedIds.add(recipe.id);
     removeRecipeFromDecks(recipe.id);
-  } catch (err) {
-    console.error('Swipe failed:', err);
+  } else {
+    try {
+      if (direction === 'like') {
+        await likeRecipe(uid, recipe.id);
+        likedIds.add(recipe.id);
+        swipedToday++;
+        showToast(`❤️ Liked ${recipe.name}!`, 'success');
+      } else {
+        await dislikeRecipe(uid, recipe.id);
+      }
+      swipedIds.add(recipe.id);
+      removeRecipeFromDecks(recipe.id);
+    } catch (err) {
+      console.error('Swipe failed:', err);
+    }
   }
 
   updateCounter();
@@ -511,6 +546,79 @@ function flashBtn(btn) {
   setTimeout(() => btn.classList.remove('btn-pressed'), 200);
 }
 
+// ── Fridge panel ─────────────────────────────────────────────
+function loadFridgeData() {
+  try {
+    fridgeIngredients = JSON.parse(localStorage.getItem(FRIDGE_KEY) || '[]');
+  } catch { fridgeIngredients = []; }
+}
+
+function saveFridgeData() {
+  localStorage.setItem(FRIDGE_KEY, JSON.stringify(fridgeIngredients));
+}
+
+function countFridgeMatches(recipe) {
+  if (fridgeIngredients.length === 0) return 0;
+  const ings = parseIngredients(recipe.ingredients).map(i => i.toLowerCase());
+  return fridgeIngredients.filter(fi => ings.some(ri => ri.includes(fi) || fi.includes(ri))).length;
+}
+
+function renderSwipeFridgeChips() {
+  const container = document.getElementById('swipeFridgeChips');
+  if (!container) return;
+  container.innerHTML = fridgeIngredients.map((ing, i) => `
+    <span class="fridge-chip" style="font-size:0.72em;padding:2px 8px;">
+      ${escapeHtml(ing)}
+      <button class="fridge-chip-remove" data-index="${i}" aria-label="Remove ${escapeHtml(ing)}">&#x2715;</button>
+    </span>`).join('');
+  container.querySelectorAll('.fridge-chip-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fridgeIngredients.splice(Number(btn.dataset.index), 1);
+      saveFridgeData();
+      renderSwipeFridgeChips();
+      applyDifficultyFilter();
+    });
+  });
+}
+
+function addSwipeFridgeIngredients(raw) {
+  const items = raw.split(/[,\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  items.forEach(item => {
+    if (item && !fridgeIngredients.includes(item)) fridgeIngredients.push(item);
+  });
+  saveFridgeData();
+  renderSwipeFridgeChips();
+  applyDifficultyFilter();
+}
+
+function setupFridgePanel() {
+  loadFridgeData();
+
+  const section = document.getElementById('swipeFridgeSection');
+  const toggle = document.getElementById('swipeFridgeToggle');
+  const input = document.getElementById('swipeFridgeInput');
+  if (!section || !toggle || !input) return;
+
+  if (fridgeIngredients.length > 0) section.classList.add('open');
+  renderSwipeFridgeChips();
+
+  toggle.addEventListener('click', () => section.classList.toggle('open'));
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = input.value.replace(/,$/, '').trim();
+      if (val) {
+        addSwipeFridgeIngredients(val);
+        input.value = '';
+      }
+    }
+  });
+
+  // Prevent swipe card drag from being triggered inside the sidebar input
+  input.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
 // ── Difficulty filter ────────────────────────────────────────
 function setupDifficultyButtons() {
   document.querySelectorAll('.swipe-diff-btn').forEach(btn => {
@@ -532,7 +640,11 @@ export function setSwipeDifficulty(diff) {
 function updateCounter() {
   const el = document.getElementById('swipeCounter');
   if (!el) return;
-  el.textContent = `${likedIds.size} recipe${likedIds.size !== 1 ? 's' : ''} liked`;
+  if (!uid) {
+    el.textContent = `${likedIds.size} liked locally`;
+  } else {
+    el.textContent = `${likedIds.size} recipe${likedIds.size !== 1 ? 's' : ''} liked`;
+  }
 }
 
 // ── Start ────────────────────────────────────────────────────

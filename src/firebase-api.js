@@ -6,6 +6,8 @@
  */
 
 import { auth, db } from './firebase.js';
+import { GroceryRepository } from './api/grocery.js';
+import { collectIngredientsFromRecipes, normalizeGroceryItem } from './features/grocery/logic.js';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -102,7 +104,21 @@ function docToRecipe(snap) {
 
 function docToGrocery(snap) {
   const d = snap.data();
-  return { id: snap.id, name: d.name || '', quantity: d.quantity || 1, checked: d.checked || false };
+  const normalized = normalizeGroceryItem({
+    id: snap.id,
+    name: d.name || '',
+    quantity: d.quantity || 1,
+    quantityUnit: d.quantityUnit || null,
+    checked: d.checked || false,
+  });
+
+  return normalized || {
+    id: snap.id,
+    name: d.name || '',
+    quantity: d.quantity || 1,
+    quantityUnit: d.quantityUnit || null,
+    checked: d.checked || false,
+  };
 }
 
 function docToMealPlan(snap) {
@@ -145,9 +161,10 @@ async function seedIfEmpty() {
   const snap = await getDocs(collection(db, 'recipes'));
   if (!snap.empty) return;
   const batch = writeBatch(db);
+  const ownerUid = currentUid();
   SAMPLE_RECIPES.forEach(r => {
     const ref = doc(collection(db, 'recipes'));
-    batch.set(ref, { ...r, createdBy: 'system', createdAt: serverTimestamp() });
+    batch.set(ref, { ...r, createdBy: ownerUid || null, createdAt: serverTimestamp() });
   });
   await batch.commit();
 }
@@ -330,8 +347,16 @@ const TenderAPI = {
 
   async addGroceryItem({ name, quantity = 1 }) {
     const uid = currentUid();
-    const ref = await addDoc(collection(db, 'users', uid, 'grocery'), { name, quantity, checked: false, addedAt: serverTimestamp() });
-    return { id: ref.id, name, quantity, checked: false };
+    const normalized = normalizeGroceryItem({ name, quantity, checked: false });
+    if (!normalized) throw new Error('A grocery item name is required');
+    const ref = await addDoc(collection(db, 'users', uid, 'grocery'), {
+      name: normalized.name,
+      quantity: normalized.quantity,
+      quantityUnit: normalized.quantityUnit || null,
+      checked: false,
+      addedAt: serverTimestamp(),
+    });
+    return { id: ref.id, ...normalized, checked: false };
   },
 
   async updateGroceryItem(id, data) {
@@ -517,29 +542,21 @@ const TenderAPI = {
   async exportMealPlanToGrocery(recipeIds) {
     const uid = currentUid();
     const uniqueIds = [...new Set(recipeIds)];
-    const ingredientMap = new Map(); // lowercase name -> quantity
+    const recipes = [];
     for (const id of uniqueIds) {
       const snap = await getDoc(doc(db, 'recipes', id));
       if (!snap.exists()) continue;
-      const d = snap.data();
-      const ingredients = Array.isArray(d.ingredients)
-        ? d.ingredients
-        : (d.ingredients || '').split('\n');
-      ingredients
-        .map(i => i.trim())
-        .filter(Boolean)
-        .forEach(i => {
-          const key = i.toLowerCase();
-          ingredientMap.set(key, (ingredientMap.get(key) || 0) + 1);
-        });
+      recipes.push(snap.data());
     }
-    const batch = writeBatch(db);
-    for (const [name, quantity] of ingredientMap) {
-      const ref = doc(collection(db, 'users', uid, 'grocery'));
-      batch.set(ref, { name, quantity, checked: false, addedAt: serverTimestamp() });
+
+    const generatedItems = collectIngredientsFromRecipes(recipes);
+    if (generatedItems.length === 0) {
+      return 0;
     }
-    await batch.commit();
-    return ingredientMap.size;
+
+    const repo = new GroceryRepository(uid);
+    const result = await repo.mergeByName(generatedItems);
+    return result.added + result.updated;
   },
 
   // ── Stats ────────────────────────────────────────────────────

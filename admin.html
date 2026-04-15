@@ -66,6 +66,24 @@
         </div>
       </div>
     </section>
+
+    <section class="admin-logs-section">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <h2>Debug Logs</h2>
+            <p>Console output captured this session. Includes log, info, warn, and error.</p>
+          </div>
+          <div class="admin-logs-actions">
+            <button class="admin-btn admin-btn-secondary" id="copyLogsBtn">Copy all</button>
+            <button class="admin-btn admin-btn-secondary" id="clearLogsBtn">Clear</button>
+          </div>
+        </div>
+        <div class="admin-log-list" id="logList">
+          <div class="admin-empty">No logs captured yet.</div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script type="module" src="/src/pages/admin.js"></script>

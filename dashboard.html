@@ -51,12 +51,26 @@
       </div>
     </div>
 
+    <!-- Notifications -->
+    <section class="dash-notif-section" id="dashNotifSection">
+      <div class="dash-notif-header" id="dashNotifToggle" role="button" aria-expanded="false">
+        <div class="dash-notif-title-group">
+          <h2>&#x1F514; Notifications</h2>
+          <span class="dash-notif-badge" id="dashNotifBadge" style="display:none"></span>
+        </div>
+        <span class="dash-notif-chevron">&#x25BE;</span>
+      </div>
+      <div id="dashNotifList" class="dash-notif-list">
+        <div class="dash-notif-empty">Loading...</div>
+      </div>
+    </section>
+
     <!-- Main grid -->
     <div class="dashboard-grid">
 
       <!-- Liked recipes -->
       <div class="section-card">
-        <div class="section-header">
+        <div class="section-header" id="likedSectionHeader">
           <h2>&#x2764;&#xFE0F; Liked Recipes</h2>
           <button id="viewAllLikedBtn" class="view-all-btn">View all</button>
         </div>
@@ -67,8 +81,9 @@
 
       <!-- Profile info -->
       <div class="section-card profile-section">
-        <div class="section-header">
+        <div class="section-header" id="profileSectionHeader">
           <h2>&#x1F464; Your Profile</h2>
+          <a href="#" id="dashViewProfileBtn" class="view-all-btn">View Profile &#x2192;</a>
         </div>
         <div id="profileInfo" class="profile-info">
           <div class="section-empty"><div class="empty-icon">&#x23F3;</div>Loading...</div>

@@ -1,0 +1,136 @@
+GROCERY PRICE SCRAPER — FUTURE IMPLEMENTATION NOTES
+=====================================================
+Written: April 7, 2026
+Purpose: Admin script to scrape real grocery prices from HEB/Walmart/Target
+         and store them in Firestore storePrices collection.
+
+HOW IT WORKS
+------------
+Run this script once a week from your LOCAL machine (not a server).
+Your residential IP bypasses Akamai bot protection that blocks cloud servers.
+After running, all users immediately see updated prices on the grocery page.
+
+WHY LOCAL ONLY
+--------------
+Kroger/HEB/Walmart/Target all use Akamai CDN with IP-based bot detection.
+Firebase Cloud Functions use Google Cloud datacenter IPs — Akamai blocks these.
+Running from your laptop (residential IP) works fine, as confirmed during dev.
+
+COOKIE SETUP (for HEB/Walmart/Target)
+--------------------------------------
+1. Open the store's website in Chrome (make sure you're NOT in incognito)
+2. Browse around a bit so session cookies are set
+3. Open DevTools → Application → Cookies → copy all cookies for the domain
+4. Paste into the COOKIES object in the script
+5. Cookies typically expire every 1–4 weeks — re-run this process when they do
+
+For HEB specifically, cookies were confirmed working in a prior project.
+For Walmart, similar cookie-based approach should work.
+
+FIRESTORE SCHEMA
+----------------
+Collection: storePrices
+Document ID: normalized ingredient name (lowercase, e.g. "chicken breast")
+Document fields:
+  kroger:  { price: 4.99, size: "1 lb", updatedAt: "April 7, 2026", disclaimer: "..." }
+  heb:     { price: 4.49, size: "1 lb", updatedAt: "April 7, 2026", disclaimer: "..." }
+  walmart: { price: 4.29, size: "1 lb", updatedAt: "April 7, 2026", disclaimer: "..." }
+  target:  { price: 4.79, size: "1 lb", updatedAt: "April 7, 2026", disclaimer: "..." }
+
+The grocery page reads storePrices/{normalizedName} for each item.
+If no doc exists for that item → shows "—" in the UI.
+
+IMPLEMENTATION OUTLINE
+----------------------
+1. npm install axios cheerio firebase-admin
+2. Set GOOGLE_APPLICATION_CREDENTIALS to your service account JSON
+   (Download from Firebase Console → Project Settings → Service Accounts)
+   OR use: firebase login && firebase use tender-a7367
+
+3. Script pseudocode:
+
+   const admin = require("firebase-admin");
+   const axios = require("axios");
+   const cheerio = require("cheerio");
+
+   admin.initializeApp(); // uses GOOGLE_APPLICATION_CREDENTIALS
+
+   // Step 1: Get all unique grocery item names from Firestore
+   const usersSnap = await admin.firestore().collection("users").get();
+   const itemNames = new Set();
+   for (const userDoc of usersSnap.docs) {
+     const grocerySnap = await userDoc.ref.collection("grocery").get();
+     for (const item of grocerySnap.docs) {
+       itemNames.add(normalizeRecommendationName(item.data().name));
+     }
+   }
+
+   // Step 2: For each item, fetch price from each store
+   for (const name of itemNames) {
+     const prices = {};
+
+     // HEB
+     prices.heb = await scrapeHEB(name, HEB_COOKIES);
+
+     // Walmart
+     prices.walmart = await scrapeWalmart(name, WALMART_COOKIES);
+
+     // Write to Firestore
+     await admin.firestore().collection("storePrices").doc(name).set(prices, { merge: true });
+   }
+
+HEB SCRAPING (from prior working project)
+------------------------------------------
+URL: https://www.heb.com/search/?q={encodeURIComponent(item)}
+Method: GET with cookies in headers
+Parse: Look for price in JSON-LD script tags or product listing elements
+       HEB embeds product data as JSON in <script type="application/ld+json">
+
+   async function scrapeHEB(item, cookies) {
+     const url = `https://www.heb.com/search/?q=${encodeURIComponent(item)}`;
+     const res = await axios.get(url, {
+       headers: {
+         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+         "Cookie": cookies,
+         "Accept": "text/html,application/xhtml+xml",
+         "Accept-Language": "en-US,en;q=0.9",
+       }
+     });
+     const $ = cheerio.load(res.data);
+     // Extract price from JSON-LD or price element
+     // Structure may change — inspect HEB page to confirm current selectors
+     const priceText = $('[data-qe-id="product-price"]').first().text();
+     const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
+     return isNaN(price) ? null : { price, updatedAt: new Date().toLocaleDateString() };
+   }
+
+WALMART SCRAPING
+-----------------
+URL: https://www.walmart.com/search?q={encodeURIComponent(item)}
+Method: GET with cookies (same pattern as HEB)
+Note: Walmart's HTML is more heavily JS-rendered. May need puppeteer instead of cheerio.
+      If simple fetch doesn't work, use puppeteer with cookies injected.
+
+RATE LIMITING
+--------------
+Add a delay between requests to avoid triggering rate limits:
+   await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
+
+Run the full script in batches if the grocery list is large.
+
+RUNNING THE SCRIPT
+------------------
+node scripts/scrape-prices.js
+
+Expected output:
+  Scraped 47 unique items
+  HEB: 42/47 found
+  Walmart: 38/47 found
+  Updated storePrices collection in Firestore
+
+CURRENT STATE (April 7, 2026)
+------------------------------
+- storePrices collection is seeded with Kroger certification data for ~28 items
+- Kroger production API approval is pending (see developer.kroger.com app "Tender")
+- Real-time Cloud Function approach blocked by Akamai (datacenter IP blocking)
+- This admin scraper approach is the recommended path going forward

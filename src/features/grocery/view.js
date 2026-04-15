@@ -1,5 +1,19 @@
 import { escapeHtml } from "../../utils/helpers.js";
 
+function formatQuantityValue(quantity) {
+  const parsed = Number.parseFloat(quantity);
+  if (!Number.isFinite(parsed)) return "1";
+  if (Number.isInteger(parsed)) return String(parsed);
+  return parsed.toFixed(2).replace(/\.?0+$/u, "");
+}
+
+function renderQuantityLabel(item) {
+  const value = formatQuantityValue(item.quantity);
+  return item.quantityUnit
+    ? `${value} ${escapeHtml(item.quantityUnit)}`
+    : `${value}x`;
+}
+
 export function isSameBrand(left, right) {
   if (!left || !right) return false;
   if (left.fdcId && right.fdcId) {
@@ -78,7 +92,7 @@ export function renderGroceryItemMarkup(item, price) {
         ${renderSelectedBrand(item)}
         ${renderRecommendedBrands(item)}
       </div>
-      <span class="grocery-item-qty" aria-label="Quantity">${item.quantity}x</span>
+      <span class="grocery-item-qty" aria-label="Quantity">${renderQuantityLabel(item)}</span>
       <button class="grocery-item-delete" aria-label="Remove">&#x2715;</button>
     </div>`;
 }

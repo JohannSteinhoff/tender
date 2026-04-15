@@ -1,6 +1,7 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile, getUserProfiles } from '../api/users.js';
+import { getUserProfile, getUserProfiles, getNotifications, markNotificationRead } from '../api/users.js';
 import { getAllRecipes, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
+import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
@@ -57,6 +58,8 @@ async function init() {
 
   renderNav('dashboard');
 
+  await ensureSeedRecipesOwnedByUser(uid);
+
   const [prof, liked, recipes] = await Promise.all([
     getUserProfile(uid),
     getLikedRecipeIds(uid),
@@ -82,11 +85,24 @@ async function init() {
   renderNav('dashboard', profile);
   renderWelcome();
   renderStats();
+  renderNotifications();
   renderLikedRecipes();
   renderMyRecipes();
   renderProfile();
 
   document.getElementById('viewAllLikedBtn').addEventListener('click', openAllLikedModal);
+
+  // Whole header is clickable — skip if they clicked the button itself
+  document.getElementById('likedSectionHeader').addEventListener('click', (e) => {
+    if (!e.target.closest('#viewAllLikedBtn')) openAllLikedModal();
+  });
+
+  document.getElementById('profileSectionHeader').addEventListener('click', (e) => {
+    if (!e.target.closest('#dashViewProfileBtn')) {
+      const link = document.getElementById('dashViewProfileBtn');
+      if (link && link.href && !link.href.endsWith('#')) window.location.href = link.href;
+    }
+  });
 
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
     try {
@@ -409,6 +425,8 @@ function showConfirm(recipeName) {
 
 function renderProfile() {
   const el = document.getElementById('profileInfo');
+  const profileLink = document.getElementById('dashViewProfileBtn');
+  if (profileLink) profileLink.href = `/profile.html?uid=${encodeURIComponent(uid)}`;
   if (!profile) {
     el.innerHTML = `<div class="section-empty">No profile found.</div>`;
     return;
@@ -426,7 +444,6 @@ function renderProfile() {
   }
 
   const rows = [
-    { icon: '&#x2709;&#xFE0F;', label: 'Email', value: profile.email || '-' },
     { icon: '&#x1F468;&#x200D;&#x1F373;', label: 'Cooking Skill', value: capitalizeFirst(profile.cookingSkill || '-') },
     { icon: '&#x1F3E0;', label: 'Household Size', value: profile.householdSize ? `${profile.householdSize} people` : '-' },
     { icon: '&#x1F4C5;', label: 'Meals / Week', value: profile.mealsPerWeek ? `${profile.mealsPerWeek} meals` : '-' },
@@ -529,5 +546,118 @@ function onLikeChange(recipeId, nowLiked) {
 document.addEventListener('click', () => {
   document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
 });
+
+// ── Notifications ────────────────────────────────────────────
+
+function formatNotifDate(ts) {
+  if (!ts) return 'Just now';
+  let d = ts;
+  if (d?.toDate) d = d.toDate();
+  else if (!(d instanceof Date)) d = new Date(d);
+  if (!(d instanceof Date) || isNaN(d)) return 'Just now';
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function buildNotifCard(n) {
+  const preview = n.commentPreview || n.replyPreview || null;
+  const initials = escapeHtml(((n.actorName || '?')[0]).toUpperCase());
+  const typeLabel = n.type === 'comment_reply' ? 'replied to your comment on' : 'commented on';
+
+  return `
+    <div class="dash-notif-item${n.isRead ? '' : ' unread'}" data-notification-id="${n.id}">
+      <div class="dash-notif-avatars">
+        ${n.actorPhotoURL
+          ? `<img class="dash-notif-avatar" src="${escapeHtml(n.actorPhotoURL)}" alt="">`
+          : `<div class="dash-notif-avatar dash-notif-avatar--initials">${initials}</div>`}
+        ${n.recipeImage
+          ? `<img class="dash-notif-recipe-thumb" src="${escapeHtml(n.recipeImage)}" alt="">`
+          : `<div class="dash-notif-recipe-thumb dash-notif-recipe-thumb--emoji">${n.recipeEmoji || '&#x1F37D;&#xFE0F;'}</div>`}
+      </div>
+      <div class="dash-notif-content">
+        <div class="dash-notif-preview${preview ? '' : ' plain'}">
+          ${preview ? `"${escapeHtml(preview)}"` : escapeHtml(n.message || 'New notification')}
+        </div>
+        <div class="dash-notif-meta">
+          <strong>${escapeHtml(n.actorName || 'Someone')}</strong>
+          ${typeLabel}
+          <em>${escapeHtml(n.recipeName || 'your recipe')}</em>
+          &nbsp;&middot;&nbsp;${escapeHtml(formatNotifDate(n.createdAt))}
+        </div>
+      </div>
+      <div class="dash-notif-right">
+        ${!n.isRead ? '<span class="dash-notif-dot"></span>' : ''}
+        ${!n.isRead
+          ? `<button class="dash-notif-mark-read" data-action="mark-read" aria-label="Mark as read">&#x2713;</button>`
+          : ''}
+      </div>
+    </div>`;
+}
+
+async function renderNotifications() {
+  const section = document.getElementById('dashNotifSection');
+  const toggle  = document.getElementById('dashNotifToggle');
+  const list    = document.getElementById('dashNotifList');
+  const badge   = document.getElementById('dashNotifBadge');
+
+  if (toggle && section) {
+    toggle.addEventListener('click', () => {
+      const expanded = section.classList.toggle('expanded');
+      toggle.setAttribute('aria-expanded', expanded);
+    });
+  }
+
+  function updateBadge(count) {
+    if (badge) { badge.style.display = count > 0 ? '' : 'none'; badge.textContent = count; }
+  }
+
+  let notifications = [];
+  try {
+    notifications = await getNotifications(uid);
+  } catch (err) {
+    console.warn('Could not load notifications:', err);
+    if (list) list.innerHTML = `<div class="dash-notif-empty">Could not load notifications.</div>`;
+    return;
+  }
+
+  updateBadge(notifications.filter(n => !n.isRead).length);
+
+  if (!list) return;
+
+  const recent = notifications.slice(0, 5);
+  if (recent.length === 0) {
+    list.innerHTML = `<div class="dash-notif-empty">You're all caught up — no notifications yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = recent.map(buildNotifCard).join('');
+
+  // Mark-as-read inline — no page reload
+  list.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action="mark-read"]');
+    if (!btn) return;
+    const item = btn.closest('[data-notification-id]');
+    const id = item?.dataset.notificationId;
+    if (!id) return;
+    btn.disabled = true;
+    try {
+      await markNotificationRead(uid, id, true);
+      item.classList.remove('unread');
+      item.querySelector('.dash-notif-dot')?.remove();
+      btn.remove();
+      updateBadge(list.querySelectorAll('.dash-notif-item.unread').length);
+    } catch (err) {
+      console.error('Could not mark notification read:', err);
+      btn.disabled = false;
+    }
+  });
+}
 
 init().catch(console.error);

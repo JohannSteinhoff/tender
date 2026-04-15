@@ -10,6 +10,37 @@ import { renderNav } from '../components/nav.js';
 import { showToast } from '../components/toast.js';
 import { escapeHtml } from '../utils/helpers.js';
 
+// === Debug log capture ===
+const debugLogs = [];
+const _origConsole = {
+  log: console.log.bind(console),
+  info: console.info.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+};
+
+function captureLog(level, args) {
+  const now = new Date();
+  const ts = now.toTimeString().slice(0, 8) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+  const message = args.map((a) => {
+    if (a instanceof Error) return `${a.name}: ${a.message}${a.stack ? '\n' + a.stack : ''}`;
+    if (typeof a === 'object' && a !== null) {
+      try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+    }
+    return String(a);
+  }).join(' ');
+  debugLogs.push({ ts, level, message });
+  renderLogs();
+}
+
+['log', 'info', 'warn', 'error'].forEach((level) => {
+  console[level] = (...args) => {
+    _origConsole[level](...args);
+    captureLog(level, args);
+  };
+});
+// ===========================
+
 let currentUid = null;
 let currentProfile = null;
 let users = [];
@@ -208,6 +239,26 @@ function renderRecipes() {
   });
 }
 
+function renderLogs() {
+  const listEl = document.getElementById('logList');
+  if (!listEl) return;
+
+  if (!debugLogs.length) {
+    listEl.innerHTML = '<div class="admin-empty">No logs captured yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = debugLogs.map((entry) => `
+    <div class="admin-log-entry">
+      <span class="admin-log-ts">${escapeHtml(entry.ts)}</span>
+      <span class="admin-log-level level-${entry.level}">${entry.level.toUpperCase()}</span>
+      <span class="admin-log-message">${escapeHtml(entry.message)}</span>
+    </div>
+  `).join('');
+
+  listEl.scrollTop = listEl.scrollHeight;
+}
+
 function bindSearch() {
   document.getElementById('userSearch').addEventListener('input', (event) => {
     userSearchTerm = event.target.value || '';
@@ -238,6 +289,24 @@ async function init() {
 
   renderNav('admin', currentProfile);
   bindSearch();
+
+  document.getElementById('copyLogsBtn').addEventListener('click', () => {
+    if (!debugLogs.length) {
+      showToast('No logs to copy', 'error');
+      return;
+    }
+    const text = debugLogs
+      .map((e) => `[${e.ts}] ${e.level.toUpperCase().padEnd(5)} ${e.message}`)
+      .join('\n');
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Logs copied to clipboard', 'success'))
+      .catch(() => showToast('Could not copy to clipboard', 'error'));
+  });
+
+  document.getElementById('clearLogsBtn').addEventListener('click', () => {
+    debugLogs.length = 0;
+    renderLogs();
+  });
 
   const [allUsers, allRecipes] = await Promise.all([
     getAllUsers(),

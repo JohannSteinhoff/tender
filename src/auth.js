@@ -18,6 +18,19 @@ export function requireAuth() {
   });
 }
 
+/**
+ * Returns the current Firebase user, or null if not signed in.
+ * Never redirects — safe to call on guest-accessible pages.
+ */
+export function getAuthUser() {
+  return new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      unsub();
+      resolve(user || null);
+    });
+  });
+}
+
 /** Sign out and redirect to login. */
 export async function signOutUser() {
   await signOut(auth);

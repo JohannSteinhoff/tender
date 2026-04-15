@@ -28,7 +28,7 @@ export function renderNav(activePage, profile = null) {
     </a>`).join('');
 
   nav.innerHTML = `
-    <a href="/dashboard.html" class="logo nav-brand-panel" aria-label="Tender home">
+    <a href="${profile ? '/dashboard.html' : '/discover.html'}" class="logo nav-brand-panel" aria-label="Tender home">
       <span class="nav-brand-logo">
         <img src="/logo.png" alt="" class="logo-img" aria-hidden="true">
       </span>
@@ -51,20 +51,21 @@ export function renderNav(activePage, profile = null) {
           </span>
         </span>
       </button>
+      ${profile ? `
       <div class="avatar-wrapper" id="avatarWrapper">
-        <div class="user-avatar ${profile?.photoURL ? 'has-photo' : ''}" id="userAvatar">${profile?.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
+        <div class="user-avatar ${profile.photoURL ? 'has-photo' : ''}" id="userAvatar">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
         <div class="avatar-dropdown" id="avatarDropdown">
           <div class="avatar-dropdown-header">
-            <div class="avatar-dropdown-initials ${profile?.photoURL ? 'has-photo' : ''}">${profile?.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
+            <div class="avatar-dropdown-initials ${profile.photoURL ? 'has-photo' : ''}">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="avatar">` : initials}</div>
             <div class="avatar-dropdown-info">
-              <div class="avatar-dropdown-name">${profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User' : 'User'}</div>
-              <div class="avatar-dropdown-email">${profile?.email || ''}</div>
+              <div class="avatar-dropdown-name">${`${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'User'}</div>
+              ${profile.firstName ? `<div class="avatar-dropdown-email">@${escapeHtml((profile.firstName).toLowerCase().replace(/\s+/g,''))}</div>` : ''}
             </div>
           </div>
           <div class="avatar-dropdown-divider"></div>
           <a href="/account.html" class="avatar-dropdown-item ${activePage === 'account' ? 'avatar-dropdown-item--active' : ''}">&#x2699;&#xFE0F; Account Settings</a>
-          ${profile?.uid ? `<a href="/profile.html?uid=${profile.uid}" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
-          ${profile?.isAdmin ? `<a href="/admin.html" class="avatar-dropdown-item ${activePage === 'admin' ? 'avatar-dropdown-item--active' : ''}">&#x1F6E1;&#xFE0F; Admin</a>` : ''}
+          ${profile.uid ? `<a href="/profile.html?uid=${profile.uid}" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
+          ${profile.isAdmin ? `<a href="/admin.html" class="avatar-dropdown-item ${activePage === 'admin' ? 'avatar-dropdown-item--active' : ''}">&#x1F6E1;&#xFE0F; Admin</a>` : ''}
           <div class="avatar-dropdown-divider"></div>
           <div class="avatar-dropdown-section-label">Pages</div>
           ${NAV_LINKS.map(l => `<a href="${l.href}" class="avatar-dropdown-item ${activePage === l.page ? 'avatar-dropdown-item--active' : ''}">${l.icon} ${l.label}</a>`).join('')}
@@ -72,6 +73,12 @@ export function renderNav(activePage, profile = null) {
           <button class="avatar-dropdown-item avatar-dropdown-signout" id="logoutBtn">&#x1F6AA; Sign Out</button>
         </div>
       </div>
+      ` : `
+      <div class="nav-guest-actions">
+        <a href="/login.html" class="nav-guest-btn nav-guest-signin">Sign In</a>
+        <a href="/signup.html" class="nav-guest-btn nav-guest-signup">Create Account</a>
+      </div>
+      `}
     </div>
   `;
 
@@ -82,17 +89,17 @@ export function renderNav(activePage, profile = null) {
     localStorage.setItem('tender_theme', dark ? 'dark' : 'light');
   });
 
-  // Avatar dropdown toggle
+  // Avatar dropdown toggle (only present for logged-in users)
   const avatarDropdown = document.getElementById('avatarDropdown');
-  document.getElementById('userAvatar').addEventListener('click', (e) => {
-    e.stopPropagation();
-    avatarDropdown.classList.toggle('open');
-  });
-  document.addEventListener('click', () => avatarDropdown.classList.remove('open'));
-  avatarDropdown.addEventListener('click', (e) => e.stopPropagation());
-
-  // Logout
-  document.getElementById('logoutBtn').addEventListener('click', signOutUser);
+  if (avatarDropdown) {
+    document.getElementById('userAvatar').addEventListener('click', (e) => {
+      e.stopPropagation();
+      avatarDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => avatarDropdown.classList.remove('open'));
+    avatarDropdown.addEventListener('click', (e) => e.stopPropagation());
+    document.getElementById('logoutBtn').addEventListener('click', signOutUser);
+  }
 
   // Mobile bottom nav
   const existing = document.getElementById('mobile-nav');
