@@ -33,7 +33,7 @@
       <h1>Discover Recipes</h1>
     </div>
 
-    <!-- Search + filter dropdowns -->
+    <!-- Search + filter controls -->
     <div class="search-bar">
       <input
         type="search"
@@ -44,24 +44,32 @@
       <select id="cuisineFilter" aria-label="Filter by cuisine">
         <option value="">All Cuisines</option>
       </select>
-      <div class="multi-select" id="difficultyDropdown">
-        <button class="multi-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span class="multi-select-label">All Difficulties</span>
-          <svg class="multi-select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 4 6 8 10 4"/></svg>
+      <div class="filters-popover" id="filtersPopover">
+        <button class="filters-btn" id="filtersBtn" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <span class="filters-btn-label">Filters</span>
+          <span class="filters-btn-count hidden" id="filtersBtnCount">0</span>
+          <svg class="filters-btn-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 4 6 8 10 4"/></svg>
         </button>
-        <div class="multi-select-panel" role="listbox" aria-multiselectable="true">
-          <label class="multi-select-option"><input type="checkbox" value="easy"><span>Easy</span></label>
-          <label class="multi-select-option"><input type="checkbox" value="medium"><span>Medium</span></label>
-          <label class="multi-select-option"><input type="checkbox" value="hard"><span>Hard</span></label>
-        </div>
-      </div>
-      <div class="multi-select" id="dietaryDropdown">
-        <button class="multi-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span class="multi-select-label">All Dietary</span>
-          <svg class="multi-select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 4 6 8 10 4"/></svg>
-        </button>
-        <div class="multi-select-panel" id="dietaryPanel" role="listbox" aria-multiselectable="true">
-          <!-- populated by JS -->
+        <div class="filters-panel" id="filtersPanel" aria-label="Recipe filters">
+          <div class="filters-panel-header">
+            <div>
+              <div class="filters-panel-title">Recipe Filters</div>
+              <div class="filters-panel-subtitle">Pick the tags that matter most.</div>
+            </div>
+            <button class="filters-close-btn" id="filtersCloseBtn" type="button" aria-label="Close filters">&#x2715;</button>
+          </div>
+          <div class="filters-section">
+            <div class="filters-section-label">Difficulty</div>
+            <div class="filters-chip-grid" id="difficultyFilterChips"></div>
+          </div>
+          <div class="filters-section">
+            <div class="filters-section-label">Dietary</div>
+            <div class="filters-chip-grid filters-chip-grid--dietary" id="dietaryFilterChips"></div>
+          </div>
+          <div class="filters-panel-footer">
+            <button class="filters-clear-btn" id="filtersClearBtn" type="button">Clear all</button>
+            <button class="filters-done-btn" id="filtersDoneBtn" type="button">Done</button>
+          </div>
         </div>
       </div>
     </div>

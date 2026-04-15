@@ -35,6 +35,13 @@ const DIETARY_OPTIONS = [
   { value: 'keto',          label: 'Keto' },
   { value: 'shellfish-free', label: 'Shellfish-Free' },
 ];
+const DIFFICULTY_OPTIONS = [
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+];
+const selectedDifficulty = new Set();
+const selectedDietary = new Set();
 
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
@@ -78,9 +85,8 @@ async function init() {
 
   renderRecipeOfDay();
   buildCuisineChips();
-  buildDietaryPanel();
-  setupMultiSelect('difficultyDropdown', 'All Difficulties');
-  setupMultiSelect('dietaryDropdown', 'All Dietary');
+  buildFiltersPopover();
+  setupFiltersPopover();
   buildFridgePanel();
   filterAndRender();
 
@@ -161,54 +167,101 @@ function buildCuisineChips() {
   });
 }
 
-// ── Dietary panel ────────────────────────────────────────────
-function buildDietaryPanel() {
-  const panel = document.getElementById('dietaryPanel');
-  if (!panel) return;
-  panel.innerHTML = DIETARY_OPTIONS.map(({ value, label }) =>
-    `<label class="multi-select-option"><input type="checkbox" value="${value}"><span>${label}</span></label>`
-  ).join('');
+// ── Filters popover ──────────────────────────────────────────
+function getFilterSet(group) {
+  return group === 'difficulty' ? selectedDifficulty : selectedDietary;
 }
 
-// ── Multi-select dropdown logic ───────────────────────────────
-function setupMultiSelect(containerId, defaultLabel) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  const btn = container.querySelector('.multi-select-btn');
-  const labelEl = container.querySelector('.multi-select-label');
-  const panel = container.querySelector('.multi-select-panel');
+function renderFilterChipMarkup(group, { value, label }) {
+  return `<button class="filters-chip" type="button" data-group="${group}" data-value="${value}" aria-pressed="false">${label}</button>`;
+}
+
+function updateFiltersButton() {
+  const btn = document.getElementById('filtersBtn');
+  const count = document.getElementById('filtersBtnCount');
+  if (!btn || !count) return;
+
+  const total = selectedDifficulty.size + selectedDietary.size;
+  btn.classList.toggle('has-selection', total > 0);
+  count.textContent = String(total);
+  count.classList.toggle('hidden', total === 0);
+}
+
+function syncFilterChipState() {
+  document.querySelectorAll('.filters-chip').forEach((chip) => {
+    const active = getFilterSet(chip.dataset.group).has(chip.dataset.value);
+    chip.classList.toggle('active', active);
+    chip.setAttribute('aria-pressed', String(active));
+  });
+  updateFiltersButton();
+}
+
+function setFiltersPanelOpen(isOpen) {
+  const btn = document.getElementById('filtersBtn');
+  const panel = document.getElementById('filtersPanel');
+  if (!btn || !panel) return;
+
+  panel.classList.toggle('open', isOpen);
+  btn.setAttribute('aria-expanded', String(isOpen));
+}
+
+function buildFiltersPopover() {
+  const difficultyContainer = document.getElementById('difficultyFilterChips');
+  const dietaryContainer = document.getElementById('dietaryFilterChips');
+  if (!difficultyContainer || !dietaryContainer) return;
+
+  difficultyContainer.innerHTML = DIFFICULTY_OPTIONS
+    .map((option) => renderFilterChipMarkup('difficulty', option))
+    .join('');
+
+  dietaryContainer.innerHTML = DIETARY_OPTIONS
+    .map((option) => renderFilterChipMarkup('dietary', option))
+    .join('');
+
+  syncFilterChipState();
+}
+
+function setupFiltersPopover() {
+  const popover = document.getElementById('filtersPopover');
+  const btn = document.getElementById('filtersBtn');
+  const panel = document.getElementById('filtersPanel');
+  const clearBtn = document.getElementById('filtersClearBtn');
+  const closeBtn = document.getElementById('filtersCloseBtn');
+  const doneBtn = document.getElementById('filtersDoneBtn');
+
+  if (!popover || !btn || !panel) return;
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Close any other open panels first
-    document.querySelectorAll('.multi-select-panel.open').forEach(p => {
-      if (p !== panel) {
-        p.classList.remove('open');
-        p.closest('.multi-select').querySelector('.multi-select-btn').setAttribute('aria-expanded', 'false');
-      }
-    });
-    const isOpen = panel.classList.toggle('open');
-    btn.setAttribute('aria-expanded', String(isOpen));
+    setFiltersPanelOpen(!panel.classList.contains('open'));
   });
 
-  panel.addEventListener('change', () => {
-    const checked = [...panel.querySelectorAll('input:checked')];
-    btn.classList.toggle('has-selection', checked.length > 0);
-    if (checked.length === 0) {
-      labelEl.textContent = defaultLabel;
-    } else if (checked.length <= 2) {
-      labelEl.textContent = checked.map(el => el.closest('label').textContent.trim()).join(', ');
+  panel.addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    const chip = e.target.closest('.filters-chip');
+    if (!chip) return;
+
+    const set = getFilterSet(chip.dataset.group);
+    if (set.has(chip.dataset.value)) {
+      set.delete(chip.dataset.value);
     } else {
-      labelEl.textContent = `${checked[0].closest('label').textContent.trim()} +${checked.length - 1}`;
+      set.add(chip.dataset.value);
     }
+
+    syncFilterChipState();
     filterAndRender();
   });
-}
 
-function getCheckedValues(containerId) {
-  return new Set(
-    [...document.querySelectorAll(`#${containerId} .multi-select-panel input:checked`)].map(el => el.value)
-  );
+  clearBtn?.addEventListener('click', () => {
+    selectedDifficulty.clear();
+    selectedDietary.clear();
+    syncFilterChipState();
+    filterAndRender();
+  });
+
+  closeBtn?.addEventListener('click', () => setFiltersPanelOpen(false));
+  doneBtn?.addEventListener('click', () => setFiltersPanelOpen(false));
 }
 
 // ── Fridge panel ─────────────────────────────────────────────
@@ -308,8 +361,8 @@ function buildFridgePanel() {
 function filterAndRender() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   const cuisine = document.getElementById('cuisineFilter').value;
-  const difficulty = getCheckedValues('difficultyDropdown');
-  const dietary = getCheckedValues('dietaryDropdown');
+  const difficulty = selectedDifficulty;
+  const dietary = selectedDietary;
 
   let filtered = allRecipes.filter(r => {
     const ingredients = parseIngredients(r.ingredients);
@@ -595,10 +648,7 @@ document.getElementById('cuisineFilter').addEventListener('change', filterAndRen
 // ── Close dropdowns + dots menus on outside click ────────────
 document.addEventListener('click', () => {
   document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
-  document.querySelectorAll('.multi-select-panel.open').forEach(p => {
-    p.classList.remove('open');
-    p.closest('.multi-select').querySelector('.multi-select-btn').setAttribute('aria-expanded', 'false');
-  });
+  setFiltersPanelOpen(false);
 });
 
 // ── Start ────────────────────────────────────────────────────

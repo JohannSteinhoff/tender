@@ -1,9 +1,0 @@
-[debug] [2026-04-15T01:47:28.740Z] ----------------------------------------------------------------------
-[debug] [2026-04-15T01:47:28.744Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\johann\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js login:list
-[debug] [2026-04-15T01:47:28.746Z] CLI Version:   15.11.0
-[debug] [2026-04-15T01:47:28.746Z] Platform:      win32
-[debug] [2026-04-15T01:47:28.746Z] Node Version:  v24.13.0
-[debug] [2026-04-15T01:47:28.746Z] Time:          Tue Apr 14 2026 20:47:28 GMT-0500 (Central Daylight Time)
-[debug] [2026-04-15T01:47:28.746Z] ----------------------------------------------------------------------
-[debug] 
-[info] Logged in as johannxsteinhoff@gmail.com
