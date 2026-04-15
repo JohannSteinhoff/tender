@@ -44,7 +44,7 @@ function renderAccount(p) {
     avatarEl.classList.remove('has-photo');
   }
   document.getElementById('accountName').textContent = fullName;
-  document.getElementById('accountEmail').textContent = p.email || '';
+  document.getElementById('accountEmail').textContent = p.firstName ? `@${p.firstName.toLowerCase().replace(/\s+/g, '')}` : '';
 
   renderPersonalCard(p);
   renderPreferencesCard(p);
@@ -72,11 +72,6 @@ function renderPersonalCard(p, editing = false) {
           <label>Last Name</label>
           <input type="text" id="editLastName" value="${escapeHtml(p.lastName || '')}" placeholder="Last name">
         </div>
-        <div class="edit-field">
-          <label>Email</label>
-          <input type="email" value="${escapeHtml(p.email || '')}" disabled class="input-disabled" title="Email cannot be changed here">
-          <span class="field-note">Email cannot be changed</span>
-        </div>
       </div>
     `;
     document.getElementById('savePersonalBtn').addEventListener('click', savePersonal);
@@ -92,7 +87,6 @@ function renderPersonalCard(p, editing = false) {
     const rows = [
       { label:'First Name', value: p.firstName || '-' },
       { label:'Last Name',  value: p.lastName  || '-' },
-      { label:'Email',      value: p.email     || '-' },
       { label:'Member Since', value: memberSince },
     ];
     card.innerHTML = `

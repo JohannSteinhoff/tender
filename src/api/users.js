@@ -89,8 +89,11 @@ export async function updateNotificationPrefs(uid, prefs) {
   await setDoc(prefsDocRef(uid), prefs, { merge: true });
 }
 
-/** Create a notification document for a recipient user. */
-export async function createNotification(recipientUserId, { actorUserId, type, message, targetId = null }) {
+/** Create a notification document for a recipient user.
+ *  Any extra fields beyond the required ones are spread onto the document
+ *  so callers can embed rich display data (actorName, actorPhotoURL, etc.).
+ */
+export async function createNotification(recipientUserId, { actorUserId, type, message, targetId = null, ...extra }) {
   if (!recipientUserId || !actorUserId || !type) return null;
   if (recipientUserId === actorUserId) return null;
 
@@ -102,6 +105,7 @@ export async function createNotification(recipientUserId, { actorUserId, type, m
     targetId,
     isRead: false,
     createdAt: serverTimestamp(),
+    ...extra,
   });
 
   return ref.id;

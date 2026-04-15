@@ -1,6 +1,5 @@
 import { db } from '../firebase.js';
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -12,20 +11,73 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
-  normalizeGroceryName,
+  getGroceryItemKey,
+  normalizeGroceryItem,
   sanitizeBrandSelection,
   sanitizeGeneratedItems,
 } from '../features/grocery/logic.js';
 
 function toGroceryItem(snapshot) {
   const data = snapshot.data();
-  return {
+  const normalized = normalizeGroceryItem({
     id: snapshot.id,
     name: data.name || '',
     quantity: Number.isFinite(data.quantity) ? data.quantity : 1,
+    quantityUnit: data.quantityUnit || null,
+    checked: Boolean(data.checked),
+    selectedBrand: sanitizeBrandSelection(data.selectedBrand),
+  });
+
+  return normalized || {
+    id: snapshot.id,
+    name: data.name || '',
+    quantity: Number.isFinite(data.quantity) ? data.quantity : 1,
+    quantityUnit: data.quantityUnit || null,
     checked: Boolean(data.checked),
     selectedBrand: sanitizeBrandSelection(data.selectedBrand),
   };
+}
+
+function buildGroceryWrite(item, includeTimestamp = false) {
+  const payload = {
+    name: item.name,
+    quantity: item.quantity,
+    quantityUnit: item.quantityUnit || null,
+    checked: Boolean(item.checked),
+    selectedBrand: sanitizeBrandSelection(item.selectedBrand),
+  };
+
+  if (includeTimestamp) {
+    payload.addedAt = serverTimestamp();
+  }
+
+  return payload;
+}
+
+function sameSelectedBrand(left, right) {
+  const normalizedLeft = sanitizeBrandSelection(left);
+  const normalizedRight = sanitizeBrandSelection(right);
+
+  if (!normalizedLeft && !normalizedRight) return true;
+  if (!normalizedLeft || !normalizedRight) return false;
+
+  return normalizedLeft.name === normalizedRight.name
+    && normalizedLeft.productName === normalizedRight.productName
+    && normalizedLeft.brandOwner === normalizedRight.brandOwner
+    && normalizedLeft.fdcId === normalizedRight.fdcId;
+}
+
+function needsStoredUpdate(snapshotData, item) {
+  const storedQuantity = Number.isFinite(snapshotData.quantity) ? snapshotData.quantity : 1;
+  const storedUnit = snapshotData.quantityUnit || null;
+  const storedChecked = Boolean(snapshotData.checked);
+  const storedBrand = sanitizeBrandSelection(snapshotData.selectedBrand);
+
+  return snapshotData.name !== item.name
+    || storedQuantity !== item.quantity
+    || storedUnit !== (item.quantityUnit || null)
+    || storedChecked !== Boolean(item.checked)
+    || !sameSelectedBrand(storedBrand, item.selectedBrand);
 }
 
 export class GroceryRepository {
@@ -40,24 +92,20 @@ export class GroceryRepository {
   }
 
   async add({ name, quantity = 1 }) {
-    const cleanName = String(name || '').trim();
-    const cleanQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
+    const normalized = normalizeGroceryItem({ name, quantity, checked: false, selectedBrand: null });
+    if (!normalized) {
+      throw new Error('A grocery item name is required');
+    }
 
-    const ref = await addDoc(this.collectionRef, {
-      name: cleanName,
-      quantity: cleanQuantity,
-      checked: false,
-      selectedBrand: null,
-      addedAt: serverTimestamp(),
-    });
+    const key = getGroceryItemKey(normalized);
+    const result = await this.mergeByName([normalized]);
+    const mergedItem = result.items.find((item) => getGroceryItemKey(item) === key);
 
-    return {
-      id: ref.id,
-      name: cleanName,
-      quantity: cleanQuantity,
-      checked: false,
-      selectedBrand: null,
-    };
+    if (!mergedItem) {
+      throw new Error('Could not save grocery item');
+    }
+
+    return mergedItem;
   }
 
   async setChecked(id, checked) {
@@ -90,34 +138,58 @@ export class GroceryRepository {
 
   async mergeByName(items) {
     const incoming = sanitizeGeneratedItems(items);
-
-    if (incoming.length === 0) {
-      return { added: 0, updated: 0, items: await this.list() };
-    }
-
     const snapshot = await getDocs(this.collectionRef);
-    const existingByKey = new Map(
-      snapshot.docs.map((itemDoc) => {
-        const item = toGroceryItem(itemDoc);
-        return [normalizeGroceryName(item.name), { ref: itemDoc.ref, item }];
-      })
-    );
-
+    const existingByKey = new Map();
     const batch = writeBatch(db);
-    let added = 0;
-    let updated = 0;
+    let changed = false;
 
-    incoming.forEach((incomingItem) => {
-      const key = normalizeGroceryName(incomingItem.name);
+    snapshot.docs.forEach((itemDoc) => {
+      const item = toGroceryItem(itemDoc);
+      const key = getGroceryItemKey(item);
       if (!key) return;
 
       const existing = existingByKey.get(key);
       if (existing) {
-        const nextQuantity = Math.max(Math.max(1, existing.item.quantity), incomingItem.quantity);
-        if (nextQuantity !== existing.item.quantity) {
-          batch.update(existing.ref, { quantity: nextQuantity });
+        existing.item.quantity = Number.parseFloat((existing.item.quantity + item.quantity).toFixed(3));
+        existing.item.checked = existing.item.checked && item.checked;
+        if (!existing.item.selectedBrand && item.selectedBrand) {
+          existing.item.selectedBrand = item.selectedBrand;
+        }
+        batch.delete(itemDoc.ref);
+        existing.needsUpdate = true;
+        changed = true;
+        return;
+      }
+
+      const snapshotData = itemDoc.data();
+      existingByKey.set(key, {
+        ref: itemDoc.ref,
+        item,
+        needsUpdate: needsStoredUpdate(snapshotData, item),
+      });
+    });
+
+    let added = 0;
+    let updated = 0;
+
+    incoming.forEach((incomingItem) => {
+      const key = getGroceryItemKey(incomingItem);
+      if (!key) return;
+
+      const existing = existingByKey.get(key);
+      if (existing) {
+        const nextQuantity = Number.parseFloat((existing.item.quantity + incomingItem.quantity).toFixed(3));
+        if (
+          nextQuantity !== existing.item.quantity
+          || existing.item.name !== incomingItem.name
+          || (existing.item.quantityUnit || null) !== (incomingItem.quantityUnit || null)
+        ) {
+          existing.item.name = incomingItem.name;
+          existing.item.quantityUnit = incomingItem.quantityUnit || null;
           existing.item.quantity = nextQuantity;
+          existing.needsUpdate = true;
           updated += 1;
+          changed = true;
         }
         return;
       }
@@ -127,20 +199,23 @@ export class GroceryRepository {
         id: ref.id,
         name: incomingItem.name,
         quantity: incomingItem.quantity,
+        quantityUnit: incomingItem.quantityUnit || null,
         checked: false,
         selectedBrand: null,
       };
-      batch.set(ref, {
-        name: item.name,
-        quantity: item.quantity,
-        checked: item.checked,
-        addedAt: serverTimestamp(),
-      });
-      existingByKey.set(key, { ref, item });
+      batch.set(ref, buildGroceryWrite(item, true));
+      existingByKey.set(key, { ref, item, needsUpdate: false });
       added += 1;
+      changed = true;
     });
 
-    if (added > 0 || updated > 0) {
+    existingByKey.forEach(({ ref, item, needsUpdate }) => {
+      if (!needsUpdate) return;
+      batch.set(ref, buildGroceryWrite(item), { merge: true });
+      changed = true;
+    });
+
+    if (changed) {
       await batch.commit();
     }
 

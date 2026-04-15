@@ -8,11 +8,19 @@ import { showToast } from "../components/toast.js";
 import {
   applyBrandRecommendations,
   collectIngredientsFromRecipes,
+  getGroceryItemKey,
+  normalizeGroceryItem,
 } from "../features/grocery/logic.js";
 import {
   isSameBrand,
   renderGroceryItemMarkup,
 } from "../features/grocery/view.js";
+import {
+  GROCERY_CATEGORIES,
+  categorizeItem,
+  loadCategoryOrder,
+  saveCategoryOrder,
+} from "../features/grocery/categories.js";
 
 class GroceryListPage {
   constructor() {
@@ -22,6 +30,7 @@ class GroceryListPage {
     this.items = [];
     this.loading = false;
     this.generating = false;
+    this.categoryOrder = [];
 
     this.elements = {
       list: document.getElementById("groceryList"),
@@ -41,6 +50,7 @@ class GroceryListPage {
     this.uid = user.uid;
     this.repo = new GroceryRepository(this.uid);
 
+    this.categoryOrder = loadCategoryOrder();
     renderNav("grocery");
     this.insertGenerateButton();
     this.bindEvents();
@@ -53,6 +63,44 @@ class GroceryListPage {
 
   bindEvents() {
     const { addBtn, cancelBtn, form, input, list, generateBtn } = this.elements;
+
+    const sidebar = document.getElementById("categorySidebar");
+    if (sidebar) {
+      let dragSrcCat = null;
+      sidebar.addEventListener("dragstart", (e) => {
+        const item = e.target.closest("[data-cat]");
+        if (!item) return;
+        dragSrcCat = item.dataset.cat;
+        item.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      sidebar.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const item = e.target.closest("[data-cat]");
+        sidebar.querySelectorAll(".cat-order-item").forEach(el => el.classList.remove("drag-over"));
+        if (item && item.dataset.cat !== dragSrcCat) item.classList.add("drag-over");
+      });
+      sidebar.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const item = e.target.closest("[data-cat]");
+        if (!item || !dragSrcCat || item.dataset.cat === dragSrcCat) return;
+        const tgtCat = item.dataset.cat;
+        const srcIdx = this.categoryOrder.indexOf(dragSrcCat);
+        const tgtIdx = this.categoryOrder.indexOf(tgtCat);
+        if (srcIdx < 0 || tgtIdx < 0) return;
+        this.categoryOrder.splice(srcIdx, 1);
+        this.categoryOrder.splice(tgtIdx, 0, dragSrcCat);
+        saveCategoryOrder(this.categoryOrder);
+        this.render();
+      });
+      sidebar.addEventListener("dragend", () => {
+        sidebar.querySelectorAll(".cat-order-item").forEach(el => {
+          el.classList.remove("dragging", "drag-over");
+        });
+        dragSrcCat = null;
+      });
+    }
 
     addBtn.addEventListener("click", () => {
       form.classList.remove("hidden");
@@ -110,7 +158,8 @@ class GroceryListPage {
     this.render();
 
     try {
-      this.items = await this.repo.list();
+      const result = await this.repo.mergeByName([]);
+      this.items = result.items;
       await this.refreshRecommendations();
       this.sortItems();
     } catch (error) {
@@ -141,13 +190,27 @@ class GroceryListPage {
     const { name, quantity } = this.parseInput(rawValue);
 
     try {
+      const normalizedInput = normalizeGroceryItem({ name, quantity });
+      const existingIndex = this.items.findIndex((entry) => (
+        normalizedInput && getGroceryItemKey(entry) === getGroceryItemKey(normalizedInput)
+      ));
       const newItem = await this.repo.add({ name, quantity });
-      this.items.push(newItem);
+      const localIndex = this.items.findIndex((entry) => entry.id === newItem.id);
+
+      if (localIndex >= 0) {
+        this.items[localIndex] = {
+          ...this.items[localIndex],
+          ...newItem,
+        };
+      } else {
+        this.items.push(newItem);
+      }
+
       await this.refreshRecommendations();
       this.sortItems();
       this.hideAddForm();
       this.render();
-      showToast(`Added "${name}"`, "success");
+      showToast(existingIndex >= 0 ? `Updated "${newItem.name}"` : `Added "${newItem.name}"`, "success");
     } catch (error) {
       console.error("Failed to add grocery item:", error);
       showToast("Could not add item. Please try again.", "error");
@@ -309,6 +372,7 @@ class GroceryListPage {
   render() {
     this.renderStats();
     this.renderList();
+    this.renderCategorySidebar();
   }
 
   renderStats() {
@@ -323,10 +387,7 @@ class GroceryListPage {
     if (!list) return;
 
     if (this.loading) {
-      list.innerHTML = `
-        <div class="grocery-empty">
-          <p>Loading your grocery list...</p>
-        </div>`;
+      list.innerHTML = `<div class="grocery-empty"><p>Loading your grocery list...</p></div>`;
       return;
     }
 
@@ -339,19 +400,75 @@ class GroceryListPage {
       return;
     }
 
-    const checkedCount = this.items.filter((item) => item.checked).length;
+    // Group items by category
+    const grouped = {};
+    for (const item of this.items) {
+      const catId = categorizeItem(item.name);
+      (grouped[catId] ??= []).push(item);
+    }
 
-    list.innerHTML = `
-      ${this.items
-        .map(
-          (item) => renderGroceryItemMarkup(item)
-        )
-        .join("")}
-      ${
-        checkedCount > 0
-          ? `<div class="grocery-actions"><button class="btn-clear-checked">Clear checked (${checkedCount})</button></div>`
-          : ""
-      }`;
+    // Render sections in user-defined order, skipping empty categories
+    const sections = this.categoryOrder
+      .filter(catId => grouped[catId]?.length > 0)
+      .map(catId => {
+        const cat = GROCERY_CATEGORIES.find(c => c.id === catId);
+        const items = grouped[catId];
+        const unchecked = items.filter(i => !i.checked).length;
+        return `
+          <div class="grocery-category-section">
+            <div class="grocery-category-header">
+              <span class="grocery-category-icon">${cat.icon}</span>
+              <span class="grocery-category-name">${cat.label}</span>
+              <span class="grocery-category-count">${unchecked > 0 ? `${unchecked} left` : 'done'}</span>
+            </div>
+            ${items.map(item => renderGroceryItemMarkup(item)).join('')}
+          </div>`;
+      });
+
+    const checkedCount = this.items.filter(i => i.checked).length;
+
+    list.innerHTML = sections.join('') + (
+      checkedCount > 0
+        ? `<div class="grocery-actions"><button class="btn-clear-checked">Clear checked (${checkedCount})</button></div>`
+        : ''
+    );
+  }
+
+  renderCategorySidebar() {
+    const sidebar = document.getElementById("categorySidebar");
+    if (!sidebar) return;
+
+    // Count items per category
+    const counts = {};
+    for (const item of this.items) {
+      const catId = categorizeItem(item.name);
+      counts[catId] = (counts[catId] || 0) + 1;
+    }
+
+    const items = this.categoryOrder.map((catId) => {
+      const cat = GROCERY_CATEGORIES.find(c => c.id === catId);
+      const count = counts[catId] || 0;
+      return `
+        <li class="cat-order-item${count === 0 ? ' cat-order-item--empty' : ''}" data-cat="${catId}" draggable="true">
+          <span class="cat-drag-handle" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <circle cx="4" cy="2.5" r="1.1"/><circle cx="8" cy="2.5" r="1.1"/>
+              <circle cx="4" cy="6" r="1.1"/><circle cx="8" cy="6" r="1.1"/>
+              <circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/>
+            </svg>
+          </span>
+          <span class="cat-order-icon">${cat.icon}</span>
+          <span class="cat-order-label">${cat.label}</span>
+          ${count > 0 ? `<span class="cat-order-count">${count}</span>` : ''}
+        </li>`;
+    }).join('');
+
+    sidebar.innerHTML = `
+      <div class="cat-sidebar-header">
+        <h3>&#x1F5FA;&#xFE0F; Store Sections</h3>
+        <p>Drag to reorder sections</p>
+      </div>
+      <ol class="cat-order-list">${items}</ol>`;
   }
 
   insertGenerateButton() {

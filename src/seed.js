@@ -3,7 +3,7 @@
  * Called once at app startup from discover/swipe pages.
  */
 import { db } from './firebase.js';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 const SAMPLE_RECIPES = [
   { name: 'Pesto Pasta', description: 'Herby pasta tossed in fresh pesto.', emoji: '🌿', cookTime: 20, servings: 3, difficulty: 'easy', cuisine: 'italian', dietary: ['vegetarian', 'shellfish-free'], ingredients: ['pasta', 'basil', 'garlic', 'pine nuts', 'parmesan', 'olive oil', 'salt'], instructions: '1. Cook pasta in salted water.\n2. Blend basil, garlic, pine nuts, parmesan, and olive oil.\n3. Drain pasta and toss with pesto.\n4. Adjust seasoning and serve.' },
@@ -25,7 +25,7 @@ const SAMPLE_RECIPES = [
 
 let seeded = false;
 
-export async function seedRecipesIfEmpty() {
+export async function seedRecipesIfEmpty(uid = null) {
   if (seeded) return;
   seeded = true;
 
@@ -36,11 +36,39 @@ export async function seedRecipesIfEmpty() {
   const writes = SAMPLE_RECIPES.map(recipe =>
     addDoc(collection(db, 'recipes'), {
       ...recipe,
-      createdBy: null,
+      createdBy: uid || null,
       dietaryOverrides: [],
       createdAt: serverTimestamp(),
     })
   );
   await Promise.all(writes);
   console.log(`[seed] Seeded ${SAMPLE_RECIPES.length} recipes.`);
+}
+
+export async function ensureSeedRecipesOwnedByUser(uid) {
+  if (!uid) return 0;
+
+  const recipesRef = collection(db, 'recipes');
+  const snap = await getDocs(recipesRef);
+
+  if (snap.empty) {
+    await seedRecipesIfEmpty(uid);
+    return SAMPLE_RECIPES.length;
+  }
+
+  const claimable = snap.docs.filter((docSnap) => {
+    const createdBy = docSnap.data()?.createdBy;
+    return createdBy == null || createdBy === 'system';
+  });
+
+  if (claimable.length === 0) return 0;
+
+  const batch = writeBatch(db);
+  claimable.forEach((docSnap) => {
+    batch.update(docSnap.ref, { createdBy: uid });
+  });
+  await batch.commit();
+
+  console.log(`[seed] Claimed ${claimable.length} seeded recipe${claimable.length === 1 ? '' : 's'} for ${uid}.`);
+  return claimable.length;
 }

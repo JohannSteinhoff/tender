@@ -44,18 +44,48 @@
       <select id="cuisineFilter" aria-label="Filter by cuisine">
         <option value="">All Cuisines</option>
       </select>
+      <div class="multi-select" id="difficultyDropdown">
+        <button class="multi-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="multi-select-label">All Difficulties</span>
+          <svg class="multi-select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 4 6 8 10 4"/></svg>
+        </button>
+        <div class="multi-select-panel" role="listbox" aria-multiselectable="true">
+          <label class="multi-select-option"><input type="checkbox" value="easy"><span>Easy</span></label>
+          <label class="multi-select-option"><input type="checkbox" value="medium"><span>Medium</span></label>
+          <label class="multi-select-option"><input type="checkbox" value="hard"><span>Hard</span></label>
+        </div>
+      </div>
+      <div class="multi-select" id="dietaryDropdown">
+        <button class="multi-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="multi-select-label">All Dietary</span>
+          <svg class="multi-select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2 4 6 8 10 4"/></svg>
+        </button>
+        <div class="multi-select-panel" id="dietaryPanel" role="listbox" aria-multiselectable="true">
+          <!-- populated by JS -->
+        </div>
+      </div>
     </div>
 
-    <!-- Difficulty chips -->
-    <div class="filter-chips-section">
-      <span class="filter-chips-label">Difficulty:</span>
-      <div id="difficultyChips" class="filter-chips inline-chips"></div>
-    </div>
-
-    <!-- Dietary chips -->
-    <div class="filter-chips-section">
-      <span class="filter-chips-label">Dietary:</span>
-      <div id="dietaryChips" class="filter-chips inline-chips"></div>
+    <!-- Fridge / ingredient filter -->
+    <div class="fridge-panel" id="fridgePanel">
+      <div class="fridge-header" id="fridgeToggle">
+        <div class="fridge-header-left">
+          <span>&#x1F9CA;</span>
+          <span class="fridge-title">What's in my fridge?</span>
+          <span class="fridge-count-badge" id="fridgeCountBadge" style="display:none"></span>
+        </div>
+        <span class="fridge-chevron">&#x25BE;</span>
+      </div>
+      <div class="fridge-body">
+        <div class="fridge-body-inner">
+          <p class="fridge-hint">Add ingredients you have — recipes are sorted by how many they use. Press Enter or comma to add multiple.</p>
+          <div class="fridge-input-row">
+            <input type="text" id="fridgeInput" class="fridge-input" placeholder="e.g. chicken, garlic, tomato..." autocomplete="off">
+            <button id="fridgeAddBtn" class="fridge-add-btn">Add</button>
+          </div>
+          <div id="fridgeChips" class="fridge-chips"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Recipe grid -->

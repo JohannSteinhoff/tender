@@ -357,10 +357,34 @@
   font-size: 0.72em;
 }
 
-/* ── Profile section ─────────────────────────────────────────── */
-.profile-section {
-  margin-bottom: 24px;
+/* ── Interactive cards in the main grid ─────────────────────── */
+.dashboard-grid .section-card {
+  transition: box-shadow 0.22s, border-color 0.22s;
 }
+
+.dashboard-grid .section-card:hover {
+  box-shadow: 0 6px 28px var(--shadow-color);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.dashboard-grid .section-card .section-header {
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+
+.dashboard-grid .section-card .section-header:hover {
+  background: var(--bg-input);
+}
+
+/* Light mode only: themed ring around the header on hover */
+html:not(.dark-mode) .dashboard-grid .section-card .section-header:hover {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+
+/* ── Profile section ─────────────────────────────────────────── */
+.profile-section {}
 
 .profile-info {
   display: flex;
@@ -455,6 +479,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 
 /* ── Empty state inside section ─────────────────────────────── */
 .section-empty {
@@ -960,3 +985,225 @@ html.dark-mode .my-recipe-status-pill.is-draft {
     gap: 12px;
   }
 }
+
+/* ── Dashboard notifications section ────────────────────────── */
+.dash-notif-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 12px var(--shadow-color);
+}
+
+.dash-notif-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.dash-notif-header:hover {
+  background: var(--bg-input);
+}
+
+.dash-notif-section.expanded .dash-notif-header {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.dash-notif-chevron {
+  font-size: 1em;
+  color: var(--text-secondary);
+  transition: transform 0.32s ease;
+  line-height: 1;
+  transform: rotate(-90deg);
+}
+
+.dash-notif-section.expanded .dash-notif-chevron {
+  transform: rotate(0deg);
+}
+
+.dash-notif-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-notif-title-group h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.dash-notif-badge {
+  background: var(--primary);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  line-height: 1.6;
+}
+
+/* List slides open/closed */
+.dash-notif-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dash-notif-section.expanded .dash-notif-list {
+  max-height: 1200px;
+}
+
+
+/* Individual row */
+.dash-notif-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.15s;
+}
+
+.dash-notif-item:last-child { border-bottom: none; }
+
+.dash-notif-item.unread { background: rgba(255,107,107,0.03); }
+
+/* Avatars: commenter + recipe overlap */
+.dash-notif-avatars {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dash-notif-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid var(--bg-card);
+  flex-shrink: 0;
+}
+
+.dash-notif-avatar--initials {
+  background: var(--gradient);
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-notif-recipe-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  object-fit: cover;
+  border: 2.5px solid var(--bg-card);
+  margin-left: -10px;
+  flex-shrink: 0;
+}
+
+.dash-notif-recipe-thumb--emoji {
+  background: var(--gradient);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Text content */
+.dash-notif-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-notif-preview {
+  font-size: 0.92rem;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--text-primary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-notif-preview.plain {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.dash-notif-meta {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-notif-meta strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.dash-notif-meta em {
+  font-style: normal;
+  color: var(--text-primary);
+}
+
+/* Right side: dot + mark-read */
+.dash-notif-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dash-notif-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.dash-notif-mark-read {
+  background: none;
+  border: 1.5px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 3px 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.dash-notif-mark-read:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.dash-notif-mark-read:disabled { opacity: 0.45; cursor: default; }
+
+.dash-notif-empty {
+  padding: 40px 22px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+

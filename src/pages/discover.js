@@ -1,13 +1,15 @@
-import { requireAuth } from '../auth.js';
+import { getAuthUser } from '../auth.js';
 import { getUserProfile, getUserProfiles } from '../api/users.js';
 import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
-import { seedRecipesIfEmpty } from '../seed.js';
+import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { openAddRecipeModal } from '../components/addRecipeModal.js';
 import { openMealPlanPrompt } from '../components/mealPlanPrompt.js';
 import { showToast } from '../components/toast.js';
 import { escapeHtml, capitalizeFirst, parseIngredients } from '../utils/helpers.js';
+import { getGuestLikedIds, toggleGuestLike, migrateGuestLikesToFirestore } from '../utils/guestLikes.js';
+import { showAuthGate } from '../components/authGate.js';
 
 // ── State ────────────────────────────────────────────────────
 let uid = null;
@@ -17,8 +19,9 @@ let likedIds = new Set();
 let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
 
 let activeCuisine = '';
-let activeDifficulty = '';
-let activeDietary = new Set();
+
+const FRIDGE_KEY = 'tender_fridge_ingredients';
+let fridgeIngredients = [];
 
 const DIETARY_OPTIONS = [
   { value: 'vegetarian',  label: 'Vegetarian' },
@@ -33,31 +36,36 @@ const DIETARY_OPTIONS = [
   { value: 'shellfish-free', label: 'Shellfish-Free' },
 ];
 
-const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'];
-
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
-  const user = await requireAuth();
-  uid = user.uid;
+  const user = await getAuthUser(); // null if not signed in — guests are welcome
+  uid = user ? user.uid : null;
 
-  renderNav('discover'); // show nav immediately
+  renderNav('discover', null); // render nav immediately; update below once profile loads
 
-  profile = await getUserProfile(uid);
-  renderNav('discover', profile); // update with real initials
+  if (uid) {
+    profile = await getUserProfile(uid);
+    renderNav('discover', profile);
 
-  await seedRecipesIfEmpty();
+    // Silently migrate any locally liked recipes from a prior guest session
+    const migrated = await migrateGuestLikesToFirestore(uid);
+    if (migrated > 0) {
+      showToast(`${migrated} locally liked recipe${migrated === 1 ? '' : 's'} synced to your account!`, 'success');
+    }
+  }
+
+  // Make seeded recipes belong to the signed-in user before loading cards.
+  if (uid) await ensureSeedRecipesOwnedByUser(uid);
 
   const [recipes, liked] = await Promise.all([
     getAllRecipes(),
-    getLikedRecipeIds(uid),
+    uid ? getLikedRecipeIds(uid) : Promise.resolve(getGuestLikedIds()),
   ]);
 
   allRecipes = recipes;
   likedIds = liked;
 
-  // Batch-fetch author profiles for all unique creators
-  // Wrapped in try-catch because Firestore rules only allow reading your own profile,
-  // so fetching other users' profiles may fail with a permission error.
+  // Batch-fetch author profiles (requires auth — gracefully degrades for guests)
   const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
   try {
     authorProfiles = await getUserProfiles(authorUids);
@@ -66,13 +74,21 @@ async function init() {
     authorProfiles = {};
   }
 
+  if (!uid) injectGuestBanner();
+
   renderRecipeOfDay();
   buildCuisineChips();
-  buildDifficultyChips();
-  buildDietaryChips();
+  buildDietaryPanel();
+  setupMultiSelect('difficultyDropdown', 'All Difficulties');
+  setupMultiSelect('dietaryDropdown', 'All Dietary');
+  buildFridgePanel();
   filterAndRender();
 
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
+    if (!uid) {
+      showAuthGate('create and share recipes');
+      return;
+    }
     try {
       openAddRecipeModal(uid, (newRecipe) => {
         if (newRecipe.status === 'draft') return;
@@ -84,6 +100,28 @@ async function init() {
       console.error('openAddRecipeModal failed:', err);
     }
   });
+
+  // Deep link: /discover.html?recipe=RECIPE_ID — open that recipe's modal directly
+  const deepRecipeId = new URLSearchParams(window.location.search).get('recipe');
+  if (deepRecipeId) {
+    const target = allRecipes.find(r => r.id === deepRecipeId);
+    if (target) {
+      openRecipeModal(target, uid, likedIds, onLikeChange, target.createdBy ? { ...authorProfiles[target.createdBy], uid: target.createdBy } : null);
+    }
+  }
+}
+
+function injectGuestBanner() {
+  const header = document.querySelector('.discover-header');
+  if (!header) return;
+  const banner = document.createElement('div');
+  banner.className = 'guest-banner';
+  banner.innerHTML = `
+    You're browsing as a guest. Likes are saved on this device only.
+    <a href="/login.html">Sign in</a> or <a href="/signup.html">create an account</a>
+    to sync your likes, add to meal plans, and more.
+  `;
+  header.insertAdjacentElement('afterend', banner);
 }
 
 // ── Recipe of the Day ────────────────────────────────────────
@@ -123,59 +161,146 @@ function buildCuisineChips() {
   });
 }
 
-// ── Difficulty chips ─────────────────────────────────────────
-function buildDifficultyChips() {
-  const chips = document.getElementById('difficultyChips');
-  chips.innerHTML = `<button class="filter-chip active" data-difficulty="">All</button>`;
-  DIFFICULTY_OPTIONS.forEach(d => {
-    chips.innerHTML += `<button class="filter-chip" data-difficulty="${d}">${capitalizeFirst(d)}</button>`;
+// ── Dietary panel ────────────────────────────────────────────
+function buildDietaryPanel() {
+  const panel = document.getElementById('dietaryPanel');
+  if (!panel) return;
+  panel.innerHTML = DIETARY_OPTIONS.map(({ value, label }) =>
+    `<label class="multi-select-option"><input type="checkbox" value="${value}"><span>${label}</span></label>`
+  ).join('');
+}
+
+// ── Multi-select dropdown logic ───────────────────────────────
+function setupMultiSelect(containerId, defaultLabel) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const btn = container.querySelector('.multi-select-btn');
+  const labelEl = container.querySelector('.multi-select-label');
+  const panel = container.querySelector('.multi-select-panel');
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Close any other open panels first
+    document.querySelectorAll('.multi-select-panel.open').forEach(p => {
+      if (p !== panel) {
+        p.classList.remove('open');
+        p.closest('.multi-select').querySelector('.multi-select-btn').setAttribute('aria-expanded', 'false');
+      }
+    });
+    const isOpen = panel.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(isOpen));
   });
 
-  chips.addEventListener('click', (e) => {
-    const btn = e.target.closest('.filter-chip');
-    if (!btn) return;
-    chips.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeDifficulty = btn.dataset.difficulty;
+  panel.addEventListener('change', () => {
+    const checked = [...panel.querySelectorAll('input:checked')];
+    btn.classList.toggle('has-selection', checked.length > 0);
+    if (checked.length === 0) {
+      labelEl.textContent = defaultLabel;
+    } else if (checked.length <= 2) {
+      labelEl.textContent = checked.map(el => el.closest('label').textContent.trim()).join(', ');
+    } else {
+      labelEl.textContent = `${checked[0].closest('label').textContent.trim()} +${checked.length - 1}`;
+    }
     filterAndRender();
   });
 }
 
-// ── Dietary chips ─────────────────────────────────────────────
-function buildDietaryChips() {
-  const chips = document.getElementById('dietaryChips');
-  chips.innerHTML = `<button class="filter-chip active" data-dietary="">All</button>`;
-  DIETARY_OPTIONS.forEach(({ value, label }) => {
-    chips.innerHTML += `<button class="filter-chip" data-dietary="${value}">${label}</button>`;
+function getCheckedValues(containerId) {
+  return new Set(
+    [...document.querySelectorAll(`#${containerId} .multi-select-panel input:checked`)].map(el => el.value)
+  );
+}
+
+// ── Fridge panel ─────────────────────────────────────────────
+function loadFridge() {
+  try {
+    fridgeIngredients = JSON.parse(localStorage.getItem(FRIDGE_KEY) || '[]');
+  } catch { fridgeIngredients = []; }
+}
+
+function saveFridge() {
+  localStorage.setItem(FRIDGE_KEY, JSON.stringify(fridgeIngredients));
+}
+
+function countMatches(recipe) {
+  if (fridgeIngredients.length === 0) return 0;
+  const ings = parseIngredients(recipe.ingredients).map(i => i.toLowerCase());
+  return fridgeIngredients.filter(fi => ings.some(ri => ri.includes(fi) || fi.includes(ri))).length;
+}
+
+function updateFridgeCountBadge() {
+  const badge = document.getElementById('fridgeCountBadge');
+  if (!badge) return;
+  if (fridgeIngredients.length > 0) {
+    badge.textContent = fridgeIngredients.length;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderFridgeChips() {
+  const container = document.getElementById('fridgeChips');
+  if (!container) return;
+  container.innerHTML = fridgeIngredients.map((ing, i) => `
+    <span class="fridge-chip">
+      ${escapeHtml(ing)}
+      <button class="fridge-chip-remove" data-index="${i}" aria-label="Remove ${escapeHtml(ing)}">&#x2715;</button>
+    </span>`).join('');
+  container.querySelectorAll('.fridge-chip-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fridgeIngredients.splice(Number(btn.dataset.index), 1);
+      saveFridge();
+      renderFridgeChips();
+      updateFridgeCountBadge();
+      filterAndRender();
+    });
+  });
+}
+
+function addFridgeIngredients(raw) {
+  const items = raw.split(/[,\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  items.forEach(item => {
+    if (item && !fridgeIngredients.includes(item)) fridgeIngredients.push(item);
+  });
+  saveFridge();
+  renderFridgeChips();
+  updateFridgeCountBadge();
+  filterAndRender();
+}
+
+function buildFridgePanel() {
+  loadFridge();
+
+  const panel = document.getElementById('fridgePanel');
+  const toggle = document.getElementById('fridgeToggle');
+  const input = document.getElementById('fridgeInput');
+  const addBtn = document.getElementById('fridgeAddBtn');
+  if (!panel || !toggle) return;
+
+  // Auto-open if ingredients already saved
+  if (fridgeIngredients.length > 0) panel.classList.add('open');
+
+  updateFridgeCountBadge();
+  renderFridgeChips();
+
+  toggle.addEventListener('click', () => panel.classList.toggle('open'));
+
+  addBtn.addEventListener('click', () => {
+    if (input.value.trim()) {
+      addFridgeIngredients(input.value);
+      input.value = '';
+    }
   });
 
-  chips.addEventListener('click', (e) => {
-    const btn = e.target.closest('.filter-chip');
-    if (!btn) return;
-    const val = btn.dataset.dietary;
-
-    if (val === '') {
-      // "All" clears everything
-      activeDietary.clear();
-      chips.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    } else {
-      // Deactivate the "All" chip
-      chips.querySelector('[data-dietary=""]').classList.remove('active');
-      // Toggle this chip
-      if (activeDietary.has(val)) {
-        activeDietary.delete(val);
-        btn.classList.remove('active');
-      } else {
-        activeDietary.add(val);
-        btn.classList.add('active');
-      }
-      // If nothing selected, re-activate "All"
-      if (activeDietary.size === 0) {
-        chips.querySelector('[data-dietary=""]').classList.add('active');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (input.value.trim()) {
+        addFridgeIngredients(input.value.replace(/,$/, ''));
+        input.value = '';
       }
     }
-    filterAndRender();
   });
 }
 
@@ -183,6 +308,8 @@ function buildDietaryChips() {
 function filterAndRender() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   const cuisine = document.getElementById('cuisineFilter').value;
+  const difficulty = getCheckedValues('difficultyDropdown');
+  const dietary = getCheckedValues('dietaryDropdown');
 
   let filtered = allRecipes.filter(r => {
     const ingredients = parseIngredients(r.ingredients);
@@ -195,13 +322,18 @@ function filterAndRender() {
       || cuisineName.includes(search)
       || ingredients.some(i => i.toLowerCase().includes(search));
     const matchCuisine = !cuisine || r.cuisine === cuisine;
-    const matchDiff = !activeDifficulty || r.difficulty === activeDifficulty;
-    const matchDietary = activeDietary.size === 0
-      || [...activeDietary].every(tag => Array.isArray(r.dietary) && r.dietary.includes(tag));
-    return matchSearch && matchCuisine && matchDiff && matchDietary;
+    const matchDiff = difficulty.size === 0 || difficulty.has(r.difficulty || 'medium');
+    const matchDietary = dietary.size === 0
+      || (Array.isArray(r.dietary) && [...dietary].every(tag => r.dietary.includes(tag)));
+    const matchFridge = fridgeIngredients.length === 0 || countMatches(r) > 0;
+    return matchSearch && matchCuisine && matchDiff && matchDietary && matchFridge;
   });
 
-  filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+  if (fridgeIngredients.length > 0) {
+    filtered.sort((a, b) => countMatches(b) - countMatches(a) || (b.likeCount || 0) - (a.likeCount || 0));
+  } else {
+    filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+  }
 
   renderGrid(filtered);
 }
@@ -221,6 +353,10 @@ function renderGrid(recipes) {
   grid.innerHTML = recipes.map(r => {
     const liked = likedIds.has(r.id);
     const ingredients = parseIngredients(r.ingredients);
+    const matchCount = fridgeIngredients.length > 0 ? countMatches(r) : 0;
+    const fridgeBadge = matchCount > 0
+      ? `<span class="fridge-match-badge${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length}</span>`
+      : '';
     const author = r.createdBy ? authorProfiles[r.createdBy] : null;
     const authorHtml = author ? `
       <div class="card-author">
@@ -230,7 +366,7 @@ function renderGrid(recipes) {
         }
         <span>By ${escapeHtml(author.firstName || 'Unknown')}</span>
       </div>` : '';
-    const isOwner = r.createdBy === uid;
+    const isOwner = uid && r.createdBy === uid;
     const ownerMenuHtml = isOwner ? `
       <div class="card-owner-actions">
         <button class="card-dots-btn" data-action="dots" aria-label="Options">&#8942;</button>
@@ -258,6 +394,7 @@ function renderGrid(recipes) {
             ${r.servings ? `<span>🍽 ${r.servings} servings</span>` : ''}
             ${ingredients.length > 0 ? `<span>📋 ${ingredients.length} ingredients</span>` : ''}
             <span class="like-count" data-like-count>❤️ ${r.likeCount || 0}</span>
+            ${fridgeBadge}
           </div>
           <div class="discover-recipe-actions">
             <button class="${liked ? 'btn-unlike-card' : 'btn-like-card'}" data-action="like" aria-label="${liked ? 'Unlike' : 'Like'}">
@@ -265,6 +402,13 @@ function renderGrid(recipes) {
             </button>
             <button class="btn-plan-card" data-action="plan" aria-label="Add to meal plan">
               📅 Plan
+            </button>
+            <button class="btn-share-card" data-action="share" aria-label="Copy link to recipe" title="Share recipe">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/>
+                <line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -294,6 +438,22 @@ function renderGrid(recipes) {
       e.stopPropagation();
       const btn = e.currentTarget;
       btn.disabled = true;
+
+      if (!uid) {
+        // Guest: store the like locally and warn
+        const nowLiked = toggleGuestLike(id);
+        if (nowLiked) likedIds.add(id); else likedIds.delete(id);
+        btn.className = nowLiked ? 'btn-unlike-card' : 'btn-like-card';
+        btn.textContent = nowLiked ? '💔 Unlike' : '❤️ Like';
+        if (nowLiked) {
+          showToast('Liked locally — sign in to save permanently', 'success');
+        } else {
+          showToast('Removed from local likes');
+        }
+        btn.disabled = false;
+        return;
+      }
+
       try {
         const countEl = card.querySelector('[data-like-count]');
         if (likedIds.has(id)) {
@@ -325,7 +485,16 @@ function renderGrid(recipes) {
 
     card.querySelector('[data-action="plan"]').addEventListener('click', async (e) => {
       e.stopPropagation();
+      if (!uid) {
+        showAuthGate('add recipes to your meal plan');
+        return;
+      }
       openMealPlanPrompt({ uid, recipe });
+    });
+
+    card.querySelector('[data-action="share"]').addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyRecipeLink(id);
     });
 
     // Three-dots owner menu
@@ -375,6 +544,17 @@ function onLikeChange(recipeId, nowLiked) {
   else likedIds.delete(recipeId);
 }
 
+function copyRecipeLink(recipeId) {
+  const url = `${window.location.origin}/discover.html?recipe=${encodeURIComponent(recipeId)}`;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied to clipboard!', 'success'))
+      .catch(() => { window.prompt('Copy this link:', url); });
+  } else {
+    window.prompt('Copy this link:', url);
+  }
+}
+
 // ── Elegant delete confirmation dialog ───────────────────────
 function showConfirm(recipeName) {
   return new Promise((resolve) => {
@@ -412,9 +592,13 @@ function showConfirm(recipeName) {
 document.getElementById('searchInput').addEventListener('input', filterAndRender);
 document.getElementById('cuisineFilter').addEventListener('change', filterAndRender);
 
-// ── Close any open dots menus on outside click ───────────────
+// ── Close dropdowns + dots menus on outside click ────────────
 document.addEventListener('click', () => {
   document.querySelectorAll('.card-dots-menu').forEach(m => { m.style.display = 'none'; });
+  document.querySelectorAll('.multi-select-panel.open').forEach(p => {
+    p.classList.remove('open');
+    p.closest('.multi-select').querySelector('.multi-select-btn').setAttribute('aria-expanded', 'false');
+  });
 });
 
 // ── Start ────────────────────────────────────────────────────

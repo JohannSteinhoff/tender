@@ -592,6 +592,100 @@ body.swipe-page-body {
 .swipe-empty h2 { color: var(--text-primary); }
 .swipe-empty p { color: var(--text-secondary); font-size: 0.95em; }
 
+/* ── Sidebar fridge section ─────────────────────────────────── */
+.swipe-fridge-section {
+  width: 100%;
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.swipe-fridge-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.swipe-fridge-header:hover { background: var(--bg-input); }
+
+.swipe-fridge-title {
+  flex: 1;
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.swipe-fridge-chevron {
+  color: var(--text-tertiary);
+  font-size: 0.75em;
+  transform: rotate(-90deg);
+  transition: transform 0.2s;
+}
+
+.swipe-fridge-section.open .swipe-fridge-chevron {
+  transform: rotate(0deg);
+}
+
+.swipe-fridge-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.swipe-fridge-section.open .swipe-fridge-body {
+  max-height: 200px;
+}
+
+.swipe-fridge-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.78em;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.swipe-fridge-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.swipe-fridge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.swipe-fridge-match {
+  font-size: 0.7em;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(255,107,107,0.1);
+  border-radius: 8px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.swipe-fridge-match.full-match {
+  color: #16a34a;
+  background: rgba(74,222,128,0.12);
+}
+
 /* ── Cuisine gradient classes ───────────────────────────────── */
 .cuisine-italian    { background: linear-gradient(135deg, #FF6B6B, #FF8E53); }
 .cuisine-mexican    { background: linear-gradient(135deg, #F7971E, #FFD200); }
