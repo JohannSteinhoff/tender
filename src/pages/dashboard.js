@@ -627,17 +627,36 @@ async function renderNotifications() {
     return;
   }
 
-  updateBadge(notifications.filter(n => !n.isRead).length);
+  const total = notifications.length;
+  let unreadCount = notifications.filter(n => !n.isRead).length;
+  updateBadge(unreadCount);
+
+  function updateSummary() {
+    const footer = list?.querySelector('.dash-notif-footer');
+    if (!footer) return;
+    const unreadEl = footer.querySelector('.dash-notif-footer-unread');
+    if (unreadEl) {
+      unreadEl.textContent = `${unreadCount} unread`;
+      unreadEl.classList.toggle('has-unread', unreadCount > 0);
+    }
+  }
 
   if (!list) return;
 
-  const recent = notifications.slice(0, 5);
-  if (recent.length === 0) {
+  const shown = notifications.slice(0, 3);
+  if (shown.length === 0) {
     list.innerHTML = `<div class="dash-notif-empty">You're all caught up — no notifications yet.</div>`;
     return;
   }
 
-  list.innerHTML = recent.map(buildNotifCard).join('');
+  const footerHtml = `
+    <div class="dash-notif-footer">
+      <span class="dash-notif-footer-total">${total} total</span>
+      <span class="dash-notif-footer-sep">&middot;</span>
+      <span class="dash-notif-footer-unread${unreadCount > 0 ? ' has-unread' : ''}">${unreadCount} unread</span>
+    </div>`;
+
+  list.innerHTML = shown.map(buildNotifCard).join('') + footerHtml;
 
   // Mark-as-read inline — no page reload
   list.addEventListener('click', async (e) => {
@@ -652,7 +671,9 @@ async function renderNotifications() {
       item.classList.remove('unread');
       item.querySelector('.dash-notif-dot')?.remove();
       btn.remove();
-      updateBadge(list.querySelectorAll('.dash-notif-item.unread').length);
+      unreadCount = Math.max(0, unreadCount - 1);
+      updateBadge(unreadCount);
+      updateSummary();
     } catch (err) {
       console.error('Could not mark notification read:', err);
       btn.disabled = false;

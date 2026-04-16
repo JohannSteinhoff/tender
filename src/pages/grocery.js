@@ -5,6 +5,7 @@ import { getAllRecipes, getLikedRecipeIds } from "../api/recipes.js";
 import { getUserProfile } from "../api/users.js";
 import { renderNav } from "../components/nav.js";
 import { showToast } from "../components/toast.js";
+import { escapeHtml } from "../utils/helpers.js";
 import {
   applyBrandRecommendations,
   collectIngredientsFromRecipes,
@@ -53,6 +54,7 @@ class GroceryListPage {
     this.categoryOrder = loadCategoryOrder();
     renderNav("grocery");
     this.insertGenerateButton();
+    this.insertExportButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
@@ -481,6 +483,315 @@ class GroceryListPage {
     generateBtn.textContent = "Generate from Likes";
     this.elements.addBtn.insertAdjacentElement("beforebegin", generateBtn);
     this.elements.generateBtn = generateBtn;
+  }
+
+  insertExportButton() {
+    if (document.getElementById("btnExport") || !this.elements.addBtn) return;
+
+    const container = document.createElement("div");
+    container.className = "export-menu-container";
+
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.id = "btnExport";
+    exportBtn.className = "btn-export";
+    exportBtn.textContent = "Export";
+
+    const dropdown = document.createElement("div");
+    dropdown.id = "exportDropdown";
+    dropdown.className = "export-dropdown hidden";
+    dropdown.innerHTML = `
+      <button type="button" id="btnExportImage" class="export-option">
+        <span class="export-option-icon">&#x1F5BC;&#xFE0F;</span>
+        <span>Save as Image</span>
+      </button>
+      <button type="button" id="btnExportPDF" class="export-option">
+        <span class="export-option-icon">&#x1F4C4;</span>
+        <span>Save as PDF</span>
+      </button>
+      <button type="button" id="btnExportText" class="export-option">
+        <span class="export-option-icon">&#x1F4DD;</span>
+        <span>Save as Text</span>
+      </button>
+      <button type="button" id="btnExportCopy" class="export-option">
+        <span class="export-option-icon">&#x1F4CB;</span>
+        <span>Copy to Clipboard</span>
+      </button>`;
+
+    container.appendChild(exportBtn);
+    container.appendChild(dropdown);
+    this.elements.addBtn.insertAdjacentElement("beforebegin", container);
+
+    exportBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("hidden");
+    });
+
+    document.addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+    });
+
+    dropdown.addEventListener("click", (e) => e.stopPropagation());
+
+    document.getElementById("btnExportImage").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.exportAsImage();
+    });
+
+    document.getElementById("btnExportPDF").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.exportAsPDF();
+    });
+
+    document.getElementById("btnExportText").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.exportAsText();
+    });
+
+    document.getElementById("btnExportCopy").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.copyToClipboard();
+    });
+  }
+
+  loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  // Builds a clean, print-friendly off-screen element — no app chrome or colors.
+  buildPrintElement() {
+    const now = new Date().toLocaleDateString(undefined, {
+      year: "numeric", month: "long", day: "numeric",
+    });
+
+    // Group items by category (same order as the live list)
+    const grouped = {};
+    for (const item of this.items) {
+      const catId = categorizeItem(item.name);
+      (grouped[catId] ??= []).push(item);
+    }
+
+    const sectionsHtml = this.categoryOrder
+      .filter(catId => grouped[catId]?.length > 0)
+      .map(catId => {
+        const cat = GROCERY_CATEGORIES.find(c => c.id === catId);
+        const catItems = grouped[catId];
+
+        const rows = catItems.map(item => {
+          const qty = item.quantity > 1 ? `\u00d7${item.quantity}` : "";
+          return `
+            <div style="display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid #e0e0e0;">
+              <div style="width:22px;height:22px;border:2px solid #222;border-radius:3px;flex-shrink:0;"></div>
+              <span style="flex:1;font-size:17px;">${escapeHtml(item.name)}</span>
+              ${qty ? `<span style="font-size:16px;font-weight:700;color:#333;">${qty}</span>` : ""}
+            </div>`;
+        }).join("");
+
+        return `
+          <div style="margin-bottom:28px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+                        border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:2px;">
+              ${escapeHtml(cat.label)}
+              <span style="font-weight:400;color:#666;margin-left:8px;">${catItems.length} item${catItems.length !== 1 ? "s" : ""}</span>
+            </div>
+            ${rows}
+          </div>`;
+      }).join("");
+
+    const total = this.items.length;
+
+    const el = document.createElement("div");
+    el.style.cssText = [
+      "position:fixed",
+      "top:-99999px",
+      "left:-99999px",
+      "width:700px",
+      "background:#ffffff",
+      "color:#000000",
+      "font-family:Arial,Helvetica,sans-serif",
+      "padding:44px 48px",
+      "line-height:1.5",
+    ].join(";");
+
+    el.innerHTML = `
+      <div style="padding-bottom:18px;border-bottom:3px solid #000;margin-bottom:32px;">
+        <div style="font-size:28px;font-weight:700;letter-spacing:-0.01em;">Grocery List</div>
+        <div style="font-size:13px;color:#555;margin-top:5px;">
+          ${escapeHtml(now)}&nbsp;&nbsp;&middot;&nbsp;&nbsp;${total} item${total !== 1 ? "s" : ""}
+        </div>
+      </div>
+      ${sectionsHtml}
+    `;
+
+    return el;
+  }
+
+  async captureCleanCanvas() {
+    await this.loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+    const el = this.buildPrintElement();
+    document.body.appendChild(el);
+    try {
+      return await window.html2canvas(el, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+    } finally {
+      el.remove();
+    }
+  }
+
+  async exportAsImage() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const btn = document.getElementById("btnExport");
+    if (btn) { btn.disabled = true; btn.textContent = "Exporting…"; }
+
+    try {
+      showToast("Preparing image…", "default");
+      const canvas = await this.captureCleanCanvas();
+      const link = document.createElement("a");
+      link.download = "grocery-list.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      showToast("Image downloaded!", "success");
+    } catch (err) {
+      console.error("Export as image failed:", err);
+      showToast("Could not export as image.", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Export"; }
+    }
+  }
+
+  async exportAsPDF() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const btn = document.getElementById("btnExport");
+    if (btn) { btn.disabled = true; btn.textContent = "Exporting…"; }
+
+    try {
+      showToast("Preparing PDF…", "default");
+      const [canvas] = await Promise.all([
+        this.captureCleanCanvas(),
+        this.loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"),
+      ]);
+
+      const { jsPDF } = window.jspdf;
+      const A4_W = 595.28;
+      const A4_H = 841.89;
+
+      const imgData = canvas.toDataURL("image/png");
+      const renderedHeightPt = (canvas.height / canvas.width) * A4_W;
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
+      if (renderedHeightPt <= A4_H) {
+        // Fits on a single page
+        pdf.addImage(imgData, "PNG", 0, 0, A4_W, renderedHeightPt);
+      } else {
+        // Slice across multiple A4 pages
+        let yOffset = 0;
+        while (yOffset < renderedHeightPt) {
+          pdf.addImage(imgData, "PNG", 0, -yOffset, A4_W, renderedHeightPt);
+          yOffset += A4_H;
+          if (yOffset < renderedHeightPt) pdf.addPage();
+        }
+      }
+
+      pdf.save("grocery-list.pdf");
+      showToast("PDF downloaded!", "success");
+    } catch (err) {
+      console.error("Export as PDF failed:", err);
+      showToast("Could not export as PDF.", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Export"; }
+    }
+  }
+
+  buildTextContent() {
+    const now = new Date().toLocaleDateString(undefined, {
+      year: "numeric", month: "long", day: "numeric",
+    });
+
+    const grouped = {};
+    for (const item of this.items) {
+      const catId = categorizeItem(item.name);
+      (grouped[catId] ??= []).push(item);
+    }
+
+    const lines = [];
+    lines.push("Grocery List");
+    lines.push(`${now} \u00b7 ${this.items.length} item${this.items.length !== 1 ? "s" : ""}`);
+    lines.push("");
+
+    for (const catId of this.categoryOrder) {
+      const catItems = grouped[catId];
+      if (!catItems?.length) continue;
+
+      const cat = GROCERY_CATEGORIES.find(c => c.id === catId);
+      lines.push(`${cat.label.toUpperCase()} (${catItems.length} item${catItems.length !== 1 ? "s" : ""})`);
+      lines.push("-".repeat(32));
+
+      for (const item of catItems) {
+        const qty = item.quantity > 1 ? ` \u00d7${item.quantity}` : "";
+        lines.push(`\u2022 ${item.name}${qty}`);
+      }
+
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  }
+
+  exportAsText() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const text = this.buildTextContent();
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "grocery-list.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Text file downloaded!", "success");
+  }
+
+  copyToClipboard() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const text = this.buildTextContent();
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => showToast("Grocery list copied to clipboard!", "success"))
+        .catch(() => { window.prompt("Copy this list:", text); });
+    } else {
+      window.prompt("Copy this list:", text);
+    }
   }
 
   setGenerateButtonState(isLoading) {
