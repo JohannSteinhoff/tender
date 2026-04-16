@@ -1,5 +1,6 @@
 import { signOutUser } from '../auth.js';
 import { escapeHtml } from '../utils/helpers.js';
+import { getNotifications } from '../api/users.js';
 
 const NAV_LINKS = [
   { page: 'dashboard', href: '/dashboard.html', icon: '&#x1F3E0;', label: 'Home' },
@@ -64,7 +65,7 @@ export function renderNav(activePage, profile = null) {
           </div>
           <div class="avatar-dropdown-divider"></div>
           <a href="/account.html" class="avatar-dropdown-item ${activePage === 'account' ? 'avatar-dropdown-item--active' : ''}">&#x2699;&#xFE0F; Account Settings</a>
-          ${profile.uid ? `<a href="/profile.html?uid=${profile.uid}" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
+          ${profile.uid ? `<a href="/profile.html?uid=${profile.uid}" id="navProfileLink" class="avatar-dropdown-item ${activePage === 'profile' ? 'avatar-dropdown-item--active' : ''}">&#x1F9D1;&#x200D;&#x1F373; My Chef Profile</a>` : ''}
           ${profile.isAdmin ? `<a href="/admin.html" class="avatar-dropdown-item ${activePage === 'admin' ? 'avatar-dropdown-item--active' : ''}">&#x1F6E1;&#xFE0F; Admin</a>` : ''}
           <div class="avatar-dropdown-divider"></div>
           <div class="avatar-dropdown-section-label">Pages</div>
@@ -99,6 +100,20 @@ export function renderNav(activePage, profile = null) {
     document.addEventListener('click', () => avatarDropdown.classList.remove('open'));
     avatarDropdown.addEventListener('click', (e) => e.stopPropagation());
     document.getElementById('logoutBtn').addEventListener('click', signOutUser);
+
+    // Show unread notification badge on the profile link
+    if (profile.uid) {
+      getNotifications(profile.uid).then(notifications => {
+        const unread = notifications.filter(n => !n.isRead).length;
+        const profileLink = document.getElementById('navProfileLink');
+        if (profileLink && unread > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'nav-notif-badge';
+          badge.textContent = unread > 9 ? '9+' : String(unread);
+          profileLink.appendChild(badge);
+        }
+      }).catch(() => {});
+    }
   }
 
   // Mobile bottom nav
@@ -124,7 +139,10 @@ export function renderNav(activePage, profile = null) {
     document.documentElement.classList.add('dark-mode');
   }
   if (tn !== 'default') document.documentElement.classList.add(`theme-${tn}`);
-  if (tn === 'code' || tn === 'synthwave') document.documentElement.classList.add('dark-mode');
+  if (tn === 'code' || tn === 'synthwave' || tn === 'crimson') document.documentElement.classList.add('dark-mode');
+  if (tn === 'crimson') {
+    document.documentElement.dataset.crimsonFont = localStorage.getItem('tender_crimson_font') || 'space';
+  }
 })();
 
 // Glassmorphism nav — adds .scrolled class once page scrolls past 10px

@@ -260,6 +260,12 @@
 
 .account-row:last-child { border-bottom: none; }
 
+.password-error {
+  font-size: 0.82em;
+  color: var(--primary);
+  min-height: 1em;
+}
+
 .account-row-label {
   font-weight: 500;
   color: var(--text-secondary);
@@ -332,6 +338,44 @@
 }
 
 .pref-curl-handle:active { cursor: grabbing; }
+
+/* ── Crimson font picker (inside easter panel) ────────────── */
+.crimson-font-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 14px 12px;
+  margin-top: -4px;
+  background: rgba(192, 57, 43, 0.08);
+  border-radius: 0 0 12px 12px;
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-top: none;
+}
+
+.crimson-font-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.72em;
+  font-family: inherit;
+  padding: 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.crimson-font-chip:hover {
+  background: rgba(192, 57, 43, 0.25);
+  border-color: rgba(192, 57, 43, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.crimson-font-chip.active {
+  background: rgba(192, 57, 43, 0.4);
+  border-color: #C0392B;
+  color: #ffffff;
+  font-weight: 600;
+}
 
 /* ── Easter panel content ─────────────────────────────────── */
 .easter-header {

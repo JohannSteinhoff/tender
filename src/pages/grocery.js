@@ -53,6 +53,7 @@ class GroceryListPage {
     this.categoryOrder = loadCategoryOrder();
     renderNav("grocery");
     this.insertGenerateButton();
+    this.insertExportButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
@@ -481,6 +482,147 @@ class GroceryListPage {
     generateBtn.textContent = "Generate from Likes";
     this.elements.addBtn.insertAdjacentElement("beforebegin", generateBtn);
     this.elements.generateBtn = generateBtn;
+  }
+
+  insertExportButton() {
+    if (document.getElementById("btnExport") || !this.elements.addBtn) return;
+
+    const container = document.createElement("div");
+    container.className = "export-menu-container";
+
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.id = "btnExport";
+    exportBtn.className = "btn-export";
+    exportBtn.textContent = "Export";
+
+    const dropdown = document.createElement("div");
+    dropdown.id = "exportDropdown";
+    dropdown.className = "export-dropdown hidden";
+    dropdown.innerHTML = `
+      <button type="button" id="btnExportImage" class="export-option">
+        <span class="export-option-icon">&#x1F5BC;&#xFE0F;</span>
+        <span>Save as Image</span>
+      </button>
+      <button type="button" id="btnExportPDF" class="export-option">
+        <span class="export-option-icon">&#x1F4C4;</span>
+        <span>Save as PDF</span>
+      </button>`;
+
+    container.appendChild(exportBtn);
+    container.appendChild(dropdown);
+    this.elements.addBtn.insertAdjacentElement("beforebegin", container);
+
+    exportBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("hidden");
+    });
+
+    document.addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+    });
+
+    dropdown.addEventListener("click", (e) => e.stopPropagation());
+
+    document.getElementById("btnExportImage").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.exportAsImage();
+    });
+
+    document.getElementById("btnExportPDF").addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+      this.exportAsPDF();
+    });
+  }
+
+  loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  async captureListCanvas() {
+    await this.loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+    const el = document.querySelector(".grocery-list-container");
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg-card").trim() || "#ffffff";
+    return window.html2canvas(el, {
+      backgroundColor: bg,
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+  }
+
+  async exportAsImage() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const btn = document.getElementById("btnExport");
+    if (btn) { btn.disabled = true; btn.textContent = "Exporting…"; }
+
+    try {
+      showToast("Preparing image…", "default");
+      const canvas = await this.captureListCanvas();
+      const link = document.createElement("a");
+      link.download = "grocery-list.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      showToast("Image downloaded!", "success");
+    } catch (err) {
+      console.error("Export as image failed:", err);
+      showToast("Could not export as image.", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Export"; }
+    }
+  }
+
+  async exportAsPDF() {
+    if (this.items.length === 0) {
+      showToast("Your grocery list is empty.", "default");
+      return;
+    }
+
+    const btn = document.getElementById("btnExport");
+    if (btn) { btn.disabled = true; btn.textContent = "Exporting…"; }
+
+    try {
+      showToast("Preparing PDF…", "default");
+      const [canvas] = await Promise.all([
+        this.captureListCanvas(),
+        this.loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"),
+      ]);
+
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+
+      // Scale canvas to A4 width (595 pt) and let height follow
+      const pageWidthPt = 595.28;
+      const pageHeightPt = (canvas.height / canvas.width) * pageWidthPt;
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: [pageWidthPt, pageHeightPt],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, pageWidthPt, pageHeightPt);
+      pdf.save("grocery-list.pdf");
+      showToast("PDF downloaded!", "success");
+    } catch (err) {
+      console.error("Export as PDF failed:", err);
+      showToast("Could not export as PDF.", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Export"; }
+    }
   }
 
   setGenerateButtonState(isLoading) {

@@ -112,7 +112,7 @@ async function init() {
   if (deepRecipeId) {
     const target = allRecipes.find(r => r.id === deepRecipeId);
     if (target) {
-      openRecipeModal(target, uid, likedIds, onLikeChange, target.createdBy ? { ...authorProfiles[target.createdBy], uid: target.createdBy } : null);
+      openRecipeModal(target, uid, likedIds, onLikeChange, target.createdBy ? { ...authorProfiles[target.createdBy], uid: target.createdBy } : null, makeOwnerOptions(target));
     }
   }
 }
@@ -154,7 +154,7 @@ function renderRecipeOfDay() {
   document.getElementById('rotdMeta').textContent = meta.join('  ·  ');
 
   card.style.display = 'flex';
-  card.onclick = () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
+  card.onclick = () => openRecipeModal(recipe, uid, likedIds, onLikeChange, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null, makeOwnerOptions(recipe));
 }
 
 // ── Cuisine dropdown ─────────────────────────────────────────
@@ -484,7 +484,7 @@ function renderGrid(recipes) {
           btn.className = nowLiked ? 'btn-unlike-card' : 'btn-like-card';
           btn.textContent = nowLiked ? '💔 Unlike' : '❤️ Like';
         }
-      }, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null);
+      }, recipe.createdBy ? { ...authorProfiles[recipe.createdBy], uid: recipe.createdBy } : null, makeOwnerOptions(recipe));
     });
 
     card.querySelector('[data-action="like"]').addEventListener('click', async (e) => {
@@ -595,6 +595,35 @@ function renderGrid(recipes) {
 function onLikeChange(recipeId, nowLiked) {
   if (nowLiked) likedIds.add(recipeId);
   else likedIds.delete(recipeId);
+}
+
+// Returns owner-action options for openRecipeModal (only meaningful when uid === recipe.createdBy)
+function makeOwnerOptions(recipe) {
+  return {
+    onEdit: (r) => {
+      openAddRecipeModal(uid, (updatedRecipe) => {
+        if (updatedRecipe.status === 'draft') return;
+        const idx = allRecipes.findIndex(rec => rec.id === updatedRecipe.id);
+        if (idx !== -1) allRecipes[idx] = updatedRecipe;
+        buildCuisineChips();
+        filterAndRender();
+        showToast('Recipe updated! ✏️', 'success');
+      }, r);
+    },
+    onDelete: async (r, closeModal) => {
+      const confirmed = await showConfirm(r.name);
+      if (!confirmed) return;
+      closeModal();
+      try {
+        await deleteRecipe(r.id);
+        allRecipes = allRecipes.filter(rec => rec.id !== r.id);
+        filterAndRender();
+        showToast('Recipe deleted');
+      } catch (err) {
+        showToast('Could not delete recipe', 'error');
+      }
+    },
+  };
 }
 
 function copyRecipeLink(recipeId) {

@@ -1,8 +1,6 @@
 import { createRecipe, updateRecipe } from '../api/recipes.js';
 import { showToast } from './toast.js';
 import { capitalizeFirst, parseIngredients } from '../utils/helpers.js';
-import { storage } from '../firebase.js';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { EMOJI_CATEGORIES } from '../data/emojis.js';
 
 const DIETARY_OPTIONS = [
@@ -165,23 +163,15 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
           '<div class="ar-step-content" data-step="2" style="display:none">' +
             '<div class="ar-photo-emoji-cols">' +
 
-              // Drop zone column
+              // Photo column (upload coming soon)
               '<div class="ar-drop-col">' +
                 '<div class="ar-section-label">Recipe Photo</div>' +
-                '<div class="ar-drop-zone" id="ar-drop-zone">' +
-                  '<div class="ar-drop-inner" id="ar-drop-inner">' +
-                    '<span class="ar-drop-icon">\u{1F4F8}</span>' +
-                    '<p class="ar-drop-text">Drag &amp; drop an image here</p>' +
-                    '<p class="ar-drop-subtext">or <span class="ar-drop-link">click to browse</span></p>' +
-                    '<p class="ar-drop-hint">JPG, PNG, WebP \u2014 max 5 MB</p>' +
-                  '</div>' +
-                  '<div class="ar-drop-preview-wrap" id="ar-drop-preview-wrap" style="display:none">' +
-                    '<img id="ar-drop-preview-img" alt="Recipe preview">' +
-                    '<button type="button" class="ar-drop-clear" id="ar-drop-clear">\u2715 Remove</button>' +
-                  '</div>' +
-                  '<input type="file" id="ar-image-file" accept="image/*" style="display:none">' +
+                '<div class="ar-coming-soon-zone">' +
+                  '<span class="ar-coming-soon-icon">\u{1F4F8}</span>' +
+                  '<p class="ar-coming-soon-title">Photo Upload</p>' +
+                  '<span class="ar-coming-soon-badge">Coming Soon</span>' +
                 '</div>' +
-                '<div class="ar-drop-or">— or paste a URL —</div>' +
+                '<div class="ar-drop-or">— or paste an image URL instead —</div>' +
                 '<div class="form-group" style="margin-bottom:0">' +
                   '<input id="ar-image" type="url" placeholder="https://example.com/photo.jpg">' +
                 '</div>' +
@@ -261,7 +251,6 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   const wasDraft = recipeSeed?.status === 'draft';
   let currentStep = 1;
   const totalSteps = 4;
-  let uploadedImageFile = null;
   let initialFormSnapshot = '';
   let isSaving = false;
   let isClosePromptOpen = false;
@@ -455,69 +444,6 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   // Initial render
   renderEmojiGrid('');
 
-  // ── Drag & Drop image ──────────────────────────────────────────
-  const dropZone   = overlay.querySelector('#ar-drop-zone');
-  const fileInput  = overlay.querySelector('#ar-image-file');
-  const dropInner  = overlay.querySelector('#ar-drop-inner');
-  const dropPreview = overlay.querySelector('#ar-drop-preview-wrap');
-
-  dropZone.addEventListener('click', () => {
-    if (dropPreview.style.display === 'none' || !dropPreview.style.display) {
-      fileInput.click();
-    }
-  });
-
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('drag-over');
-  });
-
-  dropZone.addEventListener('dragleave', (e) => {
-    if (!dropZone.contains(e.relatedTarget)) {
-      dropZone.classList.remove('drag-over');
-    }
-  });
-
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      handleImageFile(file);
-    } else {
-      showError('Please drop an image file (JPG, PNG, WebP).');
-    }
-  });
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) handleImageFile(fileInput.files[0]);
-  });
-
-  function handleImageFile(file) {
-    if (file.size > 5 * 1024 * 1024) {
-      showError('Image must be under 5 MB.');
-      return;
-    }
-    hideError();
-    uploadedImageFile = file;
-    const objectUrl = URL.createObjectURL(file);
-    overlay.querySelector('#ar-drop-preview-img').src = objectUrl;
-    dropPreview.style.display = 'flex';
-    dropInner.style.display = 'none';
-    overlay.querySelector('#ar-image').value = '';
-    updatePreview(objectUrl);
-  }
-
-  overlay.querySelector('#ar-drop-clear').addEventListener('click', (e) => {
-    e.stopPropagation();
-    uploadedImageFile = null;
-    overlay.querySelector('#ar-drop-preview-img').src = '';
-    dropPreview.style.display = 'none';
-    dropInner.style.display = 'flex';
-    fileInput.value = '';
-    updatePreview();
-  });
-
   // ── Ingredient rows ────────────────────────────────────────────
   const ingredientsList = overlay.querySelector('#ar-ingredients-list');
 
@@ -645,9 +571,6 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       emoji: overlay.querySelector('#ar-emoji').value.trim(),
       ingredients,
       dietary,
-      uploadedImageFile: uploadedImageFile
-        ? `${uploadedImageFile.name}:${uploadedImageFile.size}:${uploadedImageFile.lastModified}`
-        : '',
     });
   }
 
@@ -811,12 +734,6 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     hideError();
 
     try {
-      if (uploadedImageFile) {
-        const storageRef = ref(storage, 'recipe-images/' + uid + '/' + Date.now() + '_' + uploadedImageFile.name);
-        const snapshot = await uploadBytes(storageRef, uploadedImageFile);
-        data.image = await getDownloadURL(snapshot.ref);
-      }
-
       let recipe;
       if (isEditing) {
         await updateRecipe(existingRecipe.id, data);
