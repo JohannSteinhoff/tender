@@ -281,6 +281,23 @@ function countMatches(recipe) {
   return fridgeIngredients.filter(fi => ings.some(ri => ri.includes(fi) || fi.includes(ri))).length;
 }
 
+function getMatches(recipe) {
+  if (fridgeIngredients.length === 0) return [];
+  const ings = parseIngredients(recipe.ingredients).map(i => i.toLowerCase());
+  return fridgeIngredients.filter(fi => ings.some(ri => ri.includes(fi) || fi.includes(ri)));
+}
+
+function getFridgeTip() {
+  let tip = document.getElementById('fridge-global-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'fridge-global-tip';
+    tip.className = 'fridge-global-tip';
+    document.body.appendChild(tip);
+  }
+  return tip;
+}
+
 function updateFridgeCountBadge() {
   const badge = document.getElementById('fridgeCountBadge');
   if (!badge) return;
@@ -406,9 +423,13 @@ function renderGrid(recipes) {
   grid.innerHTML = recipes.map(r => {
     const liked = likedIds.has(r.id);
     const ingredients = parseIngredients(r.ingredients);
-    const matchCount = fridgeIngredients.length > 0 ? countMatches(r) : 0;
+    const matches = fridgeIngredients.length > 0 ? getMatches(r) : [];
+    const matchCount = matches.length;
+    const missing = fridgeIngredients.filter(fi => !matches.includes(fi));
     const fridgeBadge = matchCount > 0
-      ? `<span class="fridge-match-badge${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length}</span>`
+      ? `<span class="fridge-badge-wrap" data-matches="${escapeHtml(matches.join(','))}" data-missing="${escapeHtml(missing.join(','))}">
+           <span class="fridge-match-badge${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length}</span>
+         </span>`
       : '';
     const author = r.createdBy ? authorProfiles[r.createdBy] : null;
     const authorHtml = author ? `
@@ -587,6 +608,41 @@ function renderGrid(recipes) {
         } catch (err) {
           showToast('Could not delete recipe', 'error');
         }
+      });
+    }
+
+    // Fridge badge tooltip
+    const badgeWrap = card.querySelector('.fridge-badge-wrap');
+    if (badgeWrap) {
+      const matchedIngredients = (badgeWrap.dataset.matches || '').split(',').filter(Boolean);
+      const missingIngredients = (badgeWrap.dataset.missing || '').split(',').filter(Boolean);
+      badgeWrap.addEventListener('mouseenter', () => {
+        const tip = getFridgeTip();
+        let html = '';
+        if (matchedIngredients.length > 0) {
+          html += `<div class="fridge-tip-heading">In your fridge:</div>` +
+            matchedIngredients.map(m => `<span class="fridge-tip-row">\u2713 ${escapeHtml(m)}</span>`).join('');
+        }
+        if (missingIngredients.length > 0) {
+          html += `<div class="fridge-tip-heading fridge-tip-heading-missing">Still needed:</div>` +
+            missingIngredients.map(m => `<span class="fridge-tip-row fridge-tip-row-missing">\u2717 ${escapeHtml(m)}</span>`).join('');
+        }
+        tip.innerHTML = html;
+        tip.style.display = 'flex';
+
+        const rect = badgeWrap.getBoundingClientRect();
+        const tipW = tip.offsetWidth;
+        const tipH = tip.offsetHeight;
+
+        let left = rect.left + rect.width / 2 - tipW / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+
+        const top = rect.top - tipH - 8;
+        tip.style.left = left + 'px';
+        tip.style.top = (top < 8 ? rect.bottom + 8 : top) + 'px';
+      });
+      badgeWrap.addEventListener('mouseleave', () => {
+        getFridgeTip().style.display = 'none';
       });
     }
   });

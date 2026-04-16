@@ -1444,7 +1444,7 @@ html.dark-mode .mealplan-prompt-day-chip {
 
 /* ── Add Recipe modal (wizard) ──────────────────────────────── */
 .add-recipe-modal {
-  max-width: 1100px;
+  max-width: 990px;
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
@@ -1466,10 +1466,23 @@ html.dark-mode .mealplan-prompt-day-chip {
   align-items: center;
   gap: 5px;
   opacity: 0.35;
+  cursor: pointer;
   transition: opacity 0.3s;
 }
 
-.ar-step-item.active { opacity: 1; }
+.ar-step-item:hover { opacity: 0.8; }
+.ar-step-item:hover .ar-step-dot {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.ar-step-item.active { opacity: 1; cursor: default; }
+.ar-step-item.active:hover .ar-step-dot {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
 .ar-step-item.done   { opacity: 0.65; }
 
 .ar-step-dot {
@@ -1890,6 +1903,32 @@ html.dark-mode .mealplan-prompt-day-chip {
   flex-shrink: 0;
 }
 
+.ar-ingredient-amount {
+  width: 72px;
+  flex-shrink: 0;
+  padding: 9px 10px;
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 0.93em;
+  font-family: inherit;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ar-ingredient-amount::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.ar-ingredient-amount:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255,107,107,0.1);
+  background: var(--bg-primary);
+}
+
 .ar-ingredient-input {
   flex: 1;
   padding: 9px 13px;
@@ -2275,6 +2314,11 @@ html.dark-mode .mealplan-prompt-day-chip {
 
 .fridge-chip-remove:hover { opacity: 1; }
 
+.fridge-badge-wrap {
+  display: inline-flex;
+  cursor: default;
+}
+
 .fridge-match-badge {
   display: inline-flex;
   align-items: center;
@@ -2287,6 +2331,54 @@ html.dark-mode .mealplan-prompt-day-chip {
   font-weight: 700;
   color: var(--primary);
   white-space: nowrap;
+}
+
+/* Singleton fixed tooltip — escapes overflow:hidden on the card */
+.fridge-global-tip {
+  position: fixed;
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 9999;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.13);
+  pointer-events: none;
+  min-width: 120px;
+  font-family: inherit;
+}
+
+.fridge-tip-heading {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.fridge-tip-row {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fridge-tip-heading-missing {
+  margin-top: 6px;
+}
+
+.fridge-tip-row-missing {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .fridge-match-badge.full-match {

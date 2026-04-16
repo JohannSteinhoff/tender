@@ -256,6 +256,40 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   let isClosePromptOpen = false;
 
   // ── Step navigation ────────────────────────────────────────────
+
+  // Returns true only if the user has entered something on a given step
+  function stepHasContent(n) {
+    switch (n) {
+      case 1:
+        return !!(
+          overlay.querySelector('#ar-name').value.trim() ||
+          overlay.querySelector('#ar-cuisine').value ||
+          overlay.querySelector('#ar-difficulty').value ||
+          overlay.querySelector('#ar-preptime').value ||
+          overlay.querySelector('#ar-cooktime').value ||
+          overlay.querySelector('#ar-servings').value ||
+          overlay.querySelector('#ar-calories').value ||
+          overlay.querySelector('#ar-description').value.trim()
+        );
+      case 2:
+        return !!(
+          overlay.querySelector('#ar-image').value.trim() ||
+          overlay.querySelector('#ar-emoji').value.trim()
+        );
+      case 3:
+        return Array.from(overlay.querySelectorAll('.ar-ingredient-input'))
+          .some(i => i.value.trim() !== '');
+      case 4:
+        return !!(
+          overlay.querySelector('#ar-instructions').value.trim() ||
+          overlay.querySelectorAll('input[name="dietary"]:checked').length > 0 ||
+          overlay.querySelector('#ar-source').value.trim()
+        );
+      default:
+        return false;
+    }
+  }
+
   function showStep(n) {
     currentStep = n;
 
@@ -269,23 +303,23 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       current.style.flexDirection = 'column';
     }
 
-    // Update step bar indicators
+    // Update step bar indicators — only mark done if that step has content
     overlay.querySelectorAll('.ar-step-item').forEach(el => {
       const s = parseInt(el.dataset.step);
       el.classList.toggle('active', s === n);
-      el.classList.toggle('done', s < n);
+      el.classList.toggle('done', s < n && stepHasContent(s));
     });
 
-    // Update connecting lines
+    // Update connecting lines — colour only when the step on the left has content
     overlay.querySelectorAll('.ar-step-line').forEach((line, i) => {
-      line.classList.toggle('done', i + 1 < n);
+      line.classList.toggle('done', i + 1 < n && stepHasContent(i + 1));
     });
 
     // Update dot indicators
     overlay.querySelectorAll('.ar-dot').forEach(el => {
       const d = parseInt(el.dataset.dot);
       el.classList.toggle('active', d === n);
-      el.classList.toggle('done', d < n);
+      el.classList.toggle('done', d < n && stepHasContent(d));
     });
 
     // Update back/cancel button
@@ -350,6 +384,14 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
   overlay.querySelector('#addRecipeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (currentStep === totalSteps) await handleSubmit();
+  });
+
+  // ── Step bar — click any number to jump directly ───────────────
+  overlay.querySelectorAll('.ar-step-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const n = parseInt(item.dataset.step);
+      if (n !== currentStep) showStep(n);
+    });
   });
 
   // ── Emoji picker ───────────────────────────────────────────────
@@ -455,10 +497,16 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     bullet.className = 'ar-ingredient-bullet';
     bullet.textContent = '\u2022';
 
+    const amountInput = document.createElement('input');
+    amountInput.type = 'text';
+    amountInput.className = 'ar-ingredient-amount';
+    amountInput.placeholder = 'Qty';
+    amountInput.setAttribute('aria-label', 'Amount or quantity');
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'ar-ingredient-input';
-    input.placeholder = 'e.g. 200g spaghetti';
+    input.placeholder = 'e.g. spaghetti';
     if (value) input.value = value;
 
     const removeBtn = document.createElement('button');
@@ -472,11 +520,12 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     });
 
     row.appendChild(bullet);
+    row.appendChild(amountInput);
     row.appendChild(input);
     row.appendChild(removeBtn);
     ingredientsList.appendChild(row);
     row.style.animation = 'fadeInRow 0.25s ease';
-    if (focusInput) input.focus();
+    if (focusInput) amountInput.focus();
   }
 
   addIngredientRow('', false);
@@ -547,10 +596,19 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     }
   }
 
-  function serializeFormState() {
-    const ingredients = Array.from(ingredientsList.querySelectorAll('.ar-ingredient-input'))
-      .map(i => i.value.trim())
+  function collectIngredients() {
+    return Array.from(ingredientsList.querySelectorAll('.ar-ingredient-row'))
+      .map(row => {
+        const amount = row.querySelector('.ar-ingredient-amount')?.value.trim() || '';
+        const name   = row.querySelector('.ar-ingredient-input')?.value.trim()   || '';
+        if (!name) return '';
+        return amount ? `${amount} ${name}` : name;
+      })
       .filter(Boolean);
+  }
+
+  function serializeFormState() {
+    const ingredients = collectIngredients();
 
     const dietary = Array.from(overlay.querySelectorAll('input[name="dietary"]:checked'))
       .map(cb => cb.value)
@@ -687,9 +745,7 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       return null;
     }
 
-    const ingredients = Array.from(ingredientsList.querySelectorAll('.ar-ingredient-input'))
-      .map(i => i.value.trim())
-      .filter(Boolean);
+    const ingredients = collectIngredients();
 
     const dietary = Array.from(overlay.querySelectorAll('input[name="dietary"]:checked'))
       .map(cb => cb.value);
