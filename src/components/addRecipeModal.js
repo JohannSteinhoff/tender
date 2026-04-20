@@ -243,7 +243,12 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     '</div>';
 
   document.body.appendChild(overlay);
+  // Lock background scroll; position:fixed is needed for iOS Safari
+  const _bodyScrollY = window.scrollY;
   document.body.style.overflow = 'hidden';
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${_bodyScrollY}px`;
+  document.body.style.width = '100%';
 
   // ── State ──────────────────────────────────────────────────────
   const recipeSeed = existingRecipe || null;
@@ -302,6 +307,10 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
       current.style.display = 'flex';
       current.style.flexDirection = 'column';
     }
+
+    // Scroll modal back to top on each step change (important on mobile bottom sheet)
+    const modal = overlay.querySelector('.add-recipe-modal');
+    if (modal) modal.scrollTop = 0;
 
     // Update step bar indicators — only mark done if that step has content
     overlay.querySelectorAll('.ar-step-item').forEach(el => {
@@ -651,6 +660,10 @@ export function openAddRecipeModal(uid, onSuccess, existingRecipe = null) {
     window.removeEventListener('beforeunload', beforeUnloadHandler);
     overlay.remove();
     document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    window.scrollTo(0, _bodyScrollY);
   }
 
   overlay._arDestroy = close;

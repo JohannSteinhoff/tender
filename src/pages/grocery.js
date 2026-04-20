@@ -40,6 +40,7 @@ class GroceryListPage {
       addBtn: document.getElementById("btnAddItem"),
       cancelBtn: document.getElementById("btnCancelAdd"),
       generateBtn: null,
+      clearAllBtn: null,
       total: document.getElementById("totalItems"),
       checked: document.getElementById("checkedItems"),
       remaining: document.getElementById("remainingItems"),
@@ -55,6 +56,7 @@ class GroceryListPage {
     renderNav("grocery");
     this.insertGenerateButton();
     this.insertExportButton();
+    this.insertClearAllButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
@@ -69,7 +71,26 @@ class GroceryListPage {
     const sidebar = document.getElementById("categorySidebar");
     if (sidebar) {
       let dragSrcCat = null;
-      sidebar.addEventListener("dragstart", (e) => {
+      sidebar.addEventListener("click", (e) => {
+      const btn = e.target.closest(".cat-move-btn");
+      if (!btn) return;
+      const catId = btn.dataset.cat;
+      const idx = this.categoryOrder.indexOf(catId);
+      if (idx < 0) return;
+      if (btn.classList.contains("cat-move-up") && idx > 0) {
+        this.categoryOrder.splice(idx, 1);
+        this.categoryOrder.splice(idx - 1, 0, catId);
+        saveCategoryOrder(this.categoryOrder);
+        this.render();
+      } else if (btn.classList.contains("cat-move-down") && idx < this.categoryOrder.length - 1) {
+        this.categoryOrder.splice(idx, 1);
+        this.categoryOrder.splice(idx + 1, 0, catId);
+        saveCategoryOrder(this.categoryOrder);
+        this.render();
+      }
+    });
+
+    sidebar.addEventListener("dragstart", (e) => {
         const item = e.target.closest("[data-cat]");
         if (!item) return;
         dragSrcCat = item.dataset.cat;
@@ -120,6 +141,10 @@ class GroceryListPage {
 
     generateBtn?.addEventListener("click", async () => {
       await this.handleGenerateFromLikes();
+    });
+
+    this.elements.clearAllBtn?.addEventListener("click", async () => {
+      await this.handleClearAll();
     });
 
     list.addEventListener("change", async (event) => {
@@ -278,6 +303,30 @@ class GroceryListPage {
     }
   }
 
+  async handleClearAll() {
+    if (this.items.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Remove all ${this.items.length} item${this.items.length === 1 ? "" : "s"} from your grocery list? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const previousItems = [...this.items];
+    this.items = [];
+    this.render();
+
+    try {
+      const deletedCount = await this.repo.clearAll();
+      showToast(`Cleared ${deletedCount} item${deletedCount === 1 ? "" : "s"} from your list.`, "success");
+    } catch (error) {
+      this.items = previousItems;
+      this.sortItems();
+      this.render();
+      console.error("Failed to clear all grocery items:", error);
+      showToast("Could not clear the grocery list.", "error");
+    }
+  }
+
   async handleGenerateFromLikes() {
     if (this.generating) return;
     this.setGenerateButtonState(true);
@@ -382,6 +431,9 @@ class GroceryListPage {
     this.elements.total.textContent = String(this.items.length);
     this.elements.checked.textContent = String(checked);
     this.elements.remaining.textContent = String(this.items.length - checked);
+    if (this.elements.clearAllBtn) {
+      this.elements.clearAllBtn.disabled = this.items.length === 0;
+    }
   }
 
   renderList() {
@@ -447,7 +499,8 @@ class GroceryListPage {
       counts[catId] = (counts[catId] || 0) + 1;
     }
 
-    const items = this.categoryOrder.map((catId) => {
+    const lastIdx = this.categoryOrder.length - 1;
+    const items = this.categoryOrder.map((catId, idx) => {
       const cat = GROCERY_CATEGORIES.find(c => c.id === catId);
       const count = counts[catId] || 0;
       return `
@@ -459,16 +512,22 @@ class GroceryListPage {
               <circle cx="4" cy="9.5" r="1.1"/><circle cx="8" cy="9.5" r="1.1"/>
             </svg>
           </span>
+          <span class="cat-pos-badge" aria-hidden="true">${idx + 1}</span>
           <span class="cat-order-icon">${cat.icon}</span>
           <span class="cat-order-label">${cat.label}</span>
           ${count > 0 ? `<span class="cat-order-count">${count}</span>` : ''}
+          <div class="cat-mobile-controls">
+            <button class="cat-move-btn cat-move-up" data-cat="${catId}" aria-label="Move ${cat.label} up"${idx === 0 ? ' disabled' : ''}>&#x25B2;</button>
+            <button class="cat-move-btn cat-move-down" data-cat="${catId}" aria-label="Move ${cat.label} down"${idx === lastIdx ? ' disabled' : ''}>&#x25BC;</button>
+          </div>
         </li>`;
     }).join('');
 
     sidebar.innerHTML = `
       <div class="cat-sidebar-header">
         <h3>&#x1F5FA;&#xFE0F; Store Sections</h3>
-        <p>Drag to reorder sections</p>
+        <p class="cat-sidebar-hint cat-sidebar-hint--desktop">Drag to reorder sections</p>
+        <p class="cat-sidebar-hint cat-sidebar-hint--mobile">Tap &#x25B2;&#x25BC; to reorder sections</p>
       </div>
       <ol class="cat-order-list">${items}</ol>`;
   }
@@ -483,6 +542,19 @@ class GroceryListPage {
     generateBtn.textContent = "Generate from Likes";
     this.elements.addBtn.insertAdjacentElement("beforebegin", generateBtn);
     this.elements.generateBtn = generateBtn;
+  }
+
+  insertClearAllButton() {
+    if (this.elements.clearAllBtn || !this.elements.addBtn) return;
+
+    const clearAllBtn = document.createElement("button");
+    clearAllBtn.type = "button";
+    clearAllBtn.id = "btnClearAll";
+    clearAllBtn.className = "btn-clear-all";
+    clearAllBtn.textContent = "Clear All";
+    clearAllBtn.disabled = true;
+    this.elements.addBtn.insertAdjacentElement("beforebegin", clearAllBtn);
+    this.elements.clearAllBtn = clearAllBtn;
   }
 
   insertExportButton() {

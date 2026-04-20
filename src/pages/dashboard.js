@@ -104,6 +104,16 @@ async function init() {
     }
   });
 
+  // Mobile only: tap the liked-count stat card → smooth scroll to liked section
+  document.getElementById('statLikedCard').addEventListener('click', () => {
+    if (window.innerWidth <= 640) {
+      const target = document.getElementById('likedSectionHeader');
+      const navHeight = document.getElementById('app-nav')?.offsetHeight || 76;
+      const top = target.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  });
+
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
     try {
       openAddRecipeModal(uid, (newRecipe) => {

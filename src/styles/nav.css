@@ -479,7 +479,7 @@ html.dark-mode .theme-toggle:hover .theme-track {
 @media (max-width: 640px) {
   #app-nav {
     --nav-height: 76px;
-    grid-template-columns: minmax(0, 1fr) 0 auto;
+    grid-template-columns: auto 1fr auto;
     gap: 12px;
     padding-right: 16px;
   }

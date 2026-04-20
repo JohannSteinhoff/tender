@@ -1229,3 +1229,15 @@ html.dark-mode .my-recipe-status-pill.is-draft {
   font-size: 0.88rem;
 }
 
+
+
+@media (max-width: 640px) {
+  #statLikedCard {
+    cursor: pointer;
+  }
+
+  #statLikedCard:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease;
+  }
+}
