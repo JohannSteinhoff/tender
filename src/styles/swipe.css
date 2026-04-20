@@ -174,26 +174,9 @@ body.swipe-page-body {
     padding: 12px;
   }
   .swipe-diff-btns { flex-direction: row; }
+  .swipe-fridge-section { display: none; }
 }
 
-@media (max-width: 640px) {
-  body.swipe-page-body { padding-bottom: 0; }
-
-  .swipe-page {
-    height: calc(100dvh - 64px - 72px);
-    min-height: calc(100dvh - 64px - 72px);
-    padding: 12px 10px 10px;
-  }
-
-  .swipe-main {
-    gap: 10px;
-    width: 100%;
-  }
-
-  .swipe-actions {
-    gap: 14px;
-  }
-}
 
 .swipe-card {
   position: absolute;
@@ -700,3 +683,118 @@ body.swipe-page-body {
 .cuisine-greek      { background: linear-gradient(135deg, #4776E6, #8E54E9); }
 .cuisine-vietnamese { background: linear-gradient(135deg, #56ab2f, #a8e063); }
 .cuisine-default    { background: var(--gradient); }
+
+/* ── Mobile overrides ────────────────────────────────────────────
+   Placed at end of file so these rules win the cascade over all
+   desktop component styles defined above.
+─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body.swipe-page-body { padding-bottom: 0; }
+
+  .swipe-page {
+    height: calc(100dvh - 64px - 72px);
+    min-height: calc(100dvh - 64px - 72px);
+    padding: 8px 10px 8px;
+  }
+
+  .swipe-main {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .swipe-actions { gap: 12px; }
+
+  /* ── Compact sidebar ── */
+  .swipe-sidebar {
+    padding: 8px 12px;
+    margin-bottom: 0;
+    gap: 6px;
+  }
+
+  .swipe-sidebar h3 { display: none; }
+
+  .swipe-diff-btn {
+    padding: 4px 10px;
+    font-size: 0.72em;
+  }
+
+  .swipe-counter {
+    font-size: 0.65em;
+    padding: 3px 8px;
+    margin-top: 0;
+  }
+
+  /* Hide keyboard hints and button labels — useless on touch */
+  .btn-key   { display: none; }
+  .btn-label { display: none; }
+
+  /* ── Full-bleed card: image fills entire card ── */
+  .swipe-card-bg {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+  }
+
+  /* Short gradient overlay — covers bottom ~25% of card only */
+  .swipe-card-body {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    padding: 28px 18px 16px;
+    background: linear-gradient(
+      to top,
+      rgba(10, 10, 10, 0.88) 0%,
+      rgba(10, 10, 10, 0.40) 55%,
+      transparent 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    z-index: 2;
+  }
+
+  .swipe-card-name {
+    color: #ffffff;
+    font-size: 1.55em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    margin-bottom: 5px;
+  }
+
+  .swipe-card-stats {
+    gap: 12px;
+    margin-bottom: 0;
+    flex-wrap: nowrap;
+  }
+
+  .swipe-card-stat {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.8em;
+  }
+
+  /* Show only cook time + servings; hide likes count */
+  .swipe-card-stats .swipe-card-stat:nth-child(n+3) { display: none; }
+
+  /* Hide clutter */
+  .swipe-card-desc            { display: none; }
+  .swipe-card-ingredients-peek { display: none; }
+  .swipe-card-actions-row     { display: none; }
+
+  /* No-image emoji: smaller so it doesn't dominate the full-height card */
+  .swipe-card-emoji { font-size: 3em; }
+
+  /* Has-image emoji badge: hide it — cuisine + difficulty badges are enough */
+  .swipe-card-bg.has-img .swipe-card-emoji { display: none; }
+
+  /* Solid backgrounds so badges are readable over the full-bleed image */
+  .swipe-card-difficulty { background: rgba(255, 255, 255, 0.92); }
+  .swipe-card-difficulty.easy   { background: rgba(255, 255, 255, 0.92); color: #2aa89f; }
+  .swipe-card-difficulty.medium { background: rgba(255, 255, 255, 0.92); color: #b8960a; }
+  .swipe-card-difficulty.hard   { background: rgba(255, 255, 255, 0.92); color: #e03030; }
+
+  /* ── Smaller action buttons ── */
+  .swipe-btn-nope { width: 60px; height: 60px; }
+  .swipe-btn-like { width: 60px; height: 60px; }
+  .swipe-btn-info { width: 44px; height: 44px; }
+}

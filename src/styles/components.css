@@ -2386,3 +2386,93 @@ html.dark-mode .mealplan-prompt-day-chip {
   border-color: rgba(74,222,128,0.4);
   color: #16a34a;
 }
+
+/* ── Add Recipe modal: mobile full-screen panel (flush with nav bar) ──
+   Overlay starts below the nav bar (76px on mobile). Modal fills the full
+   remaining height so every step is the same size. The form body scrolls
+   internally with overflow-x: hidden to prevent 2D scrolling.
+─────────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Overlay sits below the nav bar, exposes it so user can see they're still in the app */
+  #add-recipe-modal-overlay {
+    padding: 0;
+    top: 76px;
+    align-items: stretch;
+  }
+
+  /* Modal fills the full area below the nav — same height on every step */
+  .add-recipe-modal {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Compact step bar */
+  .ar-step-bar { padding: 10px 16px 8px; }
+
+  /* Smaller preview header to save vertical space */
+  .ar-preview-header { height: 70px; }
+
+  /* Form body is the scroll container — overflow-x: hidden stops 2D scroll */
+  .ar-form-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 16px 20px;
+    height: auto;
+  }
+
+  .ar-form-body form {
+    flex: none;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Step content: natural height, no internal scroll */
+  .ar-step-content {
+    overflow: visible;
+    flex: none;
+    height: auto;
+    min-height: 0;
+    padding-right: 0;
+  }
+
+  /* height:100% on these grids breaks when the parent is auto-height */
+  .ar-step4-cols,
+  .ar-photo-emoji-cols { height: auto; }
+
+  /* Step 4: inline height:100% on form-group collapses in auto parent */
+  .ar-step4-left .form-group { height: auto !important; }
+
+  /* Step 4: textarea flex:1 collapses to ~0 in auto-height parent */
+  #ar-instructions { min-height: 200px; }
+
+  /* Step 2: emoji picker flex:1 collapses in auto-height parent */
+  .ar-emoji-picker-wrap { flex: none; }
+
+  /* Step 1: minmax(0,1fr) lets cells shrink below the browser's default input min-width */
+  .form-row-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-row-4 .form-group { min-width: 0; }
+  .form-row-4 .form-group input { min-width: 0; width: 100%; box-sizing: border-box; }
+
+  /* Step 3: flex:1 + browser min-width:auto can cause ingredient inputs to overflow */
+  .ar-ingredient-input { min-width: 0; }
+  .ar-ingredient-row { min-width: 0; }
+
+  /* Close button: absolute in top-right corner, sits over the preview header */
+  .add-recipe-modal .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    float: none;
+    margin: 0;
+    background: var(--bg-card);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+}
