@@ -177,16 +177,13 @@
 .mealplan-grid {
   display: grid;
   gap: 10px;
+  grid-template-columns: repeat(var(--mp-visible-days, 7), minmax(0, 1fr));
 }
-
-.mealplan-grid.view-7  { grid-template-columns: repeat(7,  minmax(160px, 1fr)); min-width: calc(7  * 170px); }
-.mealplan-grid.view-14 { grid-template-columns: repeat(14, minmax(155px, 1fr)); min-width: calc(14 * 165px); }
 
 .mealplan-grid.stacked-weeks {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-width: calc(7 * 170px);
 }
 
 .mp-week-section {
@@ -1288,13 +1285,6 @@ html.dark-mode .mp-custom-invite {
     --mp-slot-base-height: 168px;
     min-height: calc((var(--mp-slot-base-height) * 3) + 76px);
   }
-  .mealplan-grid.view-7  { grid-template-columns: repeat(7,  minmax(140px, 1fr)); min-width: calc(7  * 150px); }
-  .mealplan-grid.view-14 { grid-template-columns: repeat(14, minmax(135px, 1fr)); min-width: calc(14 * 145px); }
-  .mealplan-grid.stacked-weeks,
-  .mp-week-grid {
-    min-width: calc(7 * 150px);
-  }
-
   .mp-week-grid {
     grid-template-columns: repeat(7, minmax(140px, 1fr));
   }
@@ -1501,17 +1491,6 @@ html.dark-mode .mp-custom-invite {
     left: 12px;
     bottom: 12px;
     width: auto;
-  }
-
-  .mealplan-grid.view-7,
-  .mealplan-grid.view-14 {
-    grid-template-columns: repeat(7, minmax(190px, 1fr));
-    min-width: calc(7 * 200px);
-  }
-
-  .mealplan-grid.stacked-weeks,
-  .mp-week-grid {
-    min-width: calc(7 * 200px);
   }
 
   .mp-week-grid {
