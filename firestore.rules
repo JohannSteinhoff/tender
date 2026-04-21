@@ -42,7 +42,7 @@ service cloud.firestore {
     function validNotificationCreate(recipientId) {
       return request.resource.data.recipientUserId == recipientId
         && request.resource.data.actorUserId == request.auth.uid
-        && request.resource.data.type in ['recipe_comment', 'comment_reply']
+        && request.resource.data.type in ['recipe_comment', 'comment_reply', 'admin_recipe_removed', 'admin_comment_removed']
         && request.resource.data.isRead == false;
     }
 
@@ -126,14 +126,21 @@ service cloud.firestore {
           resource.data.userId == request.auth.uid
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likeCount', 'updatedAt'])
         );
-        allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+        allow delete: if request.auth != null && (
+          resource.data.userId == request.auth.uid
+          || isAdmin()
+        );
 
         // Replies under a comment — anyone can read; only signed-in users can write
         match /replies/{replyId} {
           allow read: if true;
           allow create: if request.auth != null
             && validReplyPayload(commentId);
-          allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+          allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+          allow delete: if request.auth != null && (
+            resource.data.userId == request.auth.uid
+            || isAdmin()
+          );
         }
       }
     }
