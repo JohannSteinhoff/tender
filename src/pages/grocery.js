@@ -10,7 +10,13 @@ import {
   collectIngredientsFromRecipes,
   getGroceryItemKey,
   normalizeGroceryItem,
+  normalizeIngredientName,
 } from "../features/grocery/logic.js";
+import {
+  getCategoryOverrides,
+  setGlobalCategoryOverride,
+  clearGlobalCategoryOverride,
+} from "../api/category-overrides.js";
 import {
   isSameBrand,
   renderGroceryItemMarkup,
@@ -31,6 +37,8 @@ class GroceryListPage {
     this.loading = false;
     this.generating = false;
     this.categoryOrder = [];
+    this.isAdmin = false;
+    this.categoryOverrides = new Map();
 
     this.elements = {
       list: document.getElementById("groceryList"),
@@ -57,6 +65,7 @@ class GroceryListPage {
 
     const profile = await getUserProfile(this.uid);
     renderNav("grocery", profile);
+    this.isAdmin = profile?.isAdmin || false;
 
     await this.loadItems();
   }
@@ -138,6 +147,31 @@ class GroceryListPage {
         return;
       }
 
+      const menuBtn = event.target.closest(".grocery-item-menu-btn");
+      if (menuBtn) {
+        const dropdown = menuBtn.closest(".grocery-item-menu")?.querySelector(".grocery-item-menu-dropdown");
+        if (!dropdown) return;
+        const isOpen = !dropdown.classList.contains("hidden");
+        document.querySelectorAll(".grocery-item-menu-dropdown").forEach(d => d.classList.add("hidden"));
+        if (!isOpen) {
+          const rect = menuBtn.getBoundingClientRect();
+          dropdown.style.top = `${rect.bottom + 4}px`;
+          dropdown.style.right = `${window.innerWidth - rect.right}px`;
+          dropdown.style.left = "auto";
+          dropdown.classList.remove("hidden");
+        }
+        return;
+      }
+
+      const catOption = event.target.closest(".grocery-cat-option");
+      if (catOption) {
+        const row = catOption.closest(".grocery-item");
+        if (!row?.dataset.id) return;
+        const catId = catOption.dataset.catId || null;
+        await this.handleCategoryOverride(row.dataset.id, catId || null);
+        return;
+      }
+
       const deleteBtn = event.target.closest(".grocery-item-delete");
       if (deleteBtn) {
         const row = deleteBtn.closest(".grocery-item");
@@ -151,23 +185,53 @@ class GroceryListPage {
         await this.handleClearChecked();
       }
     });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".grocery-item-menu")) {
+        document.querySelectorAll(".grocery-item-menu-dropdown").forEach(d => d.classList.add("hidden"));
+      }
+    });
+
+    window.addEventListener("scroll", () => {
+      document.querySelectorAll(".grocery-item-menu-dropdown").forEach(d => d.classList.add("hidden"));
+    }, { passive: true });
   }
 
   async loadItems() {
     this.loading = true;
     this.render();
 
-    try {
-      const result = await this.repo.mergeByName([]);
-      this.items = result.items;
+    // Run both fetches in parallel but keep failures independent —
+    // a permission error on overrides must not prevent the grocery list loading.
+    const [itemsResult, overridesResult] = await Promise.allSettled([
+      this.repo.mergeByName([]),
+      getCategoryOverrides(),
+    ]);
+
+    if (itemsResult.status === "fulfilled") {
+      this.items = itemsResult.value.items;
       await this.refreshRecommendations();
       this.sortItems();
-    } catch (error) {
-      console.error("Failed to load grocery items:", error);
+    } else {
+      console.error("Failed to load grocery items:", itemsResult.reason);
       showToast("Could not load grocery list from Firebase.", "error");
-    } finally {
-      this.loading = false;
-      this.render();
+    }
+
+    if (overridesResult.status === "fulfilled") {
+      this.categoryOverrides = overridesResult.value;
+      this.applyGlobalOverrides();
+    } else {
+      console.error("Failed to load category overrides:", overridesResult.reason);
+    }
+
+    this.loading = false;
+    this.render();
+  }
+
+  applyGlobalOverrides() {
+    for (const item of this.items) {
+      const key = normalizeIngredientName(item.name);
+      item.categoryOverride = this.categoryOverrides.get(key) || null;
     }
   }
 
@@ -400,10 +464,10 @@ class GroceryListPage {
       return;
     }
 
-    // Group items by category
+    // Group items by category (override takes precedence over auto-detect)
     const grouped = {};
     for (const item of this.items) {
-      const catId = categorizeItem(item.name);
+      const catId = item.categoryOverride || categorizeItem(item.name);
       (grouped[catId] ??= []).push(item);
     }
 
@@ -421,7 +485,7 @@ class GroceryListPage {
               <span class="grocery-category-name">${cat.label}</span>
               <span class="grocery-category-count">${unchecked > 0 ? `${unchecked} left` : 'done'}</span>
             </div>
-            ${items.map(item => renderGroceryItemMarkup(item)).join('')}
+            ${items.map(item => renderGroceryItemMarkup(item, this.isAdmin)).join('')}
           </div>`;
       });
 
@@ -438,10 +502,10 @@ class GroceryListPage {
     const sidebar = document.getElementById("categorySidebar");
     if (!sidebar) return;
 
-    // Count items per category
+    // Count items per category (override takes precedence over auto-detect)
     const counts = {};
     for (const item of this.items) {
-      const catId = categorizeItem(item.name);
+      const catId = item.categoryOverride || categorizeItem(item.name);
       counts[catId] = (counts[catId] || 0) + 1;
     }
 
@@ -490,6 +554,46 @@ class GroceryListPage {
     this.elements.generateBtn.textContent = isLoading
       ? "Generating..."
       : "Generate from Likes";
+  }
+
+  async handleCategoryOverride(id, catId) {
+    const item = this.items.find(e => e.id === id);
+    if (!item) return;
+
+    const normalizedName = normalizeIngredientName(item.name);
+    const previousOverride = this.categoryOverrides.get(normalizedName) || null;
+
+    // Optimistic update
+    if (catId) {
+      this.categoryOverrides.set(normalizedName, catId);
+    } else {
+      this.categoryOverrides.delete(normalizedName);
+    }
+    this.applyGlobalOverrides();
+    this.render();
+
+    try {
+      if (catId) {
+        await setGlobalCategoryOverride(item.name, catId, this.uid);
+      } else {
+        await clearGlobalCategoryOverride(item.name);
+      }
+      const catLabel = catId
+        ? GROCERY_CATEGORIES.find(c => c.id === catId)?.label || catId
+        : 'auto-detect';
+      showToast(`"${item.name}" → ${catLabel} (for all users)`, "success");
+    } catch (error) {
+      // Roll back
+      if (previousOverride) {
+        this.categoryOverrides.set(normalizedName, previousOverride);
+      } else {
+        this.categoryOverrides.delete(normalizedName);
+      }
+      this.applyGlobalOverrides();
+      this.render();
+      console.error("Failed to update category override:", error);
+      showToast("Could not update section.", "error");
+    }
   }
 }
 

@@ -436,6 +436,104 @@
 
 .grocery-item-delete:hover { color: var(--primary); background: rgba(255,107,107,0.08); }
 
+/* ── Admin item menu (... button + dropdown) ─────────────────── */
+.grocery-item-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.grocery-item-menu-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 1.05em;
+  letter-spacing: 1px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  line-height: 1;
+}
+
+.grocery-item-menu-btn:hover {
+  color: var(--primary);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.grocery-item-menu-dropdown {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.13);
+  padding: 6px;
+  min-width: 186px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.grocery-item-menu-dropdown.hidden { display: none; }
+
+.grocery-menu-label {
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  padding: 4px 8px 6px;
+}
+
+.grocery-cat-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-family: inherit;
+  font-size: 0.85em;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.grocery-cat-option:hover {
+  background: rgba(255, 107, 107, 0.07);
+  color: var(--primary);
+}
+
+.grocery-cat-option.is-active {
+  color: var(--primary);
+  background: rgba(255, 107, 107, 0.1);
+  font-weight: 600;
+}
+
+.grocery-cat-option-icon {
+  font-size: 1em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.grocery-cat-option-check {
+  margin-left: auto;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+.grocery-cat-option-reset {
+  border-top: 1px solid var(--border-light);
+  margin-top: 3px;
+  padding-top: 9px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ── Empty state ─────────────────────────────────────────────── */
 .grocery-empty {
   text-align: center;

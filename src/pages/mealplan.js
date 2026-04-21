@@ -26,7 +26,24 @@ const S = {
   // Drag
   dragSrc: null,         // { date, mealType }
   dragGhost: null,
+  dragCopy: false,
 };
+
+// Track Ctrl key state for copy-drag detection.
+let ctrlHeld = false;
+document.addEventListener('keydown', e => { if (e.key === 'Control') ctrlHeld = true; });
+document.addEventListener('keyup',   e => { if (e.key === 'Control') ctrlHeld = false; });
+window.addEventListener('blur',      () => { ctrlHeld = false; });
+
+// ── Responsive day count ───────────────────────────────────────
+const MIN_COL_PX = 155; // minimum comfortable column width
+
+function computeFitDays() {
+  const scroll = document.querySelector('.mp-cal-scroll');
+  const available = scroll ? scroll.clientWidth : window.innerWidth;
+  const fit = Math.max(1, Math.floor(available / MIN_COL_PX));
+  return Math.min(S.viewDays, fit);
+}
 
 // ── Date helpers ───────────────────────────────────────────────
 function toISO(d) {
@@ -121,7 +138,7 @@ function createEntryWrite(entry, date, mealType) {
 }
 
 function cleanupDragState() {
-  document.body.classList.remove('mp-is-dragging');
+  document.body.classList.remove('mp-is-dragging', 'mp-is-copy-dragging');
   document.querySelectorAll('.drop-hint, .drag-over, .is-dragging').forEach(el => {
     el.classList.remove('drop-hint', 'drag-over', 'is-dragging');
   });
@@ -129,6 +146,7 @@ function cleanupDragState() {
     S.dragGhost.remove();
     S.dragGhost = null;
   }
+  S.dragCopy = false;
 }
 
 function createDragGhost(slotEl) {
@@ -251,29 +269,30 @@ function renderCalendar() {
   if (!grid) return;
 
   const today = todayISO();
-  const dates = Array.from({ length: S.viewDays }, (_, i) => addDays(S.startDate, i));
-  const endDate = dates[dates.length - 1];
-
-  // Header nav
-  document.getElementById('dateRange').textContent = fmtRange(S.startDate, endDate);
-
-  // Grid class for column count
-  grid.className = `mealplan-grid view-${S.viewDays}`;
 
   if (S.viewDays === 14) {
-    grid.classList.add('stacked-weeks');
-    const firstWeek = dates.slice(0, 7);
-    const secondWeek = dates.slice(7, 14);
+    // 14-day view: stacked weeks with their own min-width scroll
+    const dates = Array.from({ length: 14 }, (_, i) => addDays(S.startDate, i));
+    document.getElementById('dateRange').textContent = fmtRange(S.startDate, dates[13]);
+    grid.className = 'mealplan-grid stacked-weeks';
+    grid.style.removeProperty('--mp-visible-days');
     grid.innerHTML = [
-      renderWeekSectionHTML('Week 1', firstWeek, today),
-      renderWeekSectionHTML('Week 2', secondWeek, today),
+      renderWeekSectionHTML('Week 1', dates.slice(0, 7), today),
+      renderWeekSectionHTML('Week 2', dates.slice(7, 14), today),
     ].join('');
+    updateSummaryBar(dates);
   } else {
+    // 7-day view: cap columns to what comfortably fits on screen
+    const fitDays = computeFitDays();
+    const dates = Array.from({ length: fitDays }, (_, i) => addDays(S.startDate, i));
+    document.getElementById('dateRange').textContent = fmtRange(S.startDate, dates[dates.length - 1]);
+    grid.className = 'mealplan-grid';
+    grid.style.setProperty('--mp-visible-days', fitDays);
     grid.innerHTML = dates.map(iso => renderDayColumnHTML(iso, today)).join('');
+    updateSummaryBar(dates);
   }
 
   bindSlotListeners();
-  updateSummaryBar(dates);
 }
 
 function renderWeekSectionHTML(label, dates, today) {
@@ -600,14 +619,23 @@ async function doCopyWeek() {
 window.__mpDragStart = function(e, iso, mealType) {
   cleanupDragState();
   S.dragSrc = { date: iso, mealType };
-  e.dataTransfer.effectAllowed = 'move';
+  S.dragCopy = ctrlHeld;
+  e.dataTransfer.effectAllowed = 'all';
   e.dataTransfer.setData('text/plain', `${iso}|${mealType}`);
   const slotEl = e.currentTarget;
   if (slotEl) {
     document.body.classList.add('mp-is-dragging');
+    if (S.dragCopy) document.body.classList.add('mp-is-copy-dragging');
     slotEl.classList.add('is-dragging');
     S.dragGhost = createDragGhost(slotEl);
     if (S.dragGhost) {
+      if (S.dragCopy) {
+        S.dragGhost.classList.add('is-copy-ghost');
+        const badge = document.createElement('span');
+        badge.className = 'mp-copy-badge';
+        badge.textContent = '+';
+        S.dragGhost.appendChild(badge);
+      }
       const { width } = slotEl.getBoundingClientRect();
       e.dataTransfer.setDragImage(S.dragGhost, Math.min(width * 0.35, 88), 28);
     }
@@ -624,6 +652,7 @@ window.__mpDragStart = function(e, iso, mealType) {
 
 window.__mpDrop = async function(e, toISO, toMealType) {
   e.preventDefault();
+  const isCopy = e.ctrlKey;  // read from the drop event — most reliable source
   cleanupDragState();
 
   if (!S.dragSrc) return;
@@ -644,7 +673,14 @@ window.__mpDrop = async function(e, toISO, toMealType) {
   const toEntries   = toSlot ? [toSlot.main, toSlot.sides, toSlot.note].flat().filter(Boolean) : [];
 
   try {
-    if (toSlot?.main) {
+    if (isCopy) {
+      if (toSlot?.main) {
+        showToast('That slot already has a meal — drop on an empty slot to duplicate', 'info');
+        return;
+      }
+      await Promise.all(fromEntries.map(entry => createEntryWrite(entry, toISO, toMealType)));
+      showToast('Meal duplicated!');
+    } else if (toSlot?.main) {
       // SWAP: delete all from both slots, re-create swapped
       const allIds = [...fromEntries, ...toEntries].map(x => x.id);
       await Promise.all(allIds.map(id => window.TenderAPI.removeMealPlanItem(id)));
@@ -844,13 +880,13 @@ async function selectCustomMeal(customName) {
 
 // ── Setup UI listeners ─────────────────────────────────────────
 function setupListeners() {
-  // Calendar navigation
+  // Calendar navigation — step by however many days are currently visible
   document.getElementById('prevBtn').addEventListener('click', () => {
-    S.startDate = addDays(S.startDate, -7);
+    S.startDate = addDays(S.startDate, -(S.viewDays === 14 ? 7 : computeFitDays()));
     renderCalendar();
   });
   document.getElementById('nextBtn').addEventListener('click', () => {
-    S.startDate = addDays(S.startDate, 7);
+    S.startDate = addDays(S.startDate, S.viewDays === 14 ? 7 : computeFitDays());
     renderCalendar();
   });
   document.getElementById('todayBtn').addEventListener('click', () => {
@@ -884,6 +920,16 @@ function setupListeners() {
     renderPickerList();
   });
 
+  document.getElementById('pickerSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const name = S.pickerSearch.trim();
+      if (name) {
+        e.preventDefault();
+        selectCustomMeal(name);
+      }
+    }
+  });
+
   // Picker tabs
   document.querySelectorAll('.picker-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -907,6 +953,37 @@ function setupListeners() {
   // Escape key closes picker
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closePicker();
+  });
+
+  // Update copy-mode state continuously during drag so the badge and body
+  // class stay in sync even if Shift is pressed/released after dragstart.
+  // e.shiftKey here is reliable because dragover fires from real pointer events.
+  document.addEventListener('dragover', e => {
+    if (!S.dragSrc) return;
+    const wantCopy = e.ctrlKey;
+    if (wantCopy === S.dragCopy) return;
+    S.dragCopy = wantCopy;
+    document.body.classList.toggle('mp-is-copy-dragging', wantCopy);
+    if (S.dragGhost) {
+      let badge = S.dragGhost.querySelector('.mp-copy-badge');
+      if (wantCopy && !badge) {
+        badge = document.createElement('span');
+        badge.className = 'mp-copy-badge';
+        badge.textContent = '+';
+        S.dragGhost.appendChild(badge);
+        S.dragGhost.classList.add('is-copy-ghost');
+      } else if (!wantCopy && badge) {
+        badge.remove();
+        S.dragGhost.classList.remove('is-copy-ghost');
+      }
+    }
+  });
+
+  // Re-render on resize so column count stays comfortable
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderCalendar, 120);
   });
 
   // Clean up drag state on dragend

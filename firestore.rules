@@ -145,6 +145,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Global category overrides — readable by all signed-in users,
+    // writable only by admins.
+    match /groceryCategoryOverrides/{ingredientId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
