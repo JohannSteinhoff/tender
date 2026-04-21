@@ -231,16 +231,17 @@
 /* ── Day column ──────────────────────────────────────────────── */
 .mp-col {
   --mp-slot-base-height: 184px;
+  --mp-col-header-row: 72px;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 14px;
   overflow: hidden;
   display: grid;
-  grid-template-rows: auto repeat(3, minmax(var(--mp-slot-base-height), auto));
+  grid-template-rows: var(--mp-col-header-row) repeat(3, minmax(var(--mp-slot-base-height), 1fr));
   align-items: stretch;
   row-gap: 6px;
   padding-bottom: 8px;
-  min-height: calc((var(--mp-slot-base-height) * 3) + 80px);
+  min-height: calc((var(--mp-slot-base-height) * 3) + var(--mp-col-header-row) + 26px);
   box-shadow: 0 2px 8px var(--shadow-color);
   transition: box-shadow 0.2s;
 }
@@ -267,7 +268,7 @@
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .mp-col.is-today .mp-col-header {
@@ -499,6 +500,7 @@ html.dark-mode .mp-slot {
   gap: 6px;
   cursor: pointer;
   box-shadow: var(--mp-slot-shadow-base);
+  overflow-y: auto;
 }
 
 .mp-slot.filled:hover {
@@ -1333,7 +1335,7 @@ html.dark-mode .mp-custom-invite {
   .mp-page-header { gap: 12px; }
   .mp-col {
     --mp-slot-base-height: 168px;
-    min-height: calc((var(--mp-slot-base-height) * 3) + 76px);
+    min-height: calc((var(--mp-slot-base-height) * 3) + var(--mp-col-header-row) + 26px);
   }
   .mp-week-grid {
     grid-template-columns: repeat(7, minmax(140px, 1fr));
@@ -1355,7 +1357,8 @@ html.dark-mode .mp-custom-invite {
 
   .mp-col {
     --mp-slot-base-height: 152px;
-    min-height: calc((var(--mp-slot-base-height) * 3) + 72px);
+    --mp-col-header-row: 66px;
+    min-height: calc((var(--mp-slot-base-height) * 3) + var(--mp-col-header-row) + 26px);
     border-radius: 16px;
     scroll-snap-align: start;
   }
