@@ -1,4 +1,5 @@
 import { escapeHtml } from "../../utils/helpers.js";
+import { GROCERY_CATEGORIES } from "./categories.js";
 
 function formatQuantityValue(quantity) {
   const parsed = Number.parseFloat(quantity);
@@ -67,7 +68,36 @@ export function renderRecommendedBrands(item) {
     </div>`;
 }
 
-export function renderGroceryItemMarkup(item) {
+function renderAdminMenu(item) {
+  const catOptions = GROCERY_CATEGORIES.map(cat => {
+    const isActive = item.categoryOverride === cat.id;
+    return `
+      <button class="grocery-cat-option${isActive ? ' is-active' : ''}"
+              type="button" data-cat-id="${escapeHtml(cat.id)}">
+        <span class="grocery-cat-option-icon">${cat.icon}</span>
+        <span>${escapeHtml(cat.label)}</span>
+        ${isActive ? '<span class="grocery-cat-option-check">&#x2713;</span>' : ''}
+      </button>`;
+  }).join('');
+
+  const resetOption = item.categoryOverride ? `
+    <button class="grocery-cat-option grocery-cat-option-reset" type="button" data-cat-id="">
+      <span class="grocery-cat-option-icon">&#x21BA;</span>
+      <span>Auto-detect</span>
+    </button>` : '';
+
+  return `
+    <div class="grocery-item-menu">
+      <button class="grocery-item-menu-btn" type="button" aria-label="Change store section" title="Change store section">&#x2026;</button>
+      <div class="grocery-item-menu-dropdown hidden">
+        <div class="grocery-menu-label">Move to section</div>
+        ${catOptions}
+        ${resetOption}
+      </div>
+    </div>`;
+}
+
+export function renderGroceryItemMarkup(item, isAdmin = false) {
   return `
     <div class="grocery-item${item.checked ? " checked" : ""}" data-id="${item.id}">
       <input class="grocery-item-check" type="checkbox" ${item.checked ? "checked" : ""} aria-label="Check ${escapeHtml(item.name)}">
@@ -77,6 +107,7 @@ export function renderGroceryItemMarkup(item) {
         ${renderRecommendedBrands(item)}
       </div>
       <span class="grocery-item-qty" aria-label="Quantity">${renderQuantityLabel(item)}</span>
+      ${isAdmin ? renderAdminMenu(item) : ''}
       <button class="grocery-item-delete" aria-label="Remove">&#x2715;</button>
     </div>`;
 }
