@@ -1200,6 +1200,28 @@ html.dark-mode .my-recipe-status-pill.is-draft {
 
 .dash-notif-mark-read:disabled { opacity: 0.45; cursor: default; }
 
+.dash-notif-footer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px 12px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+}
+
+.dash-notif-footer-sep {
+  opacity: 0.5;
+}
+
+.dash-notif-footer-unread {
+  font-weight: 600;
+}
+
+.dash-notif-footer-unread.has-unread {
+  color: var(--primary);
+}
+
 .dash-notif-empty {
   padding: 40px 22px;
   text-align: center;
@@ -1207,3 +1229,15 @@ html.dark-mode .my-recipe-status-pill.is-draft {
   font-size: 0.88rem;
 }
 
+
+
+@media (max-width: 640px) {
+  #statLikedCard {
+    cursor: pointer;
+  }
+
+  #statLikedCard:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease;
+  }
+}

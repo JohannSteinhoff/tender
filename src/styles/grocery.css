@@ -145,6 +145,57 @@
   outline-offset: -2px;
 }
 
+/* Position badge — visible on mobile only */
+.cat-pos-badge {
+  display: none;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--text-secondary);
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Up/down reorder buttons — visible on mobile only */
+.cat-mobile-controls {
+  display: none;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.cat-move-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.65em;
+  padding: 5px 8px;
+  line-height: 1;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.cat-move-btn:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.cat-move-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* Hint text variants */
+.cat-sidebar-hint--mobile { display: none; }
+
 /* ── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .grocery-layout {
@@ -155,10 +206,15 @@
     position: static;
   }
   .cat-order-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 4px;
   }
+  .cat-drag-handle { display: none; }
+  .cat-pos-badge { display: flex; }
+  .cat-mobile-controls { display: flex; }
+  .cat-sidebar-hint--desktop { display: none; }
+  .cat-sidebar-hint--mobile { display: block; }
 }
 
 .page-header {
@@ -221,6 +277,31 @@
 .btn-generate-liked:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+.btn-clear-all {
+  background: var(--bg-card);
+  border: 2px solid #e55;
+  color: #e55;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s;
+  white-space: nowrap;
+}
+
+.btn-clear-all:hover:not(:disabled) {
+  background: #e55;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-clear-all:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── Stats bar ───────────────────────────────────────────────── */
@@ -574,4 +655,98 @@
   .grocery-item-delete {
     margin-left: 34px;
   }
+}
+
+/* ── Export button & dropdown ────────────────────────────────── */
+.export-menu-container {
+  position: relative;
+}
+
+.btn-export {
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, transform 0.2s, background 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-export::after {
+  content: "▾";
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.btn-export:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  background: var(--bg-card-hover);
+}
+
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px var(--shadow-color);
+  padding: 6px;
+  min-width: 190px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: dropdown-in 0.15s ease;
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.export-dropdown.hidden {
+  display: none;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-primary);
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.export-option:hover {
+  background: rgba(255, 107, 107, 0.08);
+  color: var(--primary);
+}
+
+.export-option-icon {
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
 }

@@ -136,6 +136,16 @@ export class GroceryRepository {
     return checkedSnapshot.size;
   }
 
+  async clearAll() {
+    const snapshot = await getDocs(this.collectionRef);
+    if (snapshot.empty) return 0;
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((itemDoc) => batch.delete(itemDoc.ref));
+    await batch.commit();
+    return snapshot.size;
+  }
+
   async mergeByName(items) {
     const incoming = sanitizeGeneratedItems(items);
     const snapshot = await getDocs(this.collectionRef);

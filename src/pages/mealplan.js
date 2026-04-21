@@ -7,12 +7,14 @@ import { openRecipeModal } from '../components/recipeModal.js';
 import { showToast } from '../components/toast.js';
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner'];
+const MIN_COL_WIDTH = 160; // minimum readable column width in px
 
 // ── State ──────────────────────────────────────────────────────
 const S = {
   uid: null,
   startDate: null,       // YYYY-MM-DD — first visible day
   viewDays: 7,
+  visibleDays: 7,        // actual rendered columns (computed from container width)
   mealPlan: {},          // "YYYY-MM-DD_MealType" → { main, sides[], note }
   allRecipes: [],
   likedIds: new Set(),
@@ -264,35 +266,44 @@ async function loadAll() {
 }
 
 // ── Calendar rendering ─────────────────────────────────────────
+function computeVisibleDays() {
+  const scroll = document.querySelector('.mp-cal-scroll');
+  if (!scroll || !scroll.clientWidth) return S.viewDays;
+  const GAP = 10;
+  const fit = Math.max(1, Math.floor((scroll.clientWidth + GAP) / (MIN_COL_WIDTH + GAP)));
+  return Math.min(S.viewDays, fit);
+}
+
 function renderCalendar() {
   const grid = document.getElementById('mealPlanGrid');
   if (!grid) return;
 
-  const today = todayISO();
+  S.visibleDays = computeVisibleDays();
 
-  if (S.viewDays === 14) {
-    // 14-day view: stacked weeks with their own min-width scroll
-    const dates = Array.from({ length: 14 }, (_, i) => addDays(S.startDate, i));
-    document.getElementById('dateRange').textContent = fmtRange(S.startDate, dates[13]);
-    grid.className = 'mealplan-grid stacked-weeks';
-    grid.style.removeProperty('--mp-visible-days');
+  const today = todayISO();
+  const dates = Array.from({ length: S.visibleDays }, (_, i) => addDays(S.startDate, i));
+  const endDate = dates[dates.length - 1];
+
+  document.getElementById('dateRange').textContent = fmtRange(S.startDate, endDate);
+
+  grid.className = 'mealplan-grid';
+  grid.style.setProperty('--mp-visible-days', S.visibleDays);
+
+  let summaryDates = dates;
+
+  if (S.viewDays === 14 && S.visibleDays >= 7) {
+    summaryDates = Array.from({ length: 14 }, (_, i) => addDays(S.startDate, i));
+    grid.classList.add('stacked-weeks');
     grid.innerHTML = [
-      renderWeekSectionHTML('Week 1', dates.slice(0, 7), today),
-      renderWeekSectionHTML('Week 2', dates.slice(7, 14), today),
+      renderWeekSectionHTML('Week 1', summaryDates.slice(0, 7), today),
+      renderWeekSectionHTML('Week 2', summaryDates.slice(7, 14), today),
     ].join('');
-    updateSummaryBar(dates);
   } else {
-    // 7-day view: cap columns to what comfortably fits on screen
-    const fitDays = computeFitDays();
-    const dates = Array.from({ length: fitDays }, (_, i) => addDays(S.startDate, i));
-    document.getElementById('dateRange').textContent = fmtRange(S.startDate, dates[dates.length - 1]);
-    grid.className = 'mealplan-grid';
-    grid.style.setProperty('--mp-visible-days', fitDays);
     grid.innerHTML = dates.map(iso => renderDayColumnHTML(iso, today)).join('');
-    updateSummaryBar(dates);
   }
 
   bindSlotListeners();
+  updateSummaryBar(summaryDates);
 }
 
 function renderWeekSectionHTML(label, dates, today) {
@@ -882,11 +893,11 @@ async function selectCustomMeal(customName) {
 function setupListeners() {
   // Calendar navigation — step by however many days are currently visible
   document.getElementById('prevBtn').addEventListener('click', () => {
-    S.startDate = addDays(S.startDate, -(S.viewDays === 14 ? 7 : computeFitDays()));
+    S.startDate = addDays(S.startDate, -S.visibleDays);
     renderCalendar();
   });
   document.getElementById('nextBtn').addEventListener('click', () => {
-    S.startDate = addDays(S.startDate, S.viewDays === 14 ? 7 : computeFitDays());
+    S.startDate = addDays(S.startDate, S.visibleDays);
     renderCalendar();
   });
   document.getElementById('todayBtn').addEventListener('click', () => {
@@ -1014,6 +1025,15 @@ async function init() {
   }
 
   renderCalendar();
+
+  const scrollEl = document.querySelector('.mp-cal-scroll');
+  if (scrollEl && window.ResizeObserver) {
+    let resizeTimer;
+    new ResizeObserver(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderCalendar, 50);
+    }).observe(scrollEl);
+  }
 }
 
 init().catch(console.error);

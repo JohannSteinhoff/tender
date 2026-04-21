@@ -392,6 +392,23 @@ html.dark-mode .theme-toggle:hover .theme-track {
 
 .avatar-dropdown-signout { color: var(--primary); }
 
+.nav-notif-badge {
+  margin-left: auto;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.68em;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 /* ── Mobile bottom nav ───────────────────────────────────────── */
 .mobile-nav {
   display: none;
@@ -462,7 +479,7 @@ html.dark-mode .theme-toggle:hover .theme-track {
 @media (max-width: 640px) {
   #app-nav {
     --nav-height: 76px;
-    grid-template-columns: minmax(0, 1fr) 0 auto;
+    grid-template-columns: auto 1fr auto;
     gap: 12px;
     padding-right: 16px;
   }

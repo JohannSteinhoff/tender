@@ -2,6 +2,8 @@ import { requireAuth } from '../auth.js';
 import { getUserProfile, updateUserProfile } from '../api/users.js';
 import { renderNav } from '../components/nav.js';
 import { escapeHtml, capitalizeFirst } from '../utils/helpers.js';
+import { auth } from '../firebase.js';
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 
 let uid = null;
 let profile = null;
@@ -47,6 +49,7 @@ function renderAccount(p) {
   document.getElementById('accountEmail').textContent = p.firstName ? `@${p.firstName.toLowerCase().replace(/\s+/g, '')}` : '';
 
   renderPersonalCard(p);
+  renderSecurityCard();
   renderPreferencesCard(p);
 }
 
@@ -122,6 +125,103 @@ async function savePersonal() {
     alert(`Failed to save: ${err.message}`);
     btn.textContent = 'Save';
     btn.disabled = false;
+  }
+}
+
+// ── Security card ───────────────────────────────────────────────
+
+function renderSecurityCard(editing = false) {
+  const card = document.getElementById('securityCard');
+  if (editing) {
+    card.innerHTML = `
+      <div class="card-header">
+        <h2>Security</h2>
+        <div class="card-actions">
+          <button class="edit-save-btn" id="savePasswordBtn">Save</button>
+          <button class="edit-cancel-btn" id="cancelPasswordBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="edit-form">
+        <div class="edit-field">
+          <label>Current Password</label>
+          <input type="password" id="currentPassword" placeholder="Enter current password" autocomplete="current-password">
+        </div>
+        <div class="edit-field">
+          <label>New Password</label>
+          <input type="password" id="newPassword" placeholder="New password" autocomplete="new-password">
+          <span class="field-note">At least 8 characters, one uppercase letter, one number.</span>
+        </div>
+        <div class="edit-field">
+          <label>Confirm New Password</label>
+          <input type="password" id="confirmPassword" placeholder="Repeat new password" autocomplete="new-password">
+        </div>
+        <div class="password-error" id="passwordError"></div>
+      </div>
+    `;
+    document.getElementById('savePasswordBtn').addEventListener('click', savePassword);
+    document.getElementById('cancelPasswordBtn').addEventListener('click', () => renderSecurityCard());
+  } else {
+    card.innerHTML = `
+      <div class="card-header">
+        <h2>Security</h2>
+        <button class="edit-btn" id="changePasswordBtn">Change Password</button>
+      </div>
+      <div class="account-row">
+        <div class="account-row-label">Password</div>
+        <div class="account-row-value">••••••••</div>
+      </div>
+    `;
+    document.getElementById('changePasswordBtn').addEventListener('click', () => renderSecurityCard(true));
+  }
+}
+
+async function savePassword() {
+  const currentPw  = document.getElementById('currentPassword').value;
+  const newPw      = document.getElementById('newPassword').value;
+  const confirmPw  = document.getElementById('confirmPassword').value;
+  const errorEl    = document.getElementById('passwordError');
+  const btn        = document.getElementById('savePasswordBtn');
+
+  errorEl.textContent = '';
+
+  if (!currentPw || !newPw || !confirmPw) {
+    errorEl.textContent = 'Please fill in all fields.';
+    return;
+  }
+  if (newPw.length < 8) {
+    errorEl.textContent = 'New password must be at least 8 characters.';
+    return;
+  }
+  if (!/[A-Z]/.test(newPw)) {
+    errorEl.textContent = 'New password must contain at least one uppercase letter.';
+    return;
+  }
+  if (!/[0-9]/.test(newPw)) {
+    errorEl.textContent = 'New password must contain at least one number.';
+    return;
+  }
+  if (newPw !== confirmPw) {
+    errorEl.textContent = 'New passwords do not match.';
+    return;
+  }
+
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    const user = auth.currentUser;
+    const credential = EmailAuthProvider.credential(user.email, currentPw);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPw);
+    renderSecurityCard();
+  } catch (err) {
+    btn.textContent = 'Save';
+    btn.disabled = false;
+    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      errorEl.textContent = 'Current password is incorrect.';
+    } else {
+      errorEl.textContent = err.message || 'Failed to update password.';
+    }
   }
 }
 
@@ -314,6 +414,16 @@ function initCurlEasterEgg() {
     { id: 'lavender', label: 'Lavender Dream',  font: 'Quicksand',       swatch: 'linear-gradient(135deg,#7C3AED,#EC4899)' },
     { id: 'mono',       label: 'Monochrome',      font: 'Space Grotesk',   swatch: 'linear-gradient(135deg,#333333,#999999)' },
     { id: 'synthwave',  label: 'Synthwave',       font: 'Orbitron',        swatch: 'linear-gradient(135deg,#FF1CF7,#7B00FF,#00E5FF)' },
+    { id: 'crimson',    label: 'Crimson Heat',    font: 'Space Grotesk',   swatch: 'linear-gradient(135deg,#8B0000,#C0392B,#FF4500)' },
+  ];
+
+  const CRIMSON_FONTS = [
+    { id: 'space',   label: 'Space Grotesk' },
+    { id: 'poppins', label: 'Poppins'        },
+    { id: 'inter',   label: 'Inter'          },
+    { id: 'dm',      label: 'DM Sans'        },
+    { id: 'nunito',  label: 'Nunito'         },
+    { id: 'raleway', label: 'Raleway'        },
   ];
 
   function getActive() {
@@ -324,13 +434,27 @@ function initCurlEasterEgg() {
     const html = document.documentElement;
     [...html.classList].filter(c => c.startsWith('theme-')).forEach(c => html.classList.remove(c));
     if (id !== 'default') html.classList.add(`theme-${id}`);
-    if (id === 'code' || id === 'synthwave') { html.classList.add('dark-mode'); localStorage.setItem('tender_theme', 'dark'); }
+    if (id === 'code' || id === 'synthwave' || id === 'crimson') { html.classList.add('dark-mode'); localStorage.setItem('tender_theme', 'dark'); }
+    if (id === 'crimson') {
+      html.dataset.crimsonFont = localStorage.getItem('tender_crimson_font') || 'space';
+    } else {
+      delete html.dataset.crimsonFont;
+    }
     localStorage.setItem('tender_theme_name', id);
+    buildPanel();
+  }
+
+  function applyCrimsonFont(fontId) {
+    document.documentElement.dataset.crimsonFont = fontId;
+    localStorage.setItem('tender_crimson_font', fontId);
     buildPanel();
   }
 
   function buildPanel() {
     const active = getActive();
+    const crimsonFontId = localStorage.getItem('tender_crimson_font') || 'space';
+    const crimsonFontLabel = CRIMSON_FONTS.find(f => f.id === crimsonFontId)?.label || 'Space Grotesk';
+
     panel.innerHTML = `
       <div class="easter-header">
         <span class="easter-title">&#x2728; Secret Themes</span>
@@ -342,14 +466,24 @@ function initCurlEasterEgg() {
             <div class="easter-swatch" style="background:${t.swatch}"></div>
             <div class="easter-info">
               <span class="easter-name">${t.label}</span>
-              <span class="easter-font">${t.font}</span>
+              <span class="easter-font">${t.id === 'crimson' && active === 'crimson' ? crimsonFontLabel : t.font}</span>
             </div>
             ${active === t.id ? '<span class="easter-check">&#x2713;</span>' : ''}
-          </button>`).join('')}
+          </button>
+          ${t.id === 'crimson' && active === 'crimson' ? `
+            <div class="crimson-font-picker">
+              ${CRIMSON_FONTS.map(f => `
+                <button class="crimson-font-chip${crimsonFontId === f.id ? ' active' : ''}" data-font="${f.id}">${f.label}</button>
+              `).join('')}
+            </div>` : ''}
+        `).join('')}
       </div>`;
     document.getElementById('easterClose').addEventListener('click', snapClose);
     panel.querySelectorAll('.easter-theme-card').forEach(btn =>
       btn.addEventListener('click', () => applyEggTheme(btn.dataset.theme))
+    );
+    panel.querySelectorAll('.crimson-font-chip').forEach(btn =>
+      btn.addEventListener('click', (e) => { e.stopPropagation(); applyCrimsonFont(btn.dataset.font); })
     );
   }
 

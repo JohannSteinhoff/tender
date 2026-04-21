@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Raleway:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
 
 /* ── Reset & base ───────────────────────────────────────────── */
 * {
@@ -346,6 +346,41 @@ html.theme-mono.dark-mode {
   --overlay-bg:   rgba(0, 0, 0, 0.75);
   --scrollbar-track: #0F0F0F;
 }
+
+/* ── Crimson Heat  (dark + red accents · always dark · font-switchable) */
+html.theme-crimson {
+  --font-primary: 'Space Grotesk', sans-serif;
+  --primary:       #E74C3C;
+  --primary-dark:  #C0392B;
+  --secondary:     #FF6B6B;
+  --accent:        #FF8080;
+  --gradient:      linear-gradient(135deg, #C0392B 0%, #E74C3C 100%);
+  /* Always dark — all variables set here, no light/dark variants */
+  --bg-primary:    #0C0C0C;
+  --bg-card:       #161616;
+  --bg-card-hover: #1D1D1D;
+  --bg-input:      #141414;
+  --text-primary:   #EFEFEF;
+  --text-secondary: #E74C3C;
+  --text-tertiary:  #666666;
+  --border-color: #2E1A1A;
+  --border-light: #1E1010;
+  --shadow-color: rgba(231, 76, 60, 0.12);
+  --overlay-bg:   rgba(0, 0, 0, 0.85);
+  --dark:  #EFEFEF;
+  --light: #0C0C0C;
+  --scrollbar-track:       #0E0808;
+  --scrollbar-thumb:       #E74C3C;
+  --scrollbar-thumb-hover: #C0392B;
+}
+html.theme-crimson ::selection { background: rgba(231, 76, 60, 0.28); }
+
+/* Font overrides — applied via data-crimson-font on <html> */
+html.theme-crimson[data-crimson-font="poppins"] { --font-primary: 'Poppins', sans-serif; }
+html.theme-crimson[data-crimson-font="inter"]   { --font-primary: 'Inter', sans-serif; }
+html.theme-crimson[data-crimson-font="dm"]      { --font-primary: 'DM Sans', sans-serif; }
+html.theme-crimson[data-crimson-font="nunito"]  { --font-primary: 'Nunito', sans-serif; }
+html.theme-crimson[data-crimson-font="raleway"] { --font-primary: 'Raleway', sans-serif; }
 
 /* ── Synthwave  (80s neon retro · always dark · Orbitron) ──── */
 html.theme-synthwave {
