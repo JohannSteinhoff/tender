@@ -171,7 +171,9 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 8px;
+  scrollbar-width: none;
 }
+.mp-cal-scroll::-webkit-scrollbar { display: none; }
 
 /* ── Grid ────────────────────────────────────────────────────── */
 .mealplan-grid {
@@ -324,6 +326,7 @@
   position: relative;
   overflow: visible;
   min-width: 0;
+  scrollbar-width: none;
   --meal-accent: #ff7b6b;
   --meal-accent-soft: rgba(255, 123, 107, 0.12);
   --meal-accent-border: rgba(255, 123, 107, 0.26);
@@ -612,6 +615,68 @@ html.dark-mode .mp-slot {
 
 .mp-drag-ghost .mp-note {
   pointer-events: none;
+}
+
+/* ── Duplicate mode (mobile swipe-to-copy) ───────────────────── */
+.mp-slot.dup-mode-source {
+  box-shadow: 0 0 0 3px var(--meal-accent), var(--mp-slot-shadow-soft);
+  opacity: 0.85;
+  transform: scale(0.97);
+}
+.mp-slot.dup-mode-source::after { opacity: 1; }
+
+.mp-slot.empty.dup-available {
+  border-color: var(--meal-accent);
+  border-style: solid;
+  background: linear-gradient(180deg, var(--mp-slot-bg-start), var(--meal-accent-soft));
+  animation: dup-pulse 1.6s ease-in-out infinite;
+}
+.mp-slot.empty.dup-available .mp-add-btn {
+  color: var(--meal-accent);
+  font-weight: 700;
+}
+@keyframes dup-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--meal-accent-glow); }
+  50%       { box-shadow: 0 0 0 6px var(--meal-accent-glow); }
+}
+
+/* ── Swipe-to-duplicate live feedback ────────────────────────── */
+.mp-swipe-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--meal-accent-soft);
+  border: 1.5px solid var(--meal-accent-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--meal-accent);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+  opacity: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.mp-swipe-indicator.ready {
+  background: var(--meal-accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px var(--meal-accent-glow);
+}
+
+.mp-swipe-icon {
+  font-size: 1em;
+  line-height: 1;
+}
+
+.mp-slot.filled.swipe-ready {
+  border-color: var(--meal-accent) !important;
+  box-shadow: 0 0 0 3px var(--meal-accent-glow), var(--mp-slot-shadow-hover) !important;
 }
 
 /* ── Main recipe row ─────────────────────────────────────────── */
@@ -1374,6 +1439,11 @@ html.dark-mode .mp-custom-invite {
   .mp-slot.empty,
   .mp-slot.filled {
     padding: 8px;
+  }
+
+  .mp-slot.filled {
+    touch-action: pan-y;
+    transition: transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease, border-color 180ms ease;
   }
 
   .mp-meal-label {
