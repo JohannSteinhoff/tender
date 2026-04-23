@@ -12,7 +12,9 @@ import {
 } from 'firebase/firestore';
 import {
   getGroceryItemKey,
+  mergeRecipeSources,
   normalizeGroceryItem,
+  sanitizeRecipeSources,
   sanitizeBrandSelection,
   sanitizeGeneratedItems,
 } from '../features/grocery/logic.js';
@@ -26,6 +28,8 @@ function toGroceryItem(snapshot) {
     quantityUnit: data.quantityUnit || null,
     checked: Boolean(data.checked),
     selectedBrand: sanitizeBrandSelection(data.selectedBrand),
+    sourceRecipes: sanitizeRecipeSources(data.sourceRecipes),
+    isManual: Boolean(data.isManual),
   });
 
   return normalized || {
@@ -35,6 +39,8 @@ function toGroceryItem(snapshot) {
     quantityUnit: data.quantityUnit || null,
     checked: Boolean(data.checked),
     selectedBrand: sanitizeBrandSelection(data.selectedBrand),
+    sourceRecipes: sanitizeRecipeSources(data.sourceRecipes),
+    isManual: Boolean(data.isManual),
   };
 }
 
@@ -45,6 +51,8 @@ function buildGroceryWrite(item, includeTimestamp = false) {
     quantityUnit: item.quantityUnit || null,
     checked: Boolean(item.checked),
     selectedBrand: sanitizeBrandSelection(item.selectedBrand),
+    sourceRecipes: sanitizeRecipeSources(item.sourceRecipes),
+    isManual: Boolean(item.isManual),
   };
 
   if (includeTimestamp) {
@@ -67,17 +75,32 @@ function sameSelectedBrand(left, right) {
     && normalizedLeft.fdcId === normalizedRight.fdcId;
 }
 
+function sameRecipeSources(left, right) {
+  const normalizedLeft = sanitizeRecipeSources(left);
+  const normalizedRight = sanitizeRecipeSources(right);
+  if (normalizedLeft.length !== normalizedRight.length) return false;
+
+  return normalizedLeft.every((source, index) => {
+    const other = normalizedRight[index];
+    return source.recipeId === other.recipeId && source.recipeName === other.recipeName;
+  });
+}
+
 function needsStoredUpdate(snapshotData, item) {
   const storedQuantity = Number.isFinite(snapshotData.quantity) ? snapshotData.quantity : 1;
   const storedUnit = snapshotData.quantityUnit || null;
   const storedChecked = Boolean(snapshotData.checked);
   const storedBrand = sanitizeBrandSelection(snapshotData.selectedBrand);
+  const storedSources = sanitizeRecipeSources(snapshotData.sourceRecipes);
+  const storedManual = Boolean(snapshotData.isManual);
 
   return snapshotData.name !== item.name
     || storedQuantity !== item.quantity
     || storedUnit !== (item.quantityUnit || null)
     || storedChecked !== Boolean(item.checked)
-    || !sameSelectedBrand(storedBrand, item.selectedBrand);
+    || !sameSelectedBrand(storedBrand, item.selectedBrand)
+    || !sameRecipeSources(storedSources, item.sourceRecipes)
+    || storedManual !== Boolean(item.isManual);
 }
 
 export class GroceryRepository {
@@ -92,7 +115,14 @@ export class GroceryRepository {
   }
 
   async add({ name, quantity = 1 }) {
-    const normalized = normalizeGroceryItem({ name, quantity, checked: false, selectedBrand: null });
+    const normalized = normalizeGroceryItem({
+      name,
+      quantity,
+      checked: false,
+      selectedBrand: null,
+      sourceRecipes: [],
+      isManual: true,
+    });
     if (!normalized) {
       throw new Error('A grocery item name is required');
     }
@@ -162,6 +192,8 @@ export class GroceryRepository {
       if (existing) {
         existing.item.quantity = Number.parseFloat((existing.item.quantity + item.quantity).toFixed(3));
         existing.item.checked = existing.item.checked && item.checked;
+        existing.item.sourceRecipes = mergeRecipeSources(existing.item.sourceRecipes, item.sourceRecipes);
+        existing.item.isManual = Boolean(existing.item.isManual) || Boolean(item.isManual);
         if (!existing.item.selectedBrand && item.selectedBrand) {
           existing.item.selectedBrand = item.selectedBrand;
         }
@@ -189,14 +221,20 @@ export class GroceryRepository {
       const existing = existingByKey.get(key);
       if (existing) {
         const nextQuantity = Number.parseFloat((existing.item.quantity + incomingItem.quantity).toFixed(3));
+        const nextSources = mergeRecipeSources(existing.item.sourceRecipes, incomingItem.sourceRecipes);
+        const nextManual = Boolean(existing.item.isManual) || Boolean(incomingItem.isManual);
         if (
           nextQuantity !== existing.item.quantity
           || existing.item.name !== incomingItem.name
           || (existing.item.quantityUnit || null) !== (incomingItem.quantityUnit || null)
+          || !sameRecipeSources(existing.item.sourceRecipes, nextSources)
+          || Boolean(existing.item.isManual) !== nextManual
         ) {
           existing.item.name = incomingItem.name;
           existing.item.quantityUnit = incomingItem.quantityUnit || null;
           existing.item.quantity = nextQuantity;
+          existing.item.sourceRecipes = nextSources;
+          existing.item.isManual = nextManual;
           existing.needsUpdate = true;
           updated += 1;
           changed = true;
@@ -212,6 +250,8 @@ export class GroceryRepository {
         quantityUnit: incomingItem.quantityUnit || null,
         checked: false,
         selectedBrand: null,
+        sourceRecipes: sanitizeRecipeSources(incomingItem.sourceRecipes),
+        isManual: Boolean(incomingItem.isManual),
       };
       batch.set(ref, buildGroceryWrite(item, true));
       existingByKey.set(key, { ref, item, needsUpdate: false });
