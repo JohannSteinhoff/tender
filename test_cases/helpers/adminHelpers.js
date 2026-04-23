@@ -41,6 +41,44 @@ export function deleteRecipeFromList(recipes, recipeId) {
   return recipes.filter(recipe => recipe.id !== recipeId);
 }
 
+export function canModerateWithReason(reason) {
+  return typeof reason === 'string' && reason.trim().length > 0;
+}
+
+export function canOpenRecipeComments(currentUser, recipe) {
+  return Boolean(currentUser?.isAdmin && recipe?.id);
+}
+
+export function deleteCommentFromRecipeComments(comments, commentId) {
+  return comments.filter(comment => comment.id !== commentId);
+}
+
+export function deleteReplyFromRecipeComments(comments, commentId, replyId) {
+  return comments.map((comment) => (
+    comment.id === commentId
+      ? { ...comment, replies: (comment.replies || []).filter(reply => reply.id !== replyId) }
+      : comment
+  ));
+}
+
+export function deleteRecipeWithComments(recipes, recipeCommentsById, recipeId) {
+  const nextRecipes = deleteRecipeFromList(recipes, recipeId);
+  const nextComments = { ...(recipeCommentsById || {}) };
+  delete nextComments[recipeId];
+  return { recipes: nextRecipes, recipeCommentsById: nextComments };
+}
+
+export function buildModerationNotification({ recipientUserId, type, reason, recipeName, removedContentType = 'comment' }) {
+  return {
+    recipientUserId,
+    type,
+    moderationReason: reason,
+    recipeName,
+    removedContentType,
+    isRead: false,
+  };
+}
+
 export function deleteUserFromList(users, targetUid) {
   return users.filter(user => user.uid !== targetUid);
 }

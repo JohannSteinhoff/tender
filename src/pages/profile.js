@@ -65,6 +65,33 @@ function formatNotificationDate(ts) {
   });
 }
 
+function getNotificationDisplay(notification) {
+  if (notification.type === 'admin_recipe_removed') {
+    return {
+      preview: notification.moderationReason || notification.message || null,
+      typeLabel: 'removed your recipe',
+      actorName: notification.actorName || 'An admin',
+      recipeName: notification.recipeName || 'your recipe',
+    };
+  }
+
+  if (notification.type === 'admin_comment_removed') {
+    return {
+      preview: notification.moderationReason || notification.message || notification.commentPreview || notification.replyPreview || null,
+      typeLabel: `removed your ${notification.removedContentType || 'comment'} on`,
+      actorName: notification.actorName || 'An admin',
+      recipeName: notification.recipeName || 'a recipe',
+    };
+  }
+
+  return {
+    preview: notification.commentPreview || notification.replyPreview || null,
+    typeLabel: notification.type === 'comment_reply' ? 'replied to your comment on' : 'commented on',
+    actorName: notification.actorName || 'Someone',
+    recipeName: notification.recipeName || 'your recipe',
+  };
+}
+
 function buildNotificationList(notifications) {
   const unread = notifications.filter(n => !n.isRead);
   const read = notifications.filter(n => n.isRead);
@@ -76,9 +103,9 @@ function buildNotificationList(notifications) {
 
   return `<div class="notif-list">
     ${all.map(n => {
-      const preview = n.commentPreview || n.replyPreview || null;
+      const details = getNotificationDisplay(n);
+      const preview = details.preview;
       const initials = escapeHtml(((n.actorName || '?')[0]).toUpperCase());
-      const typeLabel = n.type === 'comment_reply' ? 'replied to your comment on' : 'commented on';
 
       return `
         <article class="notif-item${n.isRead ? '' : ' unread'}" data-notification-id="${n.id}">
@@ -100,9 +127,9 @@ function buildNotificationList(notifications) {
 
           <div class="notif-meta">
             <span class="notif-meta-text">
-              <strong>${escapeHtml(n.actorName || 'Someone')}</strong>
-              ${typeLabel}
-              <em>${escapeHtml(n.recipeName || 'your recipe')}</em>
+              <strong>${escapeHtml(details.actorName)}</strong>
+              ${details.typeLabel}
+              <em>${escapeHtml(details.recipeName)}</em>
               &nbsp;·&nbsp;${escapeHtml(formatNotificationDate(n.createdAt))}
             </span>
             ${!n.isRead
