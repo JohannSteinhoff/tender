@@ -42,13 +42,6 @@ window.addEventListener('blur',      () => { ctrlHeld = false; });
 // ── Responsive day count ───────────────────────────────────────
 const MIN_COL_PX = 155; // minimum comfortable column width
 
-function computeFitDays() {
-  const scroll = document.querySelector('.mp-cal-scroll');
-  const available = scroll ? scroll.clientWidth : window.innerWidth;
-  const fit = Math.max(1, Math.floor(available / MIN_COL_PX));
-  return Math.min(S.viewDays, fit);
-}
-
 // ── Date helpers ───────────────────────────────────────────────
 function toISO(d) {
   const y = d.getFullYear();
@@ -607,10 +600,6 @@ function bindSlotListeners() {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       // During swipe copy mode, mp-add-btn on empty slots triggers the copy instead
-      if (S.swipeSrc && btn.classList.contains('mp-add-btn')) {
-        doSwipeCopy(btn.dataset.date, btn.dataset.meal);
-        return;
-      }
       if (S.dupSrc && btn.classList.contains('mp-add-btn') && btn.dataset.adding === 'main') {
         const { date: fromDate, mealType: fromMeal } = S.dupSrc;
         exitDupMode();
@@ -1125,18 +1114,6 @@ function setupListeners() {
     if (!slot || (!slot.classList.contains('dup-available') && !slot.classList.contains('dup-mode-source'))) {
       exitDupMode();
     }
-  }, { passive: true });
-
-  // Update copy-mode state continuously during drag so the badge and body
-  // class stay in sync even if Ctrl is pressed/released after dragstart.
-  // Dismiss swipe copy mode when tapping completely outside the calendar/nav/header.
-  // Allows the user to scroll, navigate weeks, and toggle the view while in copy mode.
-  document.addEventListener('touchstart', e => {
-    if (!S.swipeSrc) return;
-    const allowed = e.target.closest(
-      '.swipe-copy-target, #mpSwipeCancelBar, .mp-cal-nav, .mp-header-actions, .view-toggle, .mp-cal-scroll'
-    );
-    if (!allowed) exitSwipeCopyMode();
   }, { passive: true });
 
   // Update copy-mode state continuously during drag so the badge and body

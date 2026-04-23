@@ -237,7 +237,7 @@
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   display: grid;
   grid-template-rows: var(--mp-col-header-row) repeat(3, minmax(var(--mp-slot-base-height), 1fr));
   align-items: stretch;
@@ -271,6 +271,7 @@
   align-items: center;
   gap: 1px;
   overflow: hidden;
+  border-radius: 13px 13px 0 0;
 }
 
 .mp-col.is-today .mp-col-header {

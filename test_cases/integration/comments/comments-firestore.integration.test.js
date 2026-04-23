@@ -21,6 +21,7 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ID = 'tender-comments-integration';
 
 let testEnv;
+let emulatorAvailable = false;
 
 function parseHostPort() {
   const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
@@ -42,25 +43,34 @@ async function seedRecipe(recipeId, ownerId = 'ownerA') {
 describe('Integration | Comments + Notifications (Firestore Rules)', () => {
   beforeAll(async () => {
     const { host, port } = parseHostPort();
-    testEnv = await initializeTestEnvironment({
-      projectId: PROJECT_ID,
-      firestore: {
-        host,
-        port,
-        rules: fs.readFileSync(path.resolve(__dirname, '../../../firestore.rules'), 'utf8'),
-      },
-    });
+    try {
+      testEnv = await initializeTestEnvironment({
+        projectId: PROJECT_ID,
+        firestore: {
+          host,
+          port,
+          rules: fs.readFileSync(path.resolve(__dirname, '../../../firestore.rules'), 'utf8'),
+        },
+      });
+      emulatorAvailable = true;
+    } catch {
+      console.warn(
+        `[integration] Firestore emulator not reachable at ${host}:${port} — all integration tests will be skipped.\n` +
+        `  Run: npm run test:integration  (starts the emulator automatically)`,
+      );
+    }
   });
 
   beforeEach(async () => {
-    await testEnv.clearFirestore();
+    if (emulatorAvailable) await testEnv.clearFirestore();
   });
 
   afterAll(async () => {
-    await testEnv.cleanup();
+    if (emulatorAvailable) await testEnv.cleanup();
   });
 
-  test('IT-CMT-01: Authenticated user can create and read recipe comment', async () => {
+  test('IT-CMT-01: Authenticated user can create and read recipe comment', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const recipeId = 'r1';
     await seedRecipe(recipeId, 'ownerA');
     const aliceDb = testEnv.authenticatedContext('alice').firestore();
@@ -82,7 +92,8 @@ describe('Integration | Comments + Notifications (Firestore Rules)', () => {
     expect(commentsSnap.size).toBe(1);
   });
 
-  test('IT-CMT-02: Unauthenticated or forged comment write is rejected', async () => {
+  test('IT-CMT-02: Unauthenticated or forged comment write is rejected', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const recipeId = 'r2';
     await seedRecipe(recipeId, 'ownerA');
     const anonDb = testEnv.unauthenticatedContext().firestore();
@@ -103,7 +114,8 @@ describe('Integration | Comments + Notifications (Firestore Rules)', () => {
     );
   });
 
-  test('IT-CMT-03: Reply can be created under parent comment by another authenticated user', async () => {
+  test('IT-CMT-03: Reply can be created under parent comment by another authenticated user', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const recipeId = 'r3';
     await seedRecipe(recipeId, 'ownerA');
     const aliceDb = testEnv.authenticatedContext('alice').firestore();
@@ -134,7 +146,8 @@ describe('Integration | Comments + Notifications (Firestore Rules)', () => {
     expect(replies.size).toBe(1);
   });
 
-  test('IT-CMT-04: Comment like-only update by other user is allowed; arbitrary edit is rejected', async () => {
+  test('IT-CMT-04: Comment like-only update by other user is allowed; arbitrary edit is rejected', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const recipeId = 'r4';
     await seedRecipe(recipeId, 'ownerA');
     const aliceDb = testEnv.authenticatedContext('alice').firestore();
@@ -165,7 +178,8 @@ describe('Integration | Comments + Notifications (Firestore Rules)', () => {
     );
   });
 
-  test('IT-CMT-05: Notifications are private, and actor identity cannot be forged', async () => {
+  test('IT-CMT-05: Notifications are private, and actor identity cannot be forged', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const ownerDb = testEnv.authenticatedContext('ownerA').firestore();
     const bobDb = testEnv.authenticatedContext('bob').firestore();
     const charlieDb = testEnv.authenticatedContext('charlie').firestore();
@@ -200,7 +214,8 @@ describe('Integration | Comments + Notifications (Firestore Rules)', () => {
     );
   });
 
-  test('IT-CMT-06: Recipient can mark notification read, but cannot modify other fields', async () => {
+  test('IT-CMT-06: Recipient can mark notification read, but cannot modify other fields', async (ctx) => {
+    if (!emulatorAvailable) return ctx.skip();
     const ownerDb = testEnv.authenticatedContext('ownerA').firestore();
     const bobDb = testEnv.authenticatedContext('bob').firestore();
 

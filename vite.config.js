@@ -3,6 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   build: {
+    chunkSizeWarningLimit: 550,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
@@ -16,6 +17,11 @@ export default defineConfig({
         account: resolve(__dirname, 'account.html'),
         profile: resolve(__dirname, 'profile.html'),
         admin: resolve(__dirname, 'admin.html'),
+      },
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+        },
       },
     },
   },
