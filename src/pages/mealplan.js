@@ -606,6 +606,11 @@ function bindSlotListeners() {
   document.querySelectorAll('.mp-add-btn, .mp-add-side-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
+      // During swipe copy mode, mp-add-btn on empty slots triggers the copy instead
+      if (S.swipeSrc && btn.classList.contains('mp-add-btn')) {
+        doSwipeCopy(btn.dataset.date, btn.dataset.meal);
+        return;
+      }
       if (S.dupSrc && btn.classList.contains('mp-add-btn') && btn.dataset.adding === 'main') {
         const { date: fromDate, mealType: fromMeal } = S.dupSrc;
         exitDupMode();
@@ -1124,6 +1129,19 @@ function setupListeners() {
 
   // Update copy-mode state continuously during drag so the badge and body
   // class stay in sync even if Ctrl is pressed/released after dragstart.
+  // Dismiss swipe copy mode when tapping completely outside the calendar/nav/header.
+  // Allows the user to scroll, navigate weeks, and toggle the view while in copy mode.
+  document.addEventListener('touchstart', e => {
+    if (!S.swipeSrc) return;
+    const allowed = e.target.closest(
+      '.swipe-copy-target, #mpSwipeCancelBar, .mp-cal-nav, .mp-header-actions, .view-toggle, .mp-cal-scroll'
+    );
+    if (!allowed) exitSwipeCopyMode();
+  }, { passive: true });
+
+  // Update copy-mode state continuously during drag so the badge and body
+  // class stay in sync even if Shift is pressed/released after dragstart.
+  // e.shiftKey here is reliable because dragover fires from real pointer events.
   document.addEventListener('dragover', e => {
     if (!S.dragSrc) return;
     const wantCopy = e.ctrlKey;

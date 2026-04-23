@@ -1,7 +1,7 @@
 import { db } from '../firebase.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, orderBy, setDoc, serverTimestamp, increment, runTransaction, arrayRemove, arrayUnion,
+  query, orderBy, setDoc, serverTimestamp, increment, runTransaction, arrayRemove, arrayUnion, writeBatch,
 } from 'firebase/firestore';
 
 const RECIPES_COL = 'recipes';
@@ -74,6 +74,14 @@ function recipeCommentDoc(recipeId, commentId) {
 
 function recipeRepliesPath(recipeId, commentId) {
   return collection(db, RECIPES_COL, recipeId, 'comments', commentId, 'replies');
+}
+
+async function deleteRefsInChunks(refs, chunkSize = 400) {
+  for (let index = 0; index < refs.length; index += chunkSize) {
+    const batch = writeBatch(db);
+    refs.slice(index, index + chunkSize).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
 }
 
 function sanitizeCommentText(text) {
@@ -149,7 +157,17 @@ export async function updateRecipe(id, data) {
 
 /** Delete a recipe. */
 export async function deleteRecipe(id) {
-  await deleteDoc(doc(db, RECIPES_COL, id));
+  const recipeRef = doc(db, RECIPES_COL, id);
+  const commentSnap = await getDocs(recipeCommentsPath(id));
+  const refsToDelete = [recipeRef];
+
+  await Promise.all(commentSnap.docs.map(async (commentDoc) => {
+    const replySnap = await getDocs(recipeRepliesPath(id, commentDoc.id));
+    replySnap.docs.forEach((replyDoc) => refsToDelete.push(replyDoc.ref));
+    refsToDelete.push(commentDoc.ref);
+  }));
+
+  await deleteRefsInChunks(refsToDelete);
 }
 
 const swipesPath = (uid) => collection(db, 'users', uid, 'swipes');
@@ -289,6 +307,21 @@ export async function addRecipeReply(recipeId, commentId, { userId, displayName,
 
   const ref = await addDoc(recipeRepliesPath(recipeId, commentId), payload);
   return { id: ref.id, ...payload, createdAt: new Date() };
+}
+
+/** Delete a top-level comment and all nested replies. */
+export async function deleteRecipeComment(recipeId, commentId) {
+  const replySnap = await getDocs(recipeRepliesPath(recipeId, commentId));
+  const refsToDelete = [
+    recipeCommentDoc(recipeId, commentId),
+    ...replySnap.docs.map((replyDoc) => replyDoc.ref),
+  ];
+  await deleteRefsInChunks(refsToDelete);
+}
+
+/** Delete a reply under a top-level comment. */
+export async function deleteRecipeReply(recipeId, commentId, replyId) {
+  await deleteDoc(doc(db, RECIPES_COL, recipeId, 'comments', commentId, 'replies', replyId));
 }
 
 /** Toggle like on a comment and return { liked, likeCount }. */

@@ -167,6 +167,61 @@ const RECOMMENDATION_VARIANTS = new Map([
   ["macaroni pasta", "pasta"],
 ]);
 
+function sanitizeRecipeId(value) {
+  const id = String(value || "").trim();
+  return id || null;
+}
+
+function sanitizeRecipeName(value) {
+  return String(value || "").trim();
+}
+
+function buildRecipeSourceKey(source) {
+  if (source.recipeId) return `id:${source.recipeId}`;
+  return `name:${normalizeGroceryName(source.recipeName || "")}`;
+}
+
+export function sanitizeRecipeSource(source) {
+  if (!source || typeof source !== "object") return null;
+
+  const recipeId = sanitizeRecipeId(source.recipeId || source.id);
+  const recipeName = sanitizeRecipeName(source.recipeName || source.name);
+
+  if (!recipeId && !recipeName) return null;
+  return { recipeId, recipeName };
+}
+
+export function sanitizeRecipeSources(sources) {
+  const seen = new Set();
+  const normalized = [];
+
+  (Array.isArray(sources) ? sources : [])
+    .map((source) => sanitizeRecipeSource(source))
+    .filter(Boolean)
+    .forEach((source) => {
+      const key = buildRecipeSourceKey(source);
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(source);
+    });
+
+  return normalized.sort((left, right) => {
+    const leftName = left.recipeName || "";
+    const rightName = right.recipeName || "";
+    if (leftName && rightName) return leftName.localeCompare(rightName);
+    if (leftName) return -1;
+    if (rightName) return 1;
+    return String(left.recipeId || "").localeCompare(String(right.recipeId || ""));
+  });
+}
+
+export function mergeRecipeSources(existingSources, incomingSources) {
+  return sanitizeRecipeSources([
+    ...(Array.isArray(existingSources) ? existingSources : []),
+    ...(Array.isArray(incomingSources) ? incomingSources : []),
+  ]);
+}
+
 export function normalizeGroceryName(name) {
   return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -361,16 +416,22 @@ export function normalizeGroceryItem(item) {
     index += 1;
   }
 
-  const canonicalName = normalizeIngredientName(tokens.slice(index).join(" ") || preparedText || item?.name);
+  const remainingName = tokens.slice(index).join(" ") || preparedText || item?.name;
+  const normalizedDisplayName = normalizeRecommendationName(remainingName);
+  const canonicalName = normalizeIngredientName(remainingName);
   if (!canonicalName) {
     return null;
   }
 
+  const sourceRecipes = sanitizeRecipeSources(item?.sourceRecipes);
+
   return {
     ...item,
-    name: canonicalName,
+    name: normalizedDisplayName || canonicalName,
     quantity,
     quantityUnit: quantityUnit || null,
+    sourceRecipes,
+    isManual: Boolean(item?.isManual),
   };
 }
 
@@ -389,6 +450,8 @@ function mergeNormalizedItems(items) {
       if (existing) {
         existing.quantity = sanitizeQuantityValue(existing.quantity + item.quantity);
         existing.checked = Boolean(existing.checked) && Boolean(item.checked);
+        existing.sourceRecipes = mergeRecipeSources(existing.sourceRecipes, item.sourceRecipes);
+        existing.isManual = Boolean(existing.isManual) || Boolean(item.isManual);
         if (!existing.selectedBrand && item.selectedBrand) {
           existing.selectedBrand = item.selectedBrand;
         }
@@ -399,6 +462,8 @@ function mergeNormalizedItems(items) {
         ...item,
         checked: Boolean(item.checked),
         selectedBrand: item.selectedBrand || null,
+        sourceRecipes: sanitizeRecipeSources(item.sourceRecipes),
+        isManual: Boolean(item.isManual),
       };
       itemsByKey.set(key, nextItem);
       merged.push(nextItem);
@@ -503,16 +568,46 @@ export function isLikelyNonBrandIngredient(name) {
 }
 
 export function collectIngredientsFromRecipes(recipes) {
-  const collected = [];
+  const itemsByKey = new Map();
 
   recipes.forEach((recipe) => {
     const ingredients = parseIngredients(recipe?.ingredients);
+    const source = sanitizeRecipeSource({
+      recipeId: recipe?.id,
+      recipeName: recipe?.name,
+    });
+
     ingredients.forEach((ingredient) => {
-      collected.push({ name: ingredient, quantity: 1 });
+      const normalized = normalizeGroceryItem({
+        name: ingredient,
+        quantity: 1,
+        sourceRecipes: source ? [source] : [],
+        isManual: false,
+      });
+
+      if (!normalized) return;
+
+      const key = getGroceryItemKey(normalized);
+      if (!key) return;
+
+      const existing = itemsByKey.get(key);
+      if (existing) {
+        existing.quantity = sanitizeQuantityValue(existing.quantity + 1);
+        existing.sourceRecipes = mergeRecipeSources(existing.sourceRecipes, normalized.sourceRecipes);
+        return;
+      }
+
+      itemsByKey.set(key, {
+        name: normalizeRecommendationName(ingredient) || normalized.name,
+        quantity: 1,
+        quantityUnit: normalized.quantityUnit || null,
+        sourceRecipes: sanitizeRecipeSources(normalized.sourceRecipes),
+        isManual: false,
+      });
     });
   });
 
-  return mergeNormalizedItems(collected);
+  return Array.from(itemsByKey.values());
 }
 
 export function sanitizeGeneratedItems(items) {
@@ -531,9 +626,21 @@ export function mergeGeneratedItems(existingItems, generatedItems) {
     const existing = existingByKey.get(key);
 
     if (existing) {
-      const nextQuantity = sanitizeQuantityValue(existing.quantity + generatedItem.quantity);
-      if (nextQuantity !== existing.quantity) {
+      const nextQuantity = Math.max(existing.quantity, generatedItem.quantity);
+      const nextSources = mergeRecipeSources(existing.sourceRecipes, generatedItem.sourceRecipes);
+      const nextManual = Boolean(existing.isManual) || Boolean(generatedItem.isManual);
+      const sourcesChanged = nextSources.length !== (existing.sourceRecipes || []).length
+        || nextSources.some((source, index) => {
+          const previous = (existing.sourceRecipes || [])[index];
+          return !previous
+            || previous.recipeId !== source.recipeId
+            || previous.recipeName !== source.recipeName;
+        });
+
+      if (nextQuantity !== existing.quantity || sourcesChanged || nextManual !== Boolean(existing.isManual)) {
         existing.quantity = nextQuantity;
+        existing.sourceRecipes = nextSources;
+        existing.isManual = nextManual;
         updated += 1;
       }
       return;
@@ -545,6 +652,8 @@ export function mergeGeneratedItems(existingItems, generatedItems) {
       quantityUnit: generatedItem.quantityUnit || null,
       checked: false,
       selectedBrand: null,
+      sourceRecipes: sanitizeRecipeSources(generatedItem.sourceRecipes),
+      isManual: Boolean(generatedItem.isManual),
     };
     nextItems.push(item);
     existingByKey.set(key, item);

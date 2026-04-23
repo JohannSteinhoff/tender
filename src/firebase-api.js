@@ -110,6 +110,8 @@ function docToGrocery(snap) {
     quantity: d.quantity || 1,
     quantityUnit: d.quantityUnit || null,
     checked: d.checked || false,
+    sourceRecipes: d.sourceRecipes || [],
+    isManual: Boolean(d.isManual),
   });
 
   return normalized || {
@@ -118,6 +120,8 @@ function docToGrocery(snap) {
     quantity: d.quantity || 1,
     quantityUnit: d.quantityUnit || null,
     checked: d.checked || false,
+    sourceRecipes: d.sourceRecipes || [],
+    isManual: Boolean(d.isManual),
   };
 }
 
@@ -354,9 +358,11 @@ const TenderAPI = {
       quantity: normalized.quantity,
       quantityUnit: normalized.quantityUnit || null,
       checked: false,
+      sourceRecipes: [],
+      isManual: true,
       addedAt: serverTimestamp(),
     });
-    return { id: ref.id, ...normalized, checked: false };
+    return { id: ref.id, ...normalized, checked: false, sourceRecipes: [], isManual: true };
   },
 
   async updateGroceryItem(id, data) {
@@ -546,7 +552,7 @@ const TenderAPI = {
     for (const id of uniqueIds) {
       const snap = await getDoc(doc(db, 'recipes', id));
       if (!snap.exists()) continue;
-      recipes.push(snap.data());
+      recipes.push({ id: snap.id, ...snap.data() });
     }
 
     const generatedItems = collectIngredientsFromRecipes(recipes);

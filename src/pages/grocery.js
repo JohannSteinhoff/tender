@@ -1,7 +1,12 @@
 import { requireAuth } from "../auth.js";
 import { GroceryRepository } from "../api/grocery.js";
 import { GroceryBrandRecommendationRepository } from "../api/grocery-recommendations.js";
-import { getAllRecipes, getLikedRecipeIds } from "../api/recipes.js";
+import {
+  getAllRecipes,
+  getLikedRecipeIds,
+  getMealPlanEntries,
+  getRecipeById,
+} from "../api/recipes.js";
 import { getUserProfile } from "../api/users.js";
 import { renderNav } from "../components/nav.js";
 import { showToast } from "../components/toast.js";
@@ -13,6 +18,7 @@ import {
   normalizeGroceryItem,
   normalizeIngredientName,
 } from "../features/grocery/logic.js";
+import { attachSourceLabels } from "../features/grocery/source-labels.js";
 import {
   getCategoryOverrides,
   setGlobalCategoryOverride,
@@ -237,7 +243,7 @@ class GroceryListPage {
 
     if (itemsResult.status === "fulfilled") {
       this.items = itemsResult.value.items;
-      await this.refreshRecommendations();
+      await this.refreshItemDecorations();
       this.sortItems();
     } else {
       console.error("Failed to load grocery items:", itemsResult.reason);
@@ -274,6 +280,52 @@ class GroceryListPage {
     }
   }
 
+  async refreshSourceLabels() {
+    try {
+      const mealPlanEntries = await getMealPlanEntries(this.uid);
+      const sourceRecipeIds = new Set();
+
+      this.items.forEach((item) => {
+        (item.sourceRecipes || []).forEach((source) => {
+          if (source?.recipeId) {
+            sourceRecipeIds.add(source.recipeId);
+          }
+        });
+      });
+
+      const recipeResults = await Promise.all(
+        Array.from(sourceRecipeIds).map(async (recipeId) => {
+          try {
+            return [recipeId, await getRecipeById(recipeId)];
+          } catch (error) {
+            console.error(`Failed to load recipe "${recipeId}" for grocery labels:`, error);
+            return [recipeId, null];
+          }
+        })
+      );
+
+      const recipesById = new Map(
+        recipeResults.filter(([, recipe]) => !!recipe)
+      );
+
+      this.items = attachSourceLabels(this.items, {
+        mealPlanEntries,
+        recipesById,
+      });
+    } catch (error) {
+      console.error("Failed to load grocery source labels:", error);
+      this.items = attachSourceLabels(this.items, {
+        mealPlanEntries: [],
+        recipesById: new Map(),
+      });
+    }
+  }
+
+  async refreshItemDecorations() {
+    await this.refreshRecommendations();
+    await this.refreshSourceLabels();
+  }
+
   async handleAddItem() {
     const rawValue = this.elements.input.value.trim();
     if (!rawValue) return;
@@ -297,7 +349,7 @@ class GroceryListPage {
         this.items.push(newItem);
       }
 
-      await this.refreshRecommendations();
+      await this.refreshItemDecorations();
       this.sortItems();
       this.hideAddForm();
       this.render();
@@ -416,7 +468,7 @@ class GroceryListPage {
 
       const result = await this.repo.mergeByName(generatedItems);
       this.items = result.items;
-      await this.refreshRecommendations();
+      await this.refreshItemDecorations();
       this.sortItems();
       this.render();
 

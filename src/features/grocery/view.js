@@ -68,6 +68,36 @@ export function renderRecommendedBrands(item) {
     </div>`;
 }
 
+export function renderSourceLabels(item) {
+  if (!Array.isArray(item.sourceLabels) || item.sourceLabels.length === 0) {
+    return "";
+  }
+
+  const resolveSourceLabelTone = (label) => {
+    const text = String(label || "");
+    const normalized = text.toLowerCase();
+
+    if (/\s-\sbreakfast(?:,|$)/iu.test(text)) return "meal-breakfast";
+    if (/\s-\slunch(?:,|$)/iu.test(text)) return "meal-lunch";
+    if (/\s-\sdinner(?:,|$)/iu.test(text)) return "meal-dinner";
+    if (normalized.includes("recipe not on meal plan")) return "unscheduled";
+    if (normalized.includes("manual item") || normalized.includes("not tied to a recipe")) return "manual";
+    if (normalized.includes("recipe information unavailable")) return "unavailable";
+    return "neutral";
+  };
+
+  const labels = item.sourceLabels
+    .map((label) => `
+      <span class="grocery-item-source-label grocery-item-source-label--${resolveSourceLabelTone(label)}">${escapeHtml(label)}</span>
+    `)
+    .join("");
+
+  return `
+    <div class="grocery-item-source-labels" aria-label="Ingredient source labels for ${escapeHtml(item.name)}">
+      ${labels}
+    </div>`;
+}
+
 function renderAdminMenu(item) {
   const catOptions = GROCERY_CATEGORIES.map(cat => {
     const isActive = item.categoryOverride === cat.id;
@@ -103,6 +133,7 @@ export function renderGroceryItemMarkup(item, isAdmin = false) {
       <input class="grocery-item-check" type="checkbox" ${item.checked ? "checked" : ""} aria-label="Check ${escapeHtml(item.name)}">
       <div class="grocery-item-copy">
         <span class="grocery-item-name">${escapeHtml(item.name)}</span>
+        ${renderSourceLabels(item)}
         ${renderSelectedBrand(item)}
         ${renderRecommendedBrands(item)}
       </div>
