@@ -761,6 +761,8 @@ function bindSlotListeners() {
       // During swipe copy mode, mp-add-btn on empty slots triggers the copy instead
       if (S.swipeSrc && btn.classList.contains('mp-add-btn')) {
         doSwipeCopy(btn.dataset.date, btn.dataset.meal);
+        return;
+      }
       if (S.dupSrc && btn.classList.contains('mp-add-btn') && btn.dataset.adding === 'main') {
         const { date: fromDate, mealType: fromMeal } = S.dupSrc;
         exitDupMode();
@@ -1277,36 +1279,6 @@ function setupListeners() {
       exitDupMode();
     }
   }, { passive: true });
-
-  // Update copy-mode state continuously during drag so the badge and body
-  // class stay in sync even if Ctrl is pressed/released after dragstart.
-  document.addEventListener('dragover', e => {
-    if (!S.dragSrc) return;
-    const wantCopy = e.ctrlKey;
-    if (wantCopy === S.dragCopy) return;
-    S.dragCopy = wantCopy;
-    document.body.classList.toggle('mp-is-copy-dragging', wantCopy);
-    if (S.dragGhost) {
-      let badge = S.dragGhost.querySelector('.mp-copy-badge');
-      if (wantCopy && !badge) {
-        badge = document.createElement('span');
-        badge.className = 'mp-copy-badge';
-        badge.textContent = '+';
-        S.dragGhost.appendChild(badge);
-        S.dragGhost.classList.add('is-copy-ghost');
-      } else if (!wantCopy && badge) {
-        badge.remove();
-        S.dragGhost.classList.remove('is-copy-ghost');
-      }
-    }
-  });
-
-  // Re-render on resize so column count stays comfortable
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(renderCalendar, 120);
-  });
 
   // Dismiss swipe copy mode when tapping completely outside the calendar/nav/header.
   // Allows the user to scroll, navigate weeks, and toggle the view while in copy mode.
