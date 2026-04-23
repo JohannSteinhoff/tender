@@ -79,7 +79,7 @@ async function init() {
 
   if (uid) {
     try {
-      const recommended = await getPersonalizedRecommendations(uid, { limit: recipes.length || 20 });
+      const recommended = await getPersonalizedRecommendations(uid, { limit: 5 });
       recommendationMeta = new Map(
         recommended.map((recipe) => [
           recipe.id,
@@ -548,7 +548,7 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
         </div>
       </div>` : '';
     return `
-      <div class="discover-recipe-card" data-id="${r.id}">
+      <div class="discover-recipe-card${showRecommendation ? ' is-recommended' : ''}" data-id="${r.id}">
         <div class="discover-recipe-image${r.image ? ' has-img' : ''}">
           ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '🍽️')}
           ${r.cuisine ? `<span class="cuisine-badge">${capitalizeFirst(r.cuisine)}</span>` : ''}
