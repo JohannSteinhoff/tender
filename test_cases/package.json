@@ -23,7 +23,8 @@
     "test:fr39": "vitest run --config ./vitest.config.js unit/discover/discover-add-to-plan.test.js --reporter=verbose",
     "test:fr40": "vitest run --config ./vitest.config.js unit/discover/discover-create-recipe-modal.test.js --reporter=verbose",
     "test:fr41": "vitest run --config ./vitest.config.js unit/comments/comments-acceptance.test.js --reporter=verbose",
-    "test:fr42": "vitest run --config ./vitest.config.js unit/recommendations/recommendations-acceptance.test.js --reporter=verbose"
+    "test:fr42": "vitest run --config ./vitest.config.js unit/recommendations/recommendations-acceptance.test.js --reporter=verbose",
+    "test:fr58": "vitest run --config ./vitest.config.js FR-58-67.test.js --reporter=verbose"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

@@ -29,9 +29,7 @@ const S = {
   dragSrc: null,         // { date, mealType }
   dragGhost: null,
   dragCopy: false,
-  // Mobile swipe-to-copy
-  swipeSrc: null,        // { date, mealType } when copy mode is active
-  // Duplicate mode (mobile swipe)
+  // Mobile swipe-to-duplicate
   dupSrc: null,          // { date, mealType } — slot being copied from
 };
 
@@ -595,156 +593,6 @@ function updateSummaryBar(dates) {
   cEl.textContent = list.length ? list.join(' · ') : '';
 }
 
-// ── Swipe-to-copy (mobile) ─────────────────────────────────────
-
-// Applies copy-mode classes/text to whatever empty slots are currently in the DOM.
-// Called both on first entry and after each re-render while mode is still active.
-function applySwipeCopyModeUI() {
-  document.querySelectorAll('.mp-slot.empty').forEach(slot => {
-    slot.classList.add('swipe-copy-target');
-    const btn = slot.querySelector('.mp-add-btn');
-    if (btn) {
-      const meal = slot.dataset.meal || '';
-      btn.innerHTML = `<span class="mp-add-icon">+</span> Send copy to ${meal}`;
-    }
-  });
-}
-
-function enterSwipeCopyMode(date, mealType) {
-  S.swipeSrc = { date, mealType };
-  document.body.classList.add('mp-swipe-mode');
-  applySwipeCopyModeUI();
-
-  if (!document.getElementById('mpSwipeCancelBar')) {
-    const bar = document.createElement('div');
-    bar.className = 'mp-swipe-cancel-bar';
-    bar.id = 'mpSwipeCancelBar';
-    bar.innerHTML = `<span class="mp-swipe-cancel-x">&#x2715;</span> Tap a slot to copy &mdash; or tap here to cancel`;
-    bar.addEventListener('click', exitSwipeCopyMode);
-    document.body.appendChild(bar);
-  }
-}
-
-function exitSwipeCopyMode() {
-  S.swipeSrc = null;
-  document.body.classList.remove('mp-swipe-mode');
-  document.getElementById('mpSwipeCancelBar')?.remove();
-
-  document.querySelectorAll('.mp-slot.empty.swipe-copy-target').forEach(slot => {
-    slot.classList.remove('swipe-copy-target');
-    const btn = slot.querySelector('.mp-add-btn');
-    if (btn) {
-      btn.innerHTML = `<span class="mp-add-icon">+</span>Add`;
-    }
-  });
-}
-
-async function doSwipeCopy(toDate, toMealType) {
-  if (!S.swipeSrc) return;
-  const { date: fromDate, mealType: fromMealType } = S.swipeSrc;
-  exitSwipeCopyMode();
-
-  const fromSlot = S.mealPlan[slotKey(fromDate, fromMealType)];
-  if (!fromSlot?.main) return;
-
-  const entries = [fromSlot.main, ...fromSlot.sides, fromSlot.note].filter(Boolean);
-
-  try {
-    await Promise.all(entries.map(entry => createEntryWrite(entry, toDate, toMealType)));
-    await loadAll();
-    renderCalendar();
-    showToast('Meal copied!', 'success');
-  } catch {
-    showToast('Copy failed', 'error');
-  }
-}
-
-function bindSwipeListeners() {
-  // Only wire up on touch devices
-  if (!('ontouchstart' in window)) return;
-
-  document.querySelectorAll('.mp-slot.filled').forEach(slot => {
-    let startX = 0;
-    let startY = 0;
-    let deltaX = 0;
-    let tracking = false;
-    let directionLocked = false; // true = horizontal swipe confirmed
-    let aborted = false;
-
-    slot.addEventListener('touchstart', e => {
-      if (S.swipeSrc) return; // already in copy mode
-      const t = e.touches[0];
-      startX = t.clientX;
-      startY = t.clientY;
-      deltaX = 0;
-      tracking = true;
-      directionLocked = false;
-      aborted = false;
-    }, { passive: true });
-
-    slot.addEventListener('touchmove', e => {
-      if (!tracking || aborted) return;
-      const t = e.touches[0];
-      const dx = t.clientX - startX;
-      const dy = t.clientY - startY;
-
-      if (!directionLocked) {
-        // If vertical movement dominates first, abort — let the page scroll
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
-          aborted = true;
-          slot.classList.remove('is-swiping');
-          slot.style.removeProperty('--swipe-x');
-          return;
-        }
-        if (Math.abs(dx) > 8) directionLocked = true;
-      }
-
-      if (!directionLocked) return;
-
-      e.preventDefault();
-      // Rubber-band in either direction: full travel up to 60px, then dampen
-      const absDx = Math.abs(dx);
-      const sign = dx < 0 ? -1 : 1;
-      const clamped = absDx <= 60 ? absDx : 60 + (absDx - 60) * 0.25;
-      deltaX = sign * clamped;
-      slot.style.setProperty('--swipe-x', `${deltaX}px`);
-      slot.classList.add('is-swiping');
-    }, { passive: false });
-
-    slot.addEventListener('touchend', () => {
-      if (!tracking) return;
-      tracking = false;
-      slot.classList.remove('is-swiping');
-      slot.style.removeProperty('--swipe-x');
-
-      if (!aborted && Math.abs(deltaX) >= 60) {
-        const { date, meal } = slot.dataset;
-        if (date && meal) enterSwipeCopyMode(date, meal);
-      }
-      deltaX = 0;
-    });
-
-    slot.addEventListener('touchcancel', () => {
-      tracking = false;
-      slot.classList.remove('is-swiping');
-      slot.style.removeProperty('--swipe-x');
-      deltaX = 0;
-    });
-  });
-
-  // Tapping an empty target slot triggers the copy
-  document.querySelectorAll('.mp-slot.empty').forEach(slot => {
-    slot.addEventListener('touchend', e => {
-      if (!S.swipeSrc || !slot.classList.contains('swipe-copy-target')) return;
-      e.preventDefault();
-      doSwipeCopy(slot.dataset.date, slot.dataset.meal);
-    });
-  });
-
-  // If copy mode was active before this re-render, restore the UI on the new slots
-  if (S.swipeSrc) applySwipeCopyModeUI();
-}
-
 // ── Bind slot listeners ────────────────────────────────────────
 function bindSlotListeners() {
   document.querySelectorAll('.mp-recipe-preview-btn[data-recipe-id], .mp-side-preview-btn[data-recipe-id]').forEach(btn => {
@@ -802,7 +650,6 @@ function bindSlotListeners() {
     });
   });
 
-  bindSwipeListeners();
   // Mobile swipe-to-duplicate on filled slots
   document.querySelectorAll('.mp-slot.filled').forEach(bindSwipeDup);
 }
@@ -1280,6 +1127,8 @@ function setupListeners() {
     }
   }, { passive: true });
 
+  // Update copy-mode state continuously during drag so the badge and body
+  // class stay in sync even if Ctrl is pressed/released after dragstart.
   // Dismiss swipe copy mode when tapping completely outside the calendar/nav/header.
   // Allows the user to scroll, navigate weeks, and toggle the view while in copy mode.
   document.addEventListener('touchstart', e => {
