@@ -25,7 +25,8 @@ let activeCuisine = '';
 
 const FRIDGE_KEY = 'tender_fridge_ingredients';
 let fridgeIngredients = [];
-const INGREDIENT_PREVIEW_MAX_CHARS = 54;
+const INGREDIENT_PREVIEW_MAX_CHARS = 86;
+const RECOMMENDATION_REASON_MAX_CHARS = 72;
 
 const DIETARY_OPTIONS = [
   { value: 'vegetarian',  label: 'Vegetarian' },
@@ -325,7 +326,7 @@ function buildIngredientPreview(ingredients, maxChars = INGREDIENT_PREVIEW_MAX_C
   const topIngredients = (ingredients || [])
     .map(i => String(i || '').trim())
     .filter(Boolean)
-    .slice(0, 3);
+    .slice(0, 4);
 
   if (!topIngredients.length) return 'Ingredients unavailable';
 
@@ -347,6 +348,17 @@ function buildIngredientPreview(ingredients, maxChars = INGREDIENT_PREVIEW_MAX_C
   }
 
   return `${prefix}${kept.join(', ')}`;
+}
+
+function clampReasonText(text, maxChars = RECOMMENDATION_REASON_MAX_CHARS) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return 'Recommended based on your activity.';
+  if (clean.length <= maxChars) return clean;
+
+  const slice = clean.slice(0, maxChars - 3);
+  const lastSpace = slice.lastIndexOf(' ');
+  if (lastSpace <= 16) return `${slice.trimEnd()}...`;
+  return `${slice.slice(0, lastSpace).trimEnd()}...`;
 }
 
 function updateFridgeCountBadge() {
@@ -552,7 +564,7 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
             <p class="description">${escapeHtml(r.description || '')}</p>
             <p class="recommendation-reason${showRecommendation ? '' : ' is-fallback'}">
               ${showRecommendation
-                ? escapeHtml(recommendation.reason || 'Recommended based on your activity.')
+                ? escapeHtml(clampReasonText(recommendation.reason))
                 : escapeHtml(ingredientPreview)}
             </p>
           </div>

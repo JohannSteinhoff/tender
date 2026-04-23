@@ -478,13 +478,15 @@
   border-radius: 9px;
   background: rgba(255, 107, 107, 0.08);
   color: var(--text-secondary);
-  font-size: 0.78em;
-  line-height: 1.35;
-  min-height: 2.7em;
+  font-size: 0.63em;
+  line-height: 1.4;
+  box-sizing: border-box;
+  min-height: calc(2.8em + 14px);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .recommendation-reason.is-fallback {
