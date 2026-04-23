@@ -1,6 +1,13 @@
 import { requireAuth } from '../auth.js';
-import { getAllRecipes, deleteRecipe } from '../api/recipes.js';
 import {
+  getAllRecipes,
+  deleteRecipe,
+  getRecipeComments,
+  deleteRecipeComment,
+  deleteRecipeReply,
+} from '../api/recipes.js';
+import {
+  createNotification,
   deleteUserData,
   getAllUsers,
   getUserProfile,
@@ -47,6 +54,9 @@ let users = [];
 let recipes = [];
 let userSearchTerm = '';
 let recipeSearchTerm = '';
+const expandedRecipeIds = new Set();
+const recipeCommentsById = new Map();
+const recipeCommentLoadState = new Map();
 
 function getDisplayName(user) {
   const name = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
@@ -58,6 +68,57 @@ function getRecipeName(recipe) {
   const name = recipe?.name?.trim();
   if (name) return name;
   return recipe?.status === 'draft' ? 'Untitled Draft' : 'Untitled Recipe';
+}
+
+function getActorName() {
+  return getDisplayName(currentProfile || { uid: currentUid, email: 'Admin' });
+}
+
+function truncateText(text, max = 140) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return '';
+  return normalized.length > max ? `${normalized.slice(0, max).trimEnd()}...` : normalized;
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return 'Just now';
+  let value = ts;
+  if (typeof ts?.toDate === 'function') value = ts.toDate();
+  else if (!(ts instanceof Date)) value = new Date(ts);
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return 'Just now';
+  return value.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function askModerationReason(subjectLabel) {
+  while (true) {
+    const value = window.prompt(`Enter the reason for deleting this ${subjectLabel}. This message will be sent to the user.`);
+    if (value === null) return null;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+    window.alert('A reason is required so the user knows why it was removed.');
+  }
+}
+
+async function sendModerationNotification(recipientUserId, type, recipe, reason, extra = {}) {
+  if (!recipientUserId || recipientUserId === currentUid) return;
+  await createNotification(recipientUserId, {
+    actorUserId: currentUid,
+    type,
+    targetId: recipe?.id || null,
+    message: reason,
+    actorName: getActorName(),
+    recipeName: getRecipeName(recipe),
+    recipeImage: recipe?.image || null,
+    recipeEmoji: recipe?.emoji || null,
+    moderationReason: reason,
+    ...extra,
+  });
 }
 
 function setSummary() {
@@ -75,6 +136,59 @@ function sortUsers(list) {
 
 function sortRecipes(list) {
   return [...list].sort((a, b) => getRecipeName(a).localeCompare(getRecipeName(b)));
+}
+
+function renderCommentModeration(recipe) {
+  if (!expandedRecipeIds.has(recipe.id)) return '';
+
+  const state = recipeCommentLoadState.get(recipe.id) || 'idle';
+  const comments = recipeCommentsById.get(recipe.id) || [];
+
+  if (state === 'loading') {
+    return '<div class="admin-comments-panel"><div class="admin-comments-empty">Loading comments...</div></div>';
+  }
+
+  if (state === 'error') {
+    return '<div class="admin-comments-panel"><div class="admin-comments-empty">Could not load comments right now.</div></div>';
+  }
+
+  if (!comments.length) {
+    return '<div class="admin-comments-panel"><div class="admin-comments-empty">No comments on this recipe yet.</div></div>';
+  }
+
+  return `
+    <div class="admin-comments-panel">
+      <div class="admin-comments-heading">Comment moderation</div>
+      <div class="admin-comments-list">
+        ${comments.map((comment) => `
+          <article class="admin-comment-item" data-comment-id="${comment.id}">
+            <div class="admin-comment-top">
+              <div>
+                <div class="admin-comment-author">${escapeHtml(comment.displayName || 'Anonymous user')}</div>
+                <div class="admin-comment-meta">${escapeHtml(comment.userId || 'Unknown user')} · ${escapeHtml(formatTimestamp(comment.createdAt))}</div>
+              </div>
+              <button class="admin-btn admin-btn-danger" data-action="delete-comment" data-comment-id="${comment.id}">Delete comment</button>
+            </div>
+            <p class="admin-comment-text">${escapeHtml(comment.text || '')}</p>
+            ${(Array.isArray(comment.replies) && comment.replies.length) ? `
+              <div class="admin-replies-list">
+                ${comment.replies.map((reply) => `
+                  <div class="admin-reply-item" data-reply-id="${reply.id}">
+                    <div>
+                      <div class="admin-comment-author">${escapeHtml(reply.displayName || 'Anonymous user')}</div>
+                      <div class="admin-comment-meta">${escapeHtml(reply.userId || 'Unknown user')} · ${escapeHtml(formatTimestamp(reply.createdAt))}</div>
+                      <p class="admin-comment-text">${escapeHtml(reply.text || '')}</p>
+                    </div>
+                    <button class="admin-btn admin-btn-danger" data-action="delete-reply" data-comment-id="${comment.id}" data-reply-id="${reply.id}">Delete reply</button>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </article>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderUsers() {
@@ -206,11 +320,42 @@ function renderRecipes() {
           </div>
         </div>
         <div class="admin-actions">
+          <button class="admin-btn admin-btn-secondary" data-action="toggle-comments">${expandedRecipeIds.has(recipe.id) ? 'Hide comments' : 'Moderate comments'}</button>
           <button class="admin-btn admin-btn-danger" data-action="delete-recipe">Delete recipe</button>
         </div>
+        ${renderCommentModeration(recipe)}
       </article>
     `;
   }).join('');
+
+  listEl.querySelectorAll('[data-action="toggle-comments"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const row = button.closest('[data-recipe-id]');
+      const recipeId = row?.dataset.recipeId;
+      if (!recipeId) return;
+
+      if (expandedRecipeIds.has(recipeId)) {
+        expandedRecipeIds.delete(recipeId);
+        renderRecipes();
+        return;
+      }
+
+      expandedRecipeIds.add(recipeId);
+      if (!recipeCommentsById.has(recipeId) && recipeCommentLoadState.get(recipeId) !== 'loading') {
+        recipeCommentLoadState.set(recipeId, 'loading');
+        renderRecipes();
+        try {
+          const loadedComments = await getRecipeComments(recipeId);
+          recipeCommentsById.set(recipeId, loadedComments);
+          recipeCommentLoadState.set(recipeId, 'ready');
+        } catch (error) {
+          console.error(error);
+          recipeCommentLoadState.set(recipeId, 'error');
+        }
+      }
+      renderRecipes();
+    });
+  });
 
   listEl.querySelectorAll('[data-action="delete-recipe"]').forEach((button) => {
     button.addEventListener('click', async () => {
@@ -219,20 +364,115 @@ function renderRecipes() {
       const recipe = recipes.find(entry => entry.id === recipeId);
       if (!recipeId || !recipe) return;
 
-      const confirmed = window.confirm(`Delete recipe "${getRecipeName(recipe)}"?\n\nThis cannot be undone.`);
+      const reason = askModerationReason('recipe');
+      if (!reason) return;
+
+      const confirmed = window.confirm(`Delete recipe "${getRecipeName(recipe)}"?\n\nReason sent to user:\n${reason}`);
       if (!confirmed) return;
 
       button.disabled = true;
       button.textContent = 'Deleting...';
       try {
+        await sendModerationNotification(recipe.createdBy, 'admin_recipe_removed', recipe, reason);
         await deleteRecipe(recipeId);
         recipes = recipes.filter(entry => entry.id !== recipeId);
+        recipeCommentsById.delete(recipeId);
+        recipeCommentLoadState.delete(recipeId);
+        expandedRecipeIds.delete(recipeId);
         setSummary();
         renderRecipes();
         showToast('Recipe deleted', 'success');
       } catch (error) {
         console.error(error);
         showToast('Could not delete recipe', 'error');
+        renderRecipes();
+      }
+    });
+  });
+
+  listEl.querySelectorAll('[data-action="delete-comment"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const row = button.closest('[data-recipe-id]');
+      const recipeId = row?.dataset.recipeId;
+      const commentId = button.dataset.commentId;
+      const recipe = recipes.find(entry => entry.id === recipeId);
+      const comments = recipeCommentsById.get(recipeId) || [];
+      const comment = comments.find((entry) => entry.id === commentId);
+      if (!recipeId || !commentId || !recipe || !comment) return;
+
+      const reason = askModerationReason('comment');
+      if (!reason) return;
+
+      const confirmed = window.confirm(`Delete this comment by ${comment.displayName || 'Anonymous user'}?\n\nReason sent to user:\n${reason}`);
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = 'Deleting...';
+      try {
+        const notificationTasks = [
+          sendModerationNotification(comment.userId, 'admin_comment_removed', recipe, reason, {
+            commentPreview: truncateText(comment.text),
+            removedContentType: 'comment',
+          }),
+        ];
+        const replyRecipients = new Set();
+        (comment.replies || []).forEach((reply) => {
+          if (!reply?.userId || reply.userId === comment.userId || replyRecipients.has(reply.userId)) return;
+          replyRecipients.add(reply.userId);
+          notificationTasks.push(sendModerationNotification(reply.userId, 'admin_comment_removed', recipe, reason, {
+            replyPreview: truncateText(reply.text),
+            removedContentType: 'reply',
+          }));
+        });
+        await Promise.all(notificationTasks);
+        await deleteRecipeComment(recipeId, commentId);
+        recipeCommentsById.set(recipeId, comments.filter((entry) => entry.id !== commentId));
+        renderRecipes();
+        showToast('Comment deleted', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('Could not delete comment', 'error');
+        renderRecipes();
+      }
+    });
+  });
+
+  listEl.querySelectorAll('[data-action="delete-reply"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const row = button.closest('[data-recipe-id]');
+      const recipeId = row?.dataset.recipeId;
+      const commentId = button.dataset.commentId;
+      const replyId = button.dataset.replyId;
+      const recipe = recipes.find(entry => entry.id === recipeId);
+      const comments = recipeCommentsById.get(recipeId) || [];
+      const parentComment = comments.find((entry) => entry.id === commentId);
+      const reply = parentComment?.replies?.find((entry) => entry.id === replyId);
+      if (!recipeId || !commentId || !replyId || !recipe || !parentComment || !reply) return;
+
+      const reason = askModerationReason('reply');
+      if (!reason) return;
+
+      const confirmed = window.confirm(`Delete this reply by ${reply.displayName || 'Anonymous user'}?\n\nReason sent to user:\n${reason}`);
+      if (!confirmed) return;
+
+      button.disabled = true;
+      button.textContent = 'Deleting...';
+      try {
+        await sendModerationNotification(reply.userId, 'admin_comment_removed', recipe, reason, {
+          replyPreview: truncateText(reply.text),
+          removedContentType: 'reply',
+        });
+        await deleteRecipeReply(recipeId, commentId, replyId);
+        recipeCommentsById.set(recipeId, comments.map((entry) => (
+          entry.id === commentId
+            ? { ...entry, replies: (entry.replies || []).filter((item) => item.id !== replyId) }
+            : entry
+        )));
+        renderRecipes();
+        showToast('Reply deleted', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('Could not delete reply', 'error');
         renderRecipes();
       }
     });

@@ -576,10 +576,37 @@ function formatNotifDate(ts) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function getNotificationDisplay(notification) {
+  if (notification.type === 'admin_recipe_removed') {
+    return {
+      preview: notification.moderationReason || notification.message || null,
+      typeLabel: 'removed your recipe',
+      actorName: notification.actorName || 'An admin',
+      recipeName: notification.recipeName || 'your recipe',
+    };
+  }
+
+  if (notification.type === 'admin_comment_removed') {
+    return {
+      preview: notification.moderationReason || notification.message || notification.commentPreview || notification.replyPreview || null,
+      typeLabel: `removed your ${notification.removedContentType || 'comment'} on`,
+      actorName: notification.actorName || 'An admin',
+      recipeName: notification.recipeName || 'a recipe',
+    };
+  }
+
+  return {
+    preview: notification.commentPreview || notification.replyPreview || null,
+    typeLabel: notification.type === 'comment_reply' ? 'replied to your comment on' : 'commented on',
+    actorName: notification.actorName || 'Someone',
+    recipeName: notification.recipeName || 'your recipe',
+  };
+}
+
 function buildNotifCard(n) {
-  const preview = n.commentPreview || n.replyPreview || null;
+  const details = getNotificationDisplay(n);
+  const preview = details.preview;
   const initials = escapeHtml(((n.actorName || '?')[0]).toUpperCase());
-  const typeLabel = n.type === 'comment_reply' ? 'replied to your comment on' : 'commented on';
 
   return `
     <div class="dash-notif-item${n.isRead ? '' : ' unread'}" data-notification-id="${n.id}">
@@ -596,9 +623,9 @@ function buildNotifCard(n) {
           ${preview ? `"${escapeHtml(preview)}"` : escapeHtml(n.message || 'New notification')}
         </div>
         <div class="dash-notif-meta">
-          <strong>${escapeHtml(n.actorName || 'Someone')}</strong>
-          ${typeLabel}
-          <em>${escapeHtml(n.recipeName || 'your recipe')}</em>
+          <strong>${escapeHtml(details.actorName)}</strong>
+          ${details.typeLabel}
+          <em>${escapeHtml(details.recipeName)}</em>
           &nbsp;&middot;&nbsp;${escapeHtml(formatNotifDate(n.createdAt))}
         </div>
       </div>
