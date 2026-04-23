@@ -79,7 +79,7 @@ async function init() {
 
   if (uid) {
     try {
-      const recommended = await getPersonalizedRecommendations(uid, { limit: recipes.length || 20 });
+      const recommended = await getPersonalizedRecommendations(uid, { limit: 5 });
       recommendationMeta = new Map(
         recommended.map((recipe) => [
           recipe.id,
