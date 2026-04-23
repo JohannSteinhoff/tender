@@ -27,8 +27,8 @@ export const VALID_DIETARY_OPTIONS = [
 ];
 export const VALID_BUDGET_OPTIONS = ["budget", "moderate", "flexible", "premium"];
 
-export const DUPLICATE_EMAIL_MESSAGE = "This email is already registered. Please log in.";
-export const GENERIC_REGISTRATION_ERROR_MESSAGE = "Error creating account. Make sure the server is running.";
+export const DUPLICATE_EMAIL_MESSAGE = "This email is already registered. Please sign in instead.";
+export const GENERIC_REGISTRATION_ERROR_MESSAGE = "Could not create account. Please try again.";
 
 export function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -97,8 +97,31 @@ export async function registerAndFinalize({
 }
 
 export function mapRegistrationErrorMessage(errorMessage = "") {
-  if (errorMessage.includes("already registered")) {
+  const msg = errorMessage.toLowerCase();
+  if (
+    msg.includes("already-in-use") ||
+    msg.includes("already in use") ||
+    msg.includes("already registered")
+  ) {
     return DUPLICATE_EMAIL_MESSAGE;
+  }
+  if (msg.includes("network-request-failed") || msg.includes("network error")) {
+    return "Network error — check your connection and try again.";
+  }
+  if (msg.includes("weak-password")) {
+    return "Password is too weak — use at least 8 characters with a number and uppercase letter.";
+  }
+  if (msg.includes("too-many-requests")) {
+    return "Too many attempts — please wait a moment and try again.";
+  }
+  if (msg.includes("invalid-email")) {
+    return "Please enter a valid email address.";
+  }
+  if (msg.includes("operation-not-allowed")) {
+    return "Email sign-up is not enabled — please contact support.";
+  }
+  if (msg.includes("missing or insufficient permissions") || msg.includes("permission-denied")) {
+    return "Account created but profile save failed — please sign in and update your profile.";
   }
   return GENERIC_REGISTRATION_ERROR_MESSAGE;
 }

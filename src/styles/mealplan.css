@@ -503,7 +503,6 @@ html.dark-mode .mp-slot {
   gap: 6px;
   cursor: pointer;
   box-shadow: var(--mp-slot-shadow-base);
-  overflow-y: auto;
 }
 
 .mp-slot.filled:hover {
@@ -708,7 +707,29 @@ html.dark-mode .mp-slot {
   line-height: 1;
 }
 
-body.mp-is-copy-dragging .mp-slot.drop-hint {
+/* In copy mode, empty slots are the only valid targets — make them pop */
+body.mp-is-copy-dragging .mp-slot.empty.drop-hint {
+  border-color: var(--meal-accent);
+  border-style: solid;
+  background: linear-gradient(180deg, var(--mp-slot-bg-start), var(--meal-accent-soft));
+  box-shadow: 0 0 0 3px var(--meal-accent-glow), var(--mp-slot-shadow-soft);
+  transform: translateY(-3px);
+  animation: swipe-target-pulse 1.6s ease-in-out infinite;
+}
+
+body.mp-is-copy-dragging .mp-slot.empty.drop-hint .mp-add-btn {
+  color: var(--meal-accent);
+  font-size: 0.72em;
+  pointer-events: none;
+}
+
+body.mp-is-copy-dragging .mp-slot.empty.drop-hint .mp-meal-label {
+  box-shadow: 0 8px 18px rgba(15,23,42,0.08);
+}
+
+/* Dim filled slots in copy mode so the empty targets stand out */
+body.mp-is-copy-dragging .mp-slot.filled:not(.is-dragging).drop-hint {
+  opacity: 0.45;
   border-style: dashed;
 }
 
@@ -730,6 +751,126 @@ body.mp-is-copy-dragging .mp-slot.drop-hint {
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.6;
+}
+
+/* ── Swipe-to-copy (mobile) ──────────────────────────────────── */
+
+/* Dim non-source filled slots while a swipe copy is in progress */
+body.mp-swipe-mode .mp-slot.filled:not(.is-swiping) {
+  opacity: 0.45;
+  transition: opacity 200ms ease;
+}
+
+/* The card being swiped slides right and reveals a copy indicator on its left */
+.mp-slot.filled.is-swiping {
+  transform: translateX(var(--swipe-x, 0px));
+  border-color: var(--meal-accent);
+  box-shadow: var(--mp-slot-shadow-hover);
+  z-index: 10;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+  /* no transform transition — that's handled frame-by-frame */
+}
+
+/* Colored sweep on the left edge that grows as you drag */
+.mp-slot.filled.is-swiping::before {
+  opacity: 1;
+  transform: scale(1);
+  border-color: var(--meal-accent);
+  box-shadow: 0 0 0 6px var(--meal-accent-glow);
+}
+
+/* Copy indicator label that peeks out behind the swiping card */
+.mp-swipe-reveal {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%) translateX(calc(-1 * var(--swipe-x, 0px)));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--meal-accent);
+  color: #fff;
+  font-size: 0.72em;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: calc(var(--swipe-x, 0) / 60);
+  transition: none;
+  z-index: -1;
+}
+
+/* Empty slots highlighted as copy targets */
+.mp-slot.empty.swipe-copy-target {
+  border-color: var(--meal-accent) !important;
+  border-style: solid !important;
+  background: linear-gradient(180deg, var(--mp-slot-bg-start), var(--meal-accent-soft)) !important;
+  box-shadow: 0 0 0 3px var(--meal-accent-glow), var(--mp-slot-shadow-soft) !important;
+  transform: translateY(-2px) !important;
+  animation: swipe-target-pulse 1.6s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.mp-slot.empty.swipe-copy-target .mp-add-btn {
+  color: var(--meal-accent) !important;
+  font-size: 0.72em;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.mp-slot.empty.swipe-copy-target .mp-meal-label {
+  box-shadow: 0 8px 18px rgba(15,23,42,0.08);
+}
+
+@keyframes swipe-target-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--meal-accent-glow), var(--mp-slot-shadow-soft); }
+  50%       { box-shadow: 0 0 0 6px var(--meal-accent-glow), var(--mp-slot-shadow-hover); }
+}
+
+/* Cancel bar — floats at the bottom of the screen during swipe mode */
+.mp-swipe-cancel-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  background: rgba(15, 23, 42, 0.88);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+  animation: swipe-bar-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mp-swipe-cancel-bar:hover {
+  background: rgba(15, 23, 42, 0.96);
+}
+
+.mp-swipe-cancel-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  font-size: 0.85em;
+  flex-shrink: 0;
+}
+
+@keyframes swipe-bar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ── Main recipe row ─────────────────────────────────────────── */
@@ -1431,6 +1572,7 @@ html.dark-mode .mp-custom-invite {
 
   .mp-header-left h1 { font-size: 1.4em; }
   .mp-header-left p { display: none; }
+  .mp-drag-hint { display: none; }
 
   .mp-header-actions {
     width: 100%;
