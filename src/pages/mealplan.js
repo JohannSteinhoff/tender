@@ -39,6 +39,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Control') ctrlHeld = 
 document.addEventListener('keyup',   e => { if (e.key === 'Control') ctrlHeld = false; });
 window.addEventListener('blur',      () => { ctrlHeld = false; });
 
+// ── Responsive day count ───────────────────────────────────────
+const MIN_COL_PX = 155; // minimum comfortable column width
+
+function computeFitDays() {
+  const scroll = document.querySelector('.mp-cal-scroll');
+  const available = scroll ? scroll.clientWidth : window.innerWidth;
+  const fit = Math.max(1, Math.floor(available / MIN_COL_PX));
+  return Math.min(S.viewDays, fit);
+}
+
 // ── Date helpers ───────────────────────────────────────────────
 function toISO(d) {
   const y = d.getFullYear();
@@ -390,11 +400,9 @@ function renderCalendar() {
   if (S.viewDays === 14 && S.visibleDays >= 7) {
     summaryDates = Array.from({ length: 14 }, (_, i) => addDays(S.startDate, i));
     grid.classList.add('stacked-weeks');
-    const firstWeek = summaryDates.slice(0, 7);
-    const secondWeek = summaryDates.slice(7, 14);
     grid.innerHTML = [
-      renderWeekSectionHTML('Week 1', firstWeek, today),
-      renderWeekSectionHTML('Week 2', secondWeek, today),
+      renderWeekSectionHTML('Week 1', summaryDates.slice(0, 7), today),
+      renderWeekSectionHTML('Week 2', summaryDates.slice(7, 14), today),
     ].join('');
   } else {
     grid.innerHTML = dates.map(iso => renderDayColumnHTML(iso, today)).join('');
@@ -784,7 +792,7 @@ window.__mpDragStart = function(e, iso, mealType) {
 
 window.__mpDrop = async function(e, toISO, toMealType) {
   e.preventDefault();
-  const isCopy = e.ctrlKey;
+  const isCopy = e.ctrlKey;  // read from the drop event — most reliable source
   cleanupDragState();
 
   if (!S.dragSrc) return;
@@ -1012,7 +1020,7 @@ async function selectCustomMeal(customName) {
 
 // ── Setup UI listeners ─────────────────────────────────────────
 function setupListeners() {
-  // Calendar navigation
+  // Calendar navigation — step by however many days are currently visible
   document.getElementById('prevBtn').addEventListener('click', () => {
     S.startDate = addDays(S.startDate, -S.visibleDays);
     renderCalendar();
@@ -1052,6 +1060,16 @@ function setupListeners() {
     renderPickerList();
   });
 
+  document.getElementById('pickerSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const name = S.pickerSearch.trim();
+      if (name) {
+        e.preventDefault();
+        selectCustomMeal(name);
+      }
+    }
+  });
+
   // Picker tabs
   document.querySelectorAll('.picker-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1088,6 +1106,37 @@ function setupListeners() {
 
   // Update copy-mode state continuously during drag so the badge and body
   // class stay in sync even if Ctrl is pressed/released after dragstart.
+  document.addEventListener('dragover', e => {
+    if (!S.dragSrc) return;
+    const wantCopy = e.ctrlKey;
+    if (wantCopy === S.dragCopy) return;
+    S.dragCopy = wantCopy;
+    document.body.classList.toggle('mp-is-copy-dragging', wantCopy);
+    if (S.dragGhost) {
+      let badge = S.dragGhost.querySelector('.mp-copy-badge');
+      if (wantCopy && !badge) {
+        badge = document.createElement('span');
+        badge.className = 'mp-copy-badge';
+        badge.textContent = '+';
+        S.dragGhost.appendChild(badge);
+        S.dragGhost.classList.add('is-copy-ghost');
+      } else if (!wantCopy && badge) {
+        badge.remove();
+        S.dragGhost.classList.remove('is-copy-ghost');
+      }
+    }
+  });
+
+  // Re-render on resize so column count stays comfortable
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderCalendar, 120);
+  });
+
+  // Update copy-mode state continuously during drag so the badge and body
+  // class stay in sync even if Shift is pressed/released after dragstart.
+  // e.shiftKey here is reliable because dragover fires from real pointer events.
   document.addEventListener('dragover', e => {
     if (!S.dragSrc) return;
     const wantCopy = e.ctrlKey;
