@@ -1,6 +1,7 @@
 import { getAuthUser } from '../auth.js';
 import { getUserProfile, getUserProfiles } from '../api/users.js';
-import { getAllRecipes, likeRecipe, unlikeRecipe, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
+import { getAllRecipes, likeRecipe, unlikeRecipe, dislikeRecipe, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
+import { getPersonalizedRecommendations } from '../api/recommendations.js';
 import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
@@ -17,11 +18,15 @@ let profile = null;
 let allRecipes = [];
 let likedIds = new Set();
 let authorProfiles = {}; // uid -> { firstName, lastName, photoURL }
+let recommendationMeta = new Map(); // recipeId -> { score, reason, signals[] }
+let rejectedRecommendationIds = new Set();
 
 let activeCuisine = '';
 
 const FRIDGE_KEY = 'tender_fridge_ingredients';
 let fridgeIngredients = [];
+const INGREDIENT_PREVIEW_MAX_CHARS = 86;
+const RECOMMENDATION_REASON_MAX_CHARS = 72;
 
 const DIETARY_OPTIONS = [
   { value: 'vegetarian',  label: 'Vegetarian' },
@@ -71,6 +76,25 @@ async function init() {
 
   allRecipes = recipes;
   likedIds = liked;
+
+  if (uid) {
+    try {
+      const recommended = await getPersonalizedRecommendations(uid, { limit: recipes.length || 20 });
+      recommendationMeta = new Map(
+        recommended.map((recipe) => [
+          recipe.id,
+          {
+            score: Number(recipe.recommendationScore || 0),
+            reason: recipe.recommendationReason || '',
+            signals: Array.isArray(recipe.recommendationSignals) ? recipe.recommendationSignals : [],
+          },
+        ]),
+      );
+    } catch (err) {
+      console.warn('Could not compute personalized recommendations:', err);
+      recommendationMeta = new Map();
+    }
+  }
 
   // Batch-fetch author profiles (requires auth — gracefully degrades for guests)
   const authorUids = [...new Set(recipes.map(r => r.createdBy).filter(Boolean))];
@@ -298,6 +322,45 @@ function getFridgeTip() {
   return tip;
 }
 
+function buildIngredientPreview(ingredients, maxChars = INGREDIENT_PREVIEW_MAX_CHARS) {
+  const topIngredients = (ingredients || [])
+    .map(i => String(i || '').trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (!topIngredients.length) return 'Ingredients unavailable';
+
+  const prefix = 'Ingredients: ';
+  const maxBodyChars = Math.max(8, maxChars - prefix.length);
+  const kept = [];
+
+  for (const ingredient of topIngredients) {
+    const candidate = kept.length ? `${kept.join(', ')}, ${ingredient}` : ingredient;
+    if (candidate.length <= maxBodyChars) {
+      kept.push(ingredient);
+      continue;
+    }
+
+    if (!kept.length) {
+      return `${prefix}${ingredient.slice(0, Math.max(5, maxBodyChars - 3)).trimEnd()}...`;
+    }
+    return `${prefix}${kept.join(', ')}, ...`;
+  }
+
+  return `${prefix}${kept.join(', ')}`;
+}
+
+function clampReasonText(text, maxChars = RECOMMENDATION_REASON_MAX_CHARS) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return 'Recommended based on your activity.';
+  if (clean.length <= maxChars) return clean;
+
+  const slice = clean.slice(0, maxChars - 3);
+  const lastSpace = slice.lastIndexOf(' ');
+  if (lastSpace <= 16) return `${slice.trimEnd()}...`;
+  return `${slice.slice(0, lastSpace).trimEnd()}...`;
+}
+
 function updateFridgeCountBadge() {
   const badge = document.getElementById('fridgeCountBadge');
   if (!badge) return;
@@ -375,11 +438,35 @@ function buildFridgePanel() {
 }
 
 // ── Filter & render ──────────────────────────────────────────
+function isDefaultFeedActive() {
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const cuisine = document.getElementById('cuisineFilter').value;
+  return !search && !cuisine && selectedDifficulty.size === 0 && selectedDietary.size === 0 && fridgeIngredients.length === 0;
+}
+
+function updateRecommendationHint(usingDefaultFeed, resultCount) {
+  const hintEl = document.getElementById('discoverFeedHint');
+  if (!hintEl) return;
+
+  const isPersonalized = usingDefaultFeed && uid && recommendationMeta.size > 0;
+  if (!isPersonalized) {
+    hintEl.style.display = 'none';
+    hintEl.textContent = '';
+    return;
+  }
+
+  hintEl.style.display = '';
+  hintEl.textContent = resultCount > 0
+    ? 'Personalized recommendations based on your likes and meal history, or use search and filters to explore manually.'
+    : 'No recommendations available right now. Like a few recipes to improve suggestions.';
+}
+
 function filterAndRender() {
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   const cuisine = document.getElementById('cuisineFilter').value;
   const difficulty = selectedDifficulty;
   const dietary = selectedDietary;
+  const usingDefaultFeed = isDefaultFeedActive();
 
   let filtered = allRecipes.filter(r => {
     const ingredients = parseIngredients(r.ingredients);
@@ -396,19 +483,27 @@ function filterAndRender() {
     const matchDietary = dietary.size === 0
       || (Array.isArray(r.dietary) && [...dietary].every(tag => r.dietary.includes(tag)));
     const matchFridge = fridgeIngredients.length === 0 || countMatches(r) > 0;
-    return matchSearch && matchCuisine && matchDiff && matchDietary && matchFridge;
+    const matchRejected = !rejectedRecommendationIds.has(r.id);
+    return matchSearch && matchCuisine && matchDiff && matchDietary && matchFridge && matchRejected;
   });
 
   if (fridgeIngredients.length > 0) {
     filtered.sort((a, b) => countMatches(b) - countMatches(a) || (b.likeCount || 0) - (a.likeCount || 0));
+  } else if (usingDefaultFeed && recommendationMeta.size > 0) {
+    filtered.sort((a, b) => {
+      const aScore = recommendationMeta.get(a.id)?.score ?? -1;
+      const bScore = recommendationMeta.get(b.id)?.score ?? -1;
+      return bScore - aScore || (b.likeCount || 0) - (a.likeCount || 0);
+    });
   } else {
     filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
   }
 
-  renderGrid(filtered);
+  updateRecommendationHint(usingDefaultFeed, filtered.length);
+  renderGrid(filtered, { usingDefaultFeed });
 }
 
-function renderGrid(recipes) {
+function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
   const grid = document.getElementById('discoverGrid');
 
   if (recipes.length === 0) {
@@ -422,10 +517,13 @@ function renderGrid(recipes) {
 
   grid.innerHTML = recipes.map(r => {
     const liked = likedIds.has(r.id);
+    const recommendation = recommendationMeta.get(r.id);
+    const showRecommendation = usingDefaultFeed && !!recommendation;
     const ingredients = parseIngredients(r.ingredients);
     const matches = fridgeIngredients.length > 0 ? getMatches(r) : [];
     const matchCount = matches.length;
     const missing = fridgeIngredients.filter(fi => !matches.includes(fi));
+    const ingredientPreview = buildIngredientPreview(ingredients);
     const fridgeBadge = matchCount > 0
       ? `<span class="fridge-badge-wrap" data-matches="${escapeHtml(matches.join(','))}" data-missing="${escapeHtml(missing.join(','))}">
            <span class="fridge-match-badge${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length}</span>
@@ -455,13 +553,21 @@ function renderGrid(recipes) {
           ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '🍽️')}
           ${r.cuisine ? `<span class="cuisine-badge">${capitalizeFirst(r.cuisine)}</span>` : ''}
           <span class="difficulty-badge">${capitalizeFirst(r.difficulty || 'medium')}</span>
+          ${showRecommendation ? '<span class="recommendation-badge">Recommended</span>' : ''}
         </div>
         <div class="discover-recipe-body">
           <div class="discover-recipe-top">
             <h3>${escapeHtml(r.name)}</h3>
             ${ownerMenuHtml}
           </div>
-          <p class="description">${escapeHtml(r.description || '')}</p>
+          <div class="discover-summary">
+            <p class="description">${escapeHtml(r.description || '')}</p>
+            <p class="recommendation-reason${showRecommendation ? '' : ' is-fallback'}">
+              ${showRecommendation
+                ? escapeHtml(clampReasonText(recommendation.reason))
+                : escapeHtml(ingredientPreview)}
+            </p>
+          </div>
           ${authorHtml}
           <div class="discover-recipe-meta">
             ${r.cookTime ? `<span>⏱ ${r.cookTime} min</span>` : ''}
@@ -470,20 +576,25 @@ function renderGrid(recipes) {
             <span class="like-count" data-like-count>❤️ ${r.likeCount || 0}</span>
             ${fridgeBadge}
           </div>
-          <div class="discover-recipe-actions">
-            <button class="${liked ? 'btn-unlike-card' : 'btn-like-card'}" data-action="like" aria-label="${liked ? 'Unlike' : 'Like'}">
-              ${liked ? '💔 Unlike' : '❤️ Like'}
-            </button>
-            <button class="btn-plan-card" data-action="plan" aria-label="Add to meal plan">
-              📅 Plan
-            </button>
-            <button class="btn-share-card" data-action="share" aria-label="Copy link to recipe" title="Share recipe">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                <polyline points="16 6 12 2 8 6"/>
-                <line x1="12" y1="2" x2="12" y2="15"/>
-              </svg>
-            </button>
+          <div class="discover-recipe-actions${showRecommendation ? ' discover-recipe-actions--stacked' : ''}">
+            <div class="discover-recipe-actions-main">
+              <button class="${liked ? 'btn-unlike-card' : 'btn-like-card'}" data-action="like" aria-label="${liked ? 'Unlike' : 'Like'}">
+                ${liked ? '💔 Unlike' : '❤️ Like'}
+              </button>
+              <button class="btn-plan-card" data-action="plan" aria-label="Add to meal plan">
+                📅 Plan
+              </button>
+              <button class="btn-share-card" data-action="share" aria-label="Copy link to recipe" title="Share recipe">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                  <polyline points="16 6 12 2 8 6"/>
+                  <line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>
+              </button>
+            </div>
+            ${showRecommendation
+              ? '<button class="btn-reject-card" data-action="reject" aria-label="Not interested">Not interested</button>'
+              : '<span class="btn-reject-placeholder" aria-hidden="true"></span>'}
           </div>
         </div>
       </div>`;
@@ -543,6 +654,8 @@ function renderGrid(recipes) {
         } else {
           await likeRecipe(uid, id);
           likedIds.add(id);
+          recommendationMeta.delete(id);
+          rejectedRecommendationIds.delete(id);
           btn.className = 'btn-unlike-card';
           btn.textContent = '💔 Unlike';
           if (countEl) {
@@ -550,11 +663,36 @@ function renderGrid(recipes) {
             countEl.textContent = `❤️ ${cur + 1}`;
           }
           showToast('Added to liked recipes! ❤️', 'success');
+          if (isDefaultFeedActive()) {
+            filterAndRender();
+          }
         }
       } catch (err) {
         showToast('Something went wrong', 'error');
       }
       btn.disabled = false;
+    });
+
+    card.querySelector('[data-action="reject"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!uid) {
+        showAuthGate('save recommendation preferences');
+        return;
+      }
+
+      const rejectBtn = e.currentTarget;
+      rejectBtn.disabled = true;
+      try {
+        await dislikeRecipe(uid, id);
+        likedIds.delete(id);
+        recommendationMeta.delete(id);
+        rejectedRecommendationIds.add(id);
+        showToast('Thanks. We will show fewer recipes like this.');
+        filterAndRender();
+      } catch (err) {
+        showToast('Could not save your preference', 'error');
+        rejectBtn.disabled = false;
+      }
     });
 
     card.querySelector('[data-action="plan"]').addEventListener('click', async (e) => {

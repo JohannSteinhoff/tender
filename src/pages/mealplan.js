@@ -31,6 +31,8 @@ const S = {
   dragCopy: false,
   // Mobile swipe-to-copy
   swipeSrc: null,        // { date, mealType } when copy mode is active
+  // Duplicate mode (mobile swipe)
+  dupSrc: null,          // { date, mealType } — slot being copied from
 };
 
 // Track Ctrl key state for copy-drag detection.
@@ -168,6 +170,110 @@ function cleanupDragState() {
   }
   restoreDragCopyLabels();
   S.dragCopy = false;
+}
+
+// ── Duplicate mode ─────────────────────────────────────────────
+function enterDupMode(date, mealType) {
+  exitDupMode();
+  S.dupSrc = { date, mealType };
+
+  document.querySelector(`.mp-slot[data-date="${date}"][data-meal="${mealType}"]`)
+    ?.classList.add('dup-mode-source');
+
+  document.querySelectorAll('.mp-slot.empty').forEach(el => {
+    el.classList.add('dup-available');
+    const btn = el.querySelector('.mp-add-btn');
+    if (btn) {
+      const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = 'Copy';
+    }
+  });
+}
+
+function exitDupMode() {
+  if (!S.dupSrc) return;
+  S.dupSrc = null;
+  document.querySelectorAll('.dup-mode-source').forEach(el => el.classList.remove('dup-mode-source'));
+  document.querySelectorAll('.dup-available').forEach(el => {
+    el.classList.remove('dup-available');
+    const btn = el.querySelector('.mp-add-btn');
+    if (btn) {
+      const textNode = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+      if (textNode) textNode.textContent = 'Add';
+    }
+  });
+}
+
+function bindSwipeDup(slotEl) {
+  if (!window.matchMedia('(pointer: coarse)').matches) return;
+  let startX = 0, startY = 0, tracking = false, indicator = null;
+
+  function clearSwipeFeedback() {
+    if (indicator) { indicator.remove(); indicator = null; }
+    slotEl.classList.remove('swipe-ready');
+  }
+
+  slotEl.addEventListener('touchstart', e => {
+    if (S.dupSrc) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    tracking = true;
+    slotEl.style.transition = 'none';
+  }, { passive: true });
+
+  slotEl.addEventListener('touchmove', e => {
+    if (!tracking || S.dupSrc) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx)) {
+      tracking = false;
+      slotEl.style.transform = '';
+      clearSwipeFeedback();
+      return;
+    }
+    const absDx = Math.abs(dx);
+    const clamped = Math.sign(dx) * Math.min(absDx, 90);
+    slotEl.style.transform = `translateX(${clamped}px)`;
+
+    const progress = Math.min(absDx / 70, 1);
+    const ready = absDx >= 70;
+
+    if (!indicator && absDx > 10) {
+      indicator = document.createElement('div');
+      indicator.className = 'mp-swipe-indicator';
+      indicator.innerHTML = '<span class="mp-swipe-icon">📋</span><span class="mp-swipe-label">Copy</span>';
+      slotEl.appendChild(indicator);
+    }
+
+    if (indicator) {
+      indicator.style.opacity = String(progress);
+      indicator.classList.toggle('ready', ready);
+      if (dx > 0) {
+        indicator.style.right = 'auto';
+        indicator.style.left = '8px';
+      } else {
+        indicator.style.left = 'auto';
+        indicator.style.right = '8px';
+      }
+    }
+
+    slotEl.classList.toggle('swipe-ready', ready);
+  }, { passive: true });
+
+  function endSwipe(e) {
+    if (!tracking) return;
+    tracking = false;
+    const dx = (e.changedTouches?.[0]?.clientX ?? startX) - startX;
+    slotEl.style.transition = 'transform 200ms ease';
+    slotEl.style.transform = '';
+    clearSwipeFeedback();
+    if (Math.abs(dx) >= 70) {
+      setTimeout(() => enterDupMode(slotEl.dataset.date, slotEl.dataset.meal), 180);
+    }
+  }
+
+  slotEl.addEventListener('touchend', endSwipe, { passive: true });
+  slotEl.addEventListener('touchcancel', endSwipe, { passive: true });
 }
 
 function createDragGhost(slotEl) {
@@ -648,13 +754,17 @@ function bindSlotListeners() {
     });
   });
 
-  // Add main or side
+  // Add main or side (or copy in dup mode)
   document.querySelectorAll('.mp-add-btn, .mp-add-side-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
       // During swipe copy mode, mp-add-btn on empty slots triggers the copy instead
       if (S.swipeSrc && btn.classList.contains('mp-add-btn')) {
         doSwipeCopy(btn.dataset.date, btn.dataset.meal);
+      if (S.dupSrc && btn.classList.contains('mp-add-btn') && btn.dataset.adding === 'main') {
+        const { date: fromDate, mealType: fromMeal } = S.dupSrc;
+        exitDupMode();
+        await doCopySlotTo(fromDate, fromMeal, btn.dataset.date, btn.dataset.meal);
         return;
       }
       openPicker(btn.dataset.date, btn.dataset.meal, btn.dataset.adding);
@@ -691,6 +801,8 @@ function bindSlotListeners() {
   });
 
   bindSwipeListeners();
+  // Mobile swipe-to-duplicate on filled slots
+  document.querySelectorAll('.mp-slot.filled').forEach(bindSwipeDup);
 }
 
 // ── Actions ────────────────────────────────────────────────────
@@ -799,6 +911,20 @@ async function doCopyWeek() {
   } catch {
     showToast('Copy failed', 'error');
     document.getElementById('copyWeekBtn').disabled = false;
+  }
+}
+
+async function doCopySlotTo(fromDate, fromMeal, toDate, toMeal) {
+  const fromSlot = S.mealPlan[slotKey(fromDate, fromMeal)];
+  if (!fromSlot?.main) return;
+  const entries = [fromSlot.main, ...fromSlot.sides, fromSlot.note].filter(Boolean);
+  try {
+    await Promise.all(entries.map(e => createEntryWrite(e, toDate, toMeal)));
+    await loadAll();
+    renderCalendar();
+    showToast('Meal copied!', 'success');
+  } catch {
+    showToast('Could not copy meal', 'error');
   }
 }
 
@@ -1138,9 +1264,48 @@ function setupListeners() {
     renderPickerList();
   });
 
-  // Escape key closes picker
+  // Escape key closes picker / dup mode
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closePicker();
+    if (e.key === 'Escape') { closePicker(); exitDupMode(); }
+  });
+
+  // Tap outside any slot cancels dup mode
+  document.addEventListener('touchstart', e => {
+    if (!S.dupSrc) return;
+    const slot = e.target.closest('.mp-slot');
+    if (!slot || (!slot.classList.contains('dup-available') && !slot.classList.contains('dup-mode-source'))) {
+      exitDupMode();
+    }
+  }, { passive: true });
+
+  // Update copy-mode state continuously during drag so the badge and body
+  // class stay in sync even if Ctrl is pressed/released after dragstart.
+  document.addEventListener('dragover', e => {
+    if (!S.dragSrc) return;
+    const wantCopy = e.ctrlKey;
+    if (wantCopy === S.dragCopy) return;
+    S.dragCopy = wantCopy;
+    document.body.classList.toggle('mp-is-copy-dragging', wantCopy);
+    if (S.dragGhost) {
+      let badge = S.dragGhost.querySelector('.mp-copy-badge');
+      if (wantCopy && !badge) {
+        badge = document.createElement('span');
+        badge.className = 'mp-copy-badge';
+        badge.textContent = '+';
+        S.dragGhost.appendChild(badge);
+        S.dragGhost.classList.add('is-copy-ghost');
+      } else if (!wantCopy && badge) {
+        badge.remove();
+        S.dragGhost.classList.remove('is-copy-ghost');
+      }
+    }
+  });
+
+  // Re-render on resize so column count stays comfortable
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderCalendar, 120);
   });
 
   // Dismiss swipe copy mode when tapping completely outside the calendar/nav/header.
