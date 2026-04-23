@@ -435,6 +435,82 @@
   gap: 6px;
 }
 
+.grocery-item-source-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.grocery-item-source-label {
+  --source-label-text: var(--text-secondary);
+  --source-label-bg: var(--bg-input);
+  --source-label-border: var(--border-light);
+  --source-label-dot: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76em;
+  color: var(--source-label-text);
+  background: var(--source-label-bg);
+  border: 1px solid var(--source-label-border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  line-height: 1.4;
+  max-width: 100%;
+}
+
+.grocery-item-source-label::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--source-label-dot);
+  box-shadow: 0 0 0 3px var(--source-label-border);
+  flex-shrink: 0;
+}
+
+.grocery-item-source-label--meal-breakfast {
+  --source-label-text: #1f8f8a;
+  --source-label-bg: rgba(70, 215, 209, 0.15);
+  --source-label-border: rgba(70, 215, 209, 0.34);
+  --source-label-dot: #46d7d1;
+}
+
+.grocery-item-source-label--meal-lunch {
+  --source-label-text: #9a6a08;
+  --source-label-bg: rgba(247, 182, 64, 0.17);
+  --source-label-border: rgba(247, 182, 64, 0.36);
+  --source-label-dot: #f7b640;
+}
+
+.grocery-item-source-label--meal-dinner {
+  --source-label-text: #c14d44;
+  --source-label-bg: rgba(255, 123, 107, 0.16);
+  --source-label-border: rgba(255, 123, 107, 0.34);
+  --source-label-dot: #ff7b6b;
+}
+
+.grocery-item-source-label--unscheduled {
+  --source-label-text: var(--primary);
+  --source-label-bg: rgba(255, 107, 107, 0.12);
+  --source-label-border: rgba(255, 107, 107, 0.3);
+  --source-label-dot: var(--primary);
+}
+
+.grocery-item-source-label--manual {
+  --source-label-text: #2d5d88;
+  --source-label-bg: rgba(74, 96, 128, 0.13);
+  --source-label-border: rgba(74, 96, 128, 0.3);
+  --source-label-dot: #4a6080;
+}
+
+.grocery-item-source-label--unavailable {
+  --source-label-text: #9f3f3f;
+  --source-label-bg: rgba(197, 80, 80, 0.14);
+  --source-label-border: rgba(197, 80, 80, 0.3);
+  --source-label-dot: #c55050;
+}
+
 .grocery-item-brand-selection {
   font-size: 0.82em;
   color: var(--text-secondary);
@@ -496,6 +572,11 @@
 .grocery-item.checked .grocery-item-name {
   text-decoration: line-through;
   color: var(--text-tertiary);
+}
+
+.grocery-item.checked .grocery-item-source-label {
+  opacity: 0.78;
+  filter: saturate(0.45);
 }
 
 .grocery-item.checked .grocery-item-brand-selection,
