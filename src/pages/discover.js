@@ -447,18 +447,8 @@ function isDefaultFeedActive() {
 function updateRecommendationHint(usingDefaultFeed, resultCount) {
   const hintEl = document.getElementById('discoverFeedHint');
   if (!hintEl) return;
-
-  const isPersonalized = usingDefaultFeed && uid && recommendationMeta.size > 0;
-  if (!isPersonalized) {
-    hintEl.style.display = 'none';
-    hintEl.textContent = '';
-    return;
-  }
-
-  hintEl.style.display = '';
-  hintEl.textContent = resultCount > 0
-    ? 'Personalized recommendations based on your likes and meal history, or use search and filters to explore manually.'
-    : 'No recommendations available right now. Like a few recipes to improve suggestions.';
+  hintEl.style.display = 'none';
+  hintEl.textContent = '';
 }
 
 function filterAndRender() {
@@ -548,7 +538,7 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
         </div>
       </div>` : '';
     return `
-      <div class="discover-recipe-card" data-id="${r.id}">
+      <div class="discover-recipe-card${showRecommendation ? ' is-recommended' : ''}" data-id="${r.id}">
         <div class="discover-recipe-image${r.image ? ' has-img' : ''}">
           ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}">` : (r.emoji || '🍽️')}
           ${r.cuisine ? `<span class="cuisine-badge">${capitalizeFirst(r.cuisine)}</span>` : ''}

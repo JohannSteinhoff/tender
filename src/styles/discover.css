@@ -353,6 +353,16 @@
   gap: 20px;
 }
 
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes recommended-border-spin {
+  to { --border-angle: 360deg; }
+}
+
 .discover-recipe-card {
   background: var(--bg-card);
   border-radius: 16px;
@@ -363,11 +373,24 @@
   transition: transform 0.25s, box-shadow 0.25s;
   box-shadow: 0 2px 12px var(--shadow-color);
   position: relative;
+  border: 3px solid transparent;
+}
+
+.discover-recipe-card.is-recommended {
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    conic-gradient(from var(--border-angle), var(--primary), var(--secondary), var(--accent), var(--primary)) border-box;
+  animation: recommended-border-spin 3s linear infinite;
+  box-shadow: 0 2px 12px var(--shadow-color), 0 0 16px color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 .discover-recipe-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+}
+
+.discover-recipe-card.is-recommended:hover {
+  box-shadow: 0 12px 30px rgba(0,0,0,0.1), 0 0 24px color-mix(in srgb, var(--primary) 55%, transparent);
 }
 
 /* ── Card image ─────────────────────────────────────────────── */
