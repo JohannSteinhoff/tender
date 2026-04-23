@@ -687,8 +687,8 @@
             reqNumber.classList.toggle('valid', result.hasNumber);
         });
 
-        // Step navigation
-        function goToStep(step) {
+        // Step navigation — must be on window so inline onclick handlers can reach it
+        window.goToStep = function goToStep(step) {
             document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
             document.getElementById('step' + step).classList.add('active');
 
@@ -810,17 +810,24 @@
             formData.mealsPerWeek = document.getElementById('mealsPerWeek').value;
 
             // Create user account via API
+            if (!window.TenderAPI) {
+                showAlert('App failed to initialise — please refresh the page and try again.', 'error');
+                return;
+            }
             try {
                 await registerAndFinalize({
                     formData,
-                    register: TenderAPI.register,
-                    setCurrentUser: TenderDB.setCurrentUser,
+                    register: (fd) => TenderAPI.register(fd),
+                    setCurrentUser: (u) => TenderDB.setCurrentUser(u),
                     storage: localStorage,
                     redirect: (path) => { window.location.href = path; }
                 });
                 showAlert('Account created successfully! Redirecting...', 'success');
             } catch (err) {
-                showAlert(mapRegistrationErrorMessage(err?.message || ''), 'error');
+                console.error('Registration error:', err);
+                // Firebase errors carry the code in err.code; fallback to message
+                const errStr = err?.code || err?.message || '';
+                showAlert(mapRegistrationErrorMessage(errStr), 'error');
             }
         });
     </script>
