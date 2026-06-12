@@ -1,5 +1,18 @@
 {
   "projects": {
-    "default": "tender-a7367"
+    "default": "tender-a7367",
+    "postgrad": "tender-post-grad"
+  },
+  "targets": {
+    "tender-a7367": {
+      "hosting": {
+        "live": ["tender-a7367"]
+      }
+    },
+    "tender-post-grad": {
+      "hosting": {
+        "live": ["gettender"]
+      }
+    }
   }
 }
