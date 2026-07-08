@@ -22,6 +22,21 @@ function sortMealPlanEntries(entries) {
   });
 }
 
+function resolveTodayKey(value) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const now = value instanceof Date && !Number.isNaN(value.getTime()) ? value : new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function isPastMealPlanEntry(entry, todayKey) {
+  const date = String(entry?.date || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  return date < todayKey;
+}
+
 function formatMealPlanDate(date) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return "";
   const parsed = new Date(`${date}T12:00:00`);
@@ -55,7 +70,7 @@ function dedupeLabels(labels) {
   });
 }
 
-function buildLabelsForSource(source, mealPlanByRecipeId, recipesById) {
+function buildLabelsForSource(source, mealPlanByRecipeId, recipesById, todayKey) {
   const recipeName = resolveRecipeName(source, recipesById) || "Recipe information unavailable";
   const mealEntries = source.recipeId
     ? mealPlanByRecipeId.get(source.recipeId) || []
@@ -65,7 +80,12 @@ function buildLabelsForSource(source, mealPlanByRecipeId, recipesById) {
     return [`${recipeName} - Recipe not on meal plan`];
   }
 
-  return sortMealPlanEntries(mealEntries).map((entry) => {
+  const upcomingEntries = mealEntries.filter((entry) => !isPastMealPlanEntry(entry, todayKey));
+  if (upcomingEntries.length === 0) {
+    return [`${recipeName} - No upcoming meals planned`];
+  }
+
+  return sortMealPlanEntries(upcomingEntries).map((entry) => {
     const mealType = String(entry?.mealType || "Meal").trim() || "Meal";
     const formattedDate = formatMealPlanDate(entry?.date);
     return formattedDate
@@ -90,21 +110,22 @@ function buildMealPlanByRecipeId(mealPlanEntries) {
   return map;
 }
 
-export function buildSourceLabelsForItem(item, { mealPlanByRecipeId, recipesById }) {
+export function buildSourceLabelsForItem(item, { mealPlanByRecipeId, recipesById, today }) {
   const sources = sanitizeRecipeSources(item?.sourceRecipes);
 
   if (sources.length === 0) {
     return [item?.isManual ? "Manual item" : "Not tied to a recipe"];
   }
 
-  const labels = sources.flatMap((source) => buildLabelsForSource(source, mealPlanByRecipeId, recipesById));
+  const todayKey = resolveTodayKey(today);
+  const labels = sources.flatMap((source) => buildLabelsForSource(source, mealPlanByRecipeId, recipesById, todayKey));
   const deduped = dedupeLabels(labels);
 
   if (deduped.length > 0) return deduped;
   return [item?.isManual ? "Manual item" : "Not tied to a recipe"];
 }
 
-export function attachSourceLabels(items, { mealPlanEntries = [], recipesById = new Map() } = {}) {
+export function attachSourceLabels(items, { mealPlanEntries = [], recipesById = new Map(), today } = {}) {
   const mealPlanByRecipeId = buildMealPlanByRecipeId(mealPlanEntries);
 
   return (Array.isArray(items) ? items : []).map((item) => ({
@@ -112,6 +133,7 @@ export function attachSourceLabels(items, { mealPlanEntries = [], recipesById = 
     sourceLabels: buildSourceLabelsForItem(item, {
       mealPlanByRecipeId,
       recipesById,
+      today,
     }),
   }));
 }

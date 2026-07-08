@@ -28,6 +28,7 @@ describe("Story 8: Grocery Source Labels", () => {
     const labeled = attachSourceLabels(items, {
       mealPlanEntries: [{ recipeId: "recipe-1", mealType: "Dinner", date: "2026-04-28" }],
       recipesById: new Map([["recipe-1", { id: "recipe-1", name: "Spaghetti with Meat Sauce" }]]),
+      today: "2026-04-01",
     });
 
     expect(labeled[0].sourceLabels).toEqual(["Spaghetti with Meat Sauce - Dinner, Apr 28"]);
@@ -77,6 +78,7 @@ describe("Story 8: Grocery Source Labels", () => {
         ["recipe-a", { id: "recipe-a", name: "Recipe A" }],
         ["recipe-b", { id: "recipe-b", name: "Recipe B" }],
       ]),
+      today: "2026-04-01",
     });
 
     expect(labeled[0].sourceLabels).toEqual([
@@ -101,6 +103,7 @@ describe("Story 8: Grocery Source Labels", () => {
         ["recipe-a", { id: "recipe-a", name: "Recipe A" }],
         ["recipe-b", { id: "recipe-b", name: "Recipe B" }],
       ]),
+      today: "2026-04-01",
     });
 
     expect(labeled[0].sourceLabels).toEqual([
@@ -163,6 +166,7 @@ describe("Story 8: Grocery Source Labels", () => {
         ["r1", { id: "r1", name: "Cereal Bowl" }],
         ["r2", { id: "r2", name: "Creamy Soup" }],
       ]),
+      today: "2026-04-01",
     });
     const byId = Object.fromEntries(labeled.map((item) => [item.id, item]));
 
@@ -181,6 +185,7 @@ describe("Story 8: Grocery Source Labels", () => {
     const context = {
       mealPlanEntries: [{ recipeId: "recipe-9", mealType: "Dinner", date: "2026-04-30" }],
       recipesById: new Map([["recipe-9", { id: "recipe-9", name: "Pasta Night" }]]),
+      today: "2026-04-01",
     };
     const firstPass = attachSourceLabels(items, context);
     const secondPass = attachSourceLabels(firstPass, context);
@@ -188,6 +193,49 @@ describe("Story 8: Grocery Source Labels", () => {
     expect(firstPass[0].sourceLabels).toEqual(["Pasta Night - Dinner, Apr 30"]);
     expect(secondPass[0].sourceLabels).toEqual(["Pasta Night - Dinner, Apr 30"]);
     expect(secondPass[0].sourceLabels).toHaveLength(1);
+  });
+
+  it("S8 TC11: past meal plan entries are hidden, upcoming entries remain", () => {
+    const items = [
+      buildItem({
+        name: "carrots",
+        sourceRecipes: [{ recipeId: "recipe-japchae", recipeName: "Japchae" }],
+      }),
+    ];
+    const labeled = attachSourceLabels(items, {
+      mealPlanEntries: [
+        { recipeId: "recipe-japchae", mealType: "Dinner", date: "2026-04-04" },
+        { recipeId: "recipe-japchae", mealType: "Dinner", date: "2026-06-09" },
+        { recipeId: "recipe-japchae", mealType: "Dinner", date: "2026-07-08" },
+        { recipeId: "recipe-japchae", mealType: "Dinner", date: "2026-07-15" },
+      ],
+      recipesById: new Map([["recipe-japchae", { id: "recipe-japchae", name: "Japchae" }]]),
+      today: "2026-07-08",
+    });
+
+    expect(labeled[0].sourceLabels).toEqual([
+      "Japchae - Dinner, Jul 8",
+      "Japchae - Dinner, Jul 15",
+    ]);
+  });
+
+  it("S8 TC12: recipe with only past meal plan entries shows no-upcoming label", () => {
+    const items = [
+      buildItem({
+        name: "garlic",
+        sourceRecipes: [{ recipeId: "recipe-palak", recipeName: "Palak Paneer" }],
+      }),
+    ];
+    const labeled = attachSourceLabels(items, {
+      mealPlanEntries: [
+        { recipeId: "recipe-palak", mealType: "Lunch", date: "2026-04-01" },
+        { recipeId: "recipe-palak", mealType: "Dinner", date: "2026-06-10" },
+      ],
+      recipesById: new Map([["recipe-palak", { id: "recipe-palak", name: "Palak Paneer" }]]),
+      today: "2026-07-08",
+    });
+
+    expect(labeled[0].sourceLabels).toEqual(["Palak Paneer - No upcoming meals planned"]);
   });
 
   it("S8 TC10: UI renders source labels separately from ingredient name", () => {
