@@ -976,6 +976,11 @@ html.dark-mode .mp-tag.time { color: var(--accent); }
   color: var(--primary);
 }
 
+.mp-tag.batch {
+  background: rgba(147,112,219,0.16);
+  color: #8a63d2;
+}
+
 /* ── Remove button ───────────────────────────────────────────── */
 .mp-remove-btn {
   background: none;

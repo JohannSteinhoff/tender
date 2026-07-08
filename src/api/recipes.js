@@ -1,4 +1,5 @@
 import { db } from '../firebase.js';
+import { sanitizeBatchMultiplier } from '../utils/ingredientScaling.js';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
   query, orderBy, setDoc, serverTimestamp, increment, runTransaction, arrayRemove, arrayUnion, writeBatch,
@@ -50,6 +51,7 @@ function docToMealPlanEntry(snap) {
     mealType: data.mealType || '',
     course: data.course || 'main',
     text: data.text || '',
+    batchMultiplier: sanitizeBatchMultiplier(data.batchMultiplier),
   };
 }
 
@@ -200,12 +202,13 @@ export async function unlikeRecipe(uid, recipeId) {
 }
 
 /** Add a recipe to the user's meal plan. */
-export async function addMealPlanEntry(uid, { recipeId, recipeName, day, date, meal, mealType, course = 'main' }) {
+export async function addMealPlanEntry(uid, { recipeId, recipeName, day, date, meal, mealType, course = 'main', batchMultiplier = 1 }) {
   const normalizedMealType = mealType || meal;
   if (!recipeId) throw new Error('recipeId is required');
   if (!VALID_MEAL_TYPES.has(normalizedMealType)) throw new Error('mealType is invalid');
 
   const normalizedDate = resolveMealPlanDate(date, day);
+  const normalizedBatch = sanitizeBatchMultiplier(batchMultiplier);
   const slotId = `${normalizedDate}_${normalizedMealType}_${course}`;
 
   await setDoc(doc(db, 'users', uid, 'mealplan', slotId), {
@@ -214,6 +217,7 @@ export async function addMealPlanEntry(uid, { recipeId, recipeName, day, date, m
     date: normalizedDate,
     mealType: normalizedMealType,
     course,
+    batchMultiplier: normalizedBatch,
     addedAt: serverTimestamp(),
   });
 
@@ -224,6 +228,7 @@ export async function addMealPlanEntry(uid, { recipeId, recipeName, day, date, m
     date: normalizedDate,
     mealType: normalizedMealType,
     course,
+    batchMultiplier: normalizedBatch,
   };
 }
 

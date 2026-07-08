@@ -136,6 +136,7 @@ function docToMealPlan(snap) {
     mealType: d.mealType,
     course: d.course || 'main',
     text: d.text || '',
+    batchMultiplier: Number(d.batchMultiplier) > 0 ? Number(d.batchMultiplier) : 1,
   };
 }
 

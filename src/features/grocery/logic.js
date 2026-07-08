@@ -567,11 +567,12 @@ export function isLikelyNonBrandIngredient(name) {
   return NON_BRAND_INGREDIENTS.has(normalized);
 }
 
-export function collectIngredientsFromRecipes(recipes) {
+export function collectIngredientsFromRecipes(recipes, { batchMultipliers = new Map() } = {}) {
   const itemsByKey = new Map();
 
   recipes.forEach((recipe) => {
     const ingredients = parseIngredients(recipe?.ingredients);
+    const multiplier = sanitizeQuantityValue(batchMultipliers.get(recipe?.id) ?? 1);
     const source = sanitizeRecipeSource({
       recipeId: recipe?.id,
       recipeName: recipe?.name,
@@ -580,7 +581,7 @@ export function collectIngredientsFromRecipes(recipes) {
     ingredients.forEach((ingredient) => {
       const normalized = normalizeGroceryItem({
         name: ingredient,
-        quantity: 1,
+        quantity: multiplier,
         sourceRecipes: source ? [source] : [],
         isManual: false,
       });
@@ -592,14 +593,14 @@ export function collectIngredientsFromRecipes(recipes) {
 
       const existing = itemsByKey.get(key);
       if (existing) {
-        existing.quantity = sanitizeQuantityValue(existing.quantity + 1);
+        existing.quantity = sanitizeQuantityValue(existing.quantity + multiplier);
         existing.sourceRecipes = mergeRecipeSources(existing.sourceRecipes, normalized.sourceRecipes);
         return;
       }
 
       itemsByKey.set(key, {
         name: normalizeRecommendationName(ingredient) || normalized.name,
-        quantity: 1,
+        quantity: multiplier,
         quantityUnit: normalized.quantityUnit || null,
         sourceRecipes: sanitizeRecipeSources(normalized.sourceRecipes),
         isManual: false,

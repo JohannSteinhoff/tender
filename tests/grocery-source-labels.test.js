@@ -238,6 +238,30 @@ describe("Story 8: Grocery Source Labels", () => {
     expect(labeled[0].sourceLabels).toEqual([]);
   });
 
+  it("S8 TC14: planned batch multiplier shows on the label and in the multiplier map", async () => {
+    const { buildUpcomingBatchMultipliers } = await import("../src/features/grocery/source-labels.js");
+    const items = [
+      buildItem({
+        name: "flour",
+        sourceRecipes: [{ recipeId: "recipe-cake", recipeName: "Cake" }],
+      }),
+    ];
+    const mealPlanEntries = [
+      { recipeId: "recipe-cake", mealType: "Dinner", date: "2026-07-10", batchMultiplier: 2 },
+      { recipeId: "recipe-cake", mealType: "Lunch", date: "2026-07-01", batchMultiplier: 3 },
+    ];
+    const labeled = attachSourceLabels(items, {
+      mealPlanEntries,
+      recipesById: new Map([["recipe-cake", { id: "recipe-cake", name: "Cake" }]]),
+      today: "2026-07-08",
+    });
+
+    expect(labeled[0].sourceLabels).toEqual(["Cake - Dinner, Jul 10 (×2)"]);
+
+    const multipliers = buildUpcomingBatchMultipliers(mealPlanEntries, "2026-07-08");
+    expect(multipliers.get("recipe-cake")).toBe(2);
+  });
+
   it("S8 TC13: item whose past-only labels are removed renders without a label container", () => {
     const item = buildItem({
       name: "garlic",

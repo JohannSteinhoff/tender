@@ -1,4 +1,5 @@
 import { escapeHtml, capitalizeFirst, parseIngredients } from '../utils/helpers.js';
+import { scaleIngredientLine, formatQuantity, formatMultiplier } from '../utils/ingredientScaling.js';
 import {
   MAX_COMMENT_LENGTH,
   addRecipeComment,
@@ -77,8 +78,17 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
 
         ${ingredients.length > 0 ? `
           <div class="modal-section">
-            <h3>Ingredients</h3>
-            <div class="modal-ingredients">
+            <div class="batch-slider-head">
+              <h3>Ingredients</h3>
+              <span class="batch-slider-value" id="batchSliderValue"></span>
+            </div>
+            <div class="batch-slider-row">
+              <span class="batch-slider-bound">½×</span>
+              <input type="range" id="batchSlider" min="0.5" max="4" step="0.5" value="1"
+                     aria-label="Batch size multiplier">
+              <span class="batch-slider-bound">4×</span>
+            </div>
+            <div class="modal-ingredients" id="modalIngredients">
               ${ingredients.map(i => `<span>${escapeHtml(i)}</span>`).join('')}
             </div>
           </div>
@@ -156,6 +166,32 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
   document.addEventListener('keydown', escHandler);
 
+  // Batch-size slider: scales the ingredient list and carries into the meal plan.
+  let batchMultiplier = 1;
+  const batchSlider = overlay.querySelector('#batchSlider');
+  const batchValueEl = overlay.querySelector('#batchSliderValue');
+  const ingredientsEl = overlay.querySelector('#modalIngredients');
+  const baseServings = Number(recipe.servings) > 0 ? Number(recipe.servings) : null;
+
+  function renderBatch() {
+    if (batchValueEl) {
+      batchValueEl.textContent = baseServings
+        ? `${formatQuantity(baseServings * batchMultiplier)} servings (${formatMultiplier(batchMultiplier)})`
+        : `${formatMultiplier(batchMultiplier)} batch`;
+    }
+    if (ingredientsEl) {
+      ingredientsEl.innerHTML = ingredients
+        .map(i => `<span>${escapeHtml(scaleIngredientLine(i, batchMultiplier))}</span>`)
+        .join('');
+    }
+  }
+
+  batchSlider?.addEventListener('input', () => {
+    batchMultiplier = Number(batchSlider.value) || 1;
+    renderBatch();
+  });
+  if (batchSlider) renderBatch();
+
   if (isOwner && options.onEdit) {
     document.getElementById('modalEditBtn').addEventListener('click', () => {
       closeModal();
@@ -213,7 +249,7 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
       showAuthGate('add recipes to your meal plan');
       return;
     }
-    openMealPlanPrompt({ uid, recipe });
+    openMealPlanPrompt({ uid, recipe, batchMultiplier });
   });
 
   document.getElementById('modalShareBtn').addEventListener('click', () => {

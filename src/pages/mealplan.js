@@ -106,7 +106,13 @@ function getEntryDisplay(entry) {
     emoji: recipe?.emoji || (customName ? '✍️' : '🍽'),
     cuisine: recipe?.cuisine || '',
     cookTime: recipe?.cookTime || null,
+    batchMultiplier: Number(entry?.batchMultiplier) > 0 ? Number(entry.batchMultiplier) : 1,
   };
+}
+
+function batchTag(display) {
+  if (display.batchMultiplier === 1) return '';
+  return `<span class="mp-tag batch">&times;${display.batchMultiplier} batch</span>`;
 }
 
 function openRecipeFromId(recipeId) {
@@ -523,6 +529,7 @@ function renderSlotHTML(iso, mealType) {
               <div class="mp-recipe-name">${esc(mainDisplay.name)}</div>
               <div class="mp-recipe-meta">
                 ${mainDisplay.isCustom ? '<span class="mp-tag custom">Custom</span>' : ''}
+                ${batchTag(mainDisplay)}
                 ${mainDisplay.cuisine ? `<span class="mp-tag cuisine">${cap(mainDisplay.cuisine)}</span>` : ''}
                 ${mainDisplay.cookTime ? `<span class="mp-tag time">&#x23F1; ${mainDisplay.cookTime}m</span>` : ''}
               </div>
@@ -535,6 +542,7 @@ function renderSlotHTML(iso, mealType) {
               <div class="mp-recipe-name">${esc(mainDisplay.name)}</div>
               <div class="mp-recipe-meta">
                 ${mainDisplay.isCustom ? '<span class="mp-tag custom">Custom</span>' : ''}
+                ${batchTag(mainDisplay)}
                 ${mainDisplay.cuisine ? `<span class="mp-tag cuisine">${cap(mainDisplay.cuisine)}</span>` : ''}
                 ${mainDisplay.cookTime ? `<span class="mp-tag time">&#x23F1; ${mainDisplay.cookTime}m</span>` : ''}
               </div>

@@ -88,9 +88,11 @@ function buildLabelsForSource(source, mealPlanByRecipeId, recipesById, todayKey)
   return sortMealPlanEntries(upcomingEntries).map((entry) => {
     const mealType = String(entry?.mealType || "Meal").trim() || "Meal";
     const formattedDate = formatMealPlanDate(entry?.date);
+    const batch = Number(entry?.batchMultiplier) > 0 ? Number(entry.batchMultiplier) : 1;
+    const batchSuffix = batch !== 1 ? ` (×${batch})` : "";
     return formattedDate
-      ? `${recipeName} - ${mealType}, ${formattedDate}`
-      : `${recipeName} - ${mealType}`;
+      ? `${recipeName} - ${mealType}, ${formattedDate}${batchSuffix}`
+      : `${recipeName} - ${mealType}${batchSuffix}`;
   });
 }
 
@@ -122,6 +124,25 @@ export function buildSourceLabelsForItem(item, { mealPlanByRecipeId, recipesById
   // May be empty when every source recipe is only planned in the past —
   // in that case the item renders with no labels at all.
   return dedupeLabels(labels);
+}
+
+/**
+ * Highest upcoming (today or later) batch multiplier per recipe id.
+ * Recipes without upcoming entries are omitted; callers default to 1.
+ */
+export function buildUpcomingBatchMultipliers(mealPlanEntries, today) {
+  const todayKey = resolveTodayKey(today);
+  const multipliers = new Map();
+
+  (Array.isArray(mealPlanEntries) ? mealPlanEntries : []).forEach((entry) => {
+    const recipeId = String(entry?.recipeId || "").trim();
+    if (!recipeId || isPastMealPlanEntry(entry, todayKey)) return;
+
+    const batch = Number(entry?.batchMultiplier) > 0 ? Number(entry.batchMultiplier) : 1;
+    multipliers.set(recipeId, Math.max(multipliers.get(recipeId) || 0, batch));
+  });
+
+  return multipliers;
 }
 
 export function attachSourceLabels(items, { mealPlanEntries = [], recipesById = new Map(), today } = {}) {

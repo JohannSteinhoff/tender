@@ -1,5 +1,6 @@
 import { addMealPlanEntry, getAllRecipes, getMealPlanEntries } from '../api/recipes.js';
 import { showToast } from './toast.js';
+import { formatMultiplier, sanitizeBatchMultiplier } from '../utils/ingredientScaling.js';
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner'];
 const MEAL_META = {
@@ -117,7 +118,7 @@ function renderDayDots(dayPlan) {
   }).join('');
 }
 
-export function openMealPlanPrompt({ uid, recipe, onSuccess = null } = {}) {
+export function openMealPlanPrompt({ uid, recipe, onSuccess = null, batchMultiplier = 1 } = {}) {
   if (!uid) {
     showToast('Please sign in to add meals to your plan', 'error');
     return;
@@ -129,6 +130,8 @@ export function openMealPlanPrompt({ uid, recipe, onSuccess = null } = {}) {
 
   const existing = document.getElementById('mealPlanPromptOverlay');
   if (existing) existing.remove();
+
+  const batch = sanitizeBatchMultiplier(batchMultiplier);
 
   const overlay = document.createElement('div');
   overlay.id = 'mealPlanPromptOverlay';
@@ -154,6 +157,7 @@ export function openMealPlanPrompt({ uid, recipe, onSuccess = null } = {}) {
         <div class="mealplan-prompt-hero-copy">
           <h3 id="mealPlanPromptTitle">${esc(recipe.name || 'Recipe')}</h3>
           <p>When do you want to eat this?</p>
+          ${batch !== 1 ? `<span class="mealplan-prompt-batch">${esc(formatMultiplier(batch))} batch</span>` : ''}
         </div>
       </div>
 
@@ -362,8 +366,9 @@ export function openMealPlanPrompt({ uid, recipe, onSuccess = null } = {}) {
         recipeName: recipe.name || '',
         date: state.selectedDate,
         mealType: state.mealType,
+        batchMultiplier: batch,
       });
-      showToast(`Added to ${formatPlanDate(state.selectedDate)} ${state.mealType}!`, 'success');
+      showToast(`Added to ${formatPlanDate(state.selectedDate)} ${state.mealType}${batch !== 1 ? ` (${formatMultiplier(batch)} batch)` : ''}!`, 'success');
       close();
       if (onSuccess) onSuccess({ date: state.selectedDate, mealType: state.mealType });
     } catch (err) {

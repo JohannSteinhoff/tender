@@ -18,7 +18,7 @@ import {
   normalizeGroceryItem,
   normalizeIngredientName,
 } from "../features/grocery/logic.js";
-import { attachSourceLabels } from "../features/grocery/source-labels.js";
+import { attachSourceLabels, buildUpcomingBatchMultipliers } from "../features/grocery/source-labels.js";
 import {
   getCategoryOverrides,
   setGlobalCategoryOverride,
@@ -448,9 +448,13 @@ class GroceryListPage {
     this.setGenerateButtonState(true);
 
     try {
-      const [recipes, likedIds] = await Promise.all([
+      const [recipes, likedIds, mealPlanEntries] = await Promise.all([
         getAllRecipes(),
         getLikedRecipeIds(this.uid),
+        getMealPlanEntries(this.uid).catch((error) => {
+          console.error("Failed to load meal plan for batch sizes:", error);
+          return [];
+        }),
       ]);
 
       if (likedIds.size === 0) {
@@ -459,7 +463,9 @@ class GroceryListPage {
       }
 
       const likedRecipes = recipes.filter((recipe) => likedIds.has(recipe.id));
-      const generatedItems = collectIngredientsFromRecipes(likedRecipes);
+      const generatedItems = collectIngredientsFromRecipes(likedRecipes, {
+        batchMultipliers: buildUpcomingBatchMultipliers(mealPlanEntries),
+      });
 
       if (generatedItems.length === 0) {
         showToast("No ingredients found on liked recipes.", "default");
