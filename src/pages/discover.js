@@ -25,7 +25,6 @@ let activeCuisine = '';
 
 const FRIDGE_KEY = 'tender_fridge_ingredients';
 let fridgeIngredients = [];
-const INGREDIENT_PREVIEW_MAX_CHARS = 86;
 const RECOMMENDATION_REASON_MAX_CHARS = 72;
 
 const DIETARY_OPTIONS = [
@@ -322,34 +321,6 @@ function getFridgeTip() {
   return tip;
 }
 
-function buildIngredientPreview(ingredients, maxChars = INGREDIENT_PREVIEW_MAX_CHARS) {
-  const topIngredients = (ingredients || [])
-    .map(i => String(i || '').trim())
-    .filter(Boolean)
-    .slice(0, 4);
-
-  if (!topIngredients.length) return 'Ingredients unavailable';
-
-  const prefix = 'Ingredients: ';
-  const maxBodyChars = Math.max(8, maxChars - prefix.length);
-  const kept = [];
-
-  for (const ingredient of topIngredients) {
-    const candidate = kept.length ? `${kept.join(', ')}, ${ingredient}` : ingredient;
-    if (candidate.length <= maxBodyChars) {
-      kept.push(ingredient);
-      continue;
-    }
-
-    if (!kept.length) {
-      return `${prefix}${ingredient.slice(0, Math.max(5, maxBodyChars - 3)).trimEnd()}...`;
-    }
-    return `${prefix}${kept.join(', ')}, ...`;
-  }
-
-  return `${prefix}${kept.join(', ')}`;
-}
-
 function clampReasonText(text, maxChars = RECOMMENDATION_REASON_MAX_CHARS) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (!clean) return 'Recommended based on your activity.';
@@ -513,7 +484,6 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
     const matches = fridgeIngredients.length > 0 ? getMatches(r) : [];
     const matchCount = matches.length;
     const missing = fridgeIngredients.filter(fi => !matches.includes(fi));
-    const ingredientPreview = buildIngredientPreview(ingredients);
     const fridgeBadge = matchCount > 0
       ? `<span class="fridge-badge-wrap" data-matches="${escapeHtml(matches.join(','))}" data-missing="${escapeHtml(missing.join(','))}">
            <span class="fridge-match-badge${matchCount === fridgeIngredients.length ? ' full-match' : ''}">🧊 ${matchCount}/${fridgeIngredients.length}</span>
@@ -552,11 +522,9 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
           </div>
           <div class="discover-summary">
             <p class="description">${escapeHtml(r.description || '')}</p>
-            <p class="recommendation-reason${showRecommendation ? '' : ' is-fallback'}">
-              ${showRecommendation
-                ? escapeHtml(clampReasonText(recommendation.reason))
-                : escapeHtml(ingredientPreview)}
-            </p>
+            ${showRecommendation
+              ? `<p class="recommendation-reason">${escapeHtml(clampReasonText(recommendation.reason))}</p>`
+              : ''}
           </div>
           ${authorHtml}
           <div class="discover-recipe-meta">
@@ -584,7 +552,7 @@ function renderGrid(recipes, { usingDefaultFeed = false } = {}) {
             </div>
             ${showRecommendation
               ? '<button class="btn-reject-card" data-action="reject" aria-label="Not interested">Not interested</button>'
-              : '<span class="btn-reject-placeholder" aria-hidden="true"></span>'}
+              : ''}
           </div>
         </div>
       </div>`;
