@@ -219,7 +219,7 @@ describe("Story 8: Grocery Source Labels", () => {
     ]);
   });
 
-  it("S8 TC12: recipe with only past meal plan entries shows no-upcoming label", () => {
+  it("S8 TC12: recipe with only past meal plan entries shows no labels at all", () => {
     const items = [
       buildItem({
         name: "garlic",
@@ -235,7 +235,19 @@ describe("Story 8: Grocery Source Labels", () => {
       today: "2026-07-08",
     });
 
-    expect(labeled[0].sourceLabels).toEqual(["Palak Paneer - No upcoming meals planned"]);
+    expect(labeled[0].sourceLabels).toEqual([]);
+  });
+
+  it("S8 TC13: item whose past-only labels are removed renders without a label container", () => {
+    const item = buildItem({
+      name: "garlic",
+      sourceRecipes: [{ recipeId: "recipe-palak", recipeName: "Palak Paneer" }],
+      sourceLabels: [],
+    });
+    const markup = renderGroceryItemMarkup(item);
+
+    expect(markup).toMatch(/grocery-item-name">garlic/i);
+    expect(markup).not.toMatch(/grocery-item-source-labels/i);
   });
 
   it("S8 TC10: UI renders source labels separately from ingredient name", () => {

@@ -82,7 +82,7 @@ function buildLabelsForSource(source, mealPlanByRecipeId, recipesById, todayKey)
 
   const upcomingEntries = mealEntries.filter((entry) => !isPastMealPlanEntry(entry, todayKey));
   if (upcomingEntries.length === 0) {
-    return [`${recipeName} - No upcoming meals planned`];
+    return [];
   }
 
   return sortMealPlanEntries(upcomingEntries).map((entry) => {
@@ -119,10 +119,9 @@ export function buildSourceLabelsForItem(item, { mealPlanByRecipeId, recipesById
 
   const todayKey = resolveTodayKey(today);
   const labels = sources.flatMap((source) => buildLabelsForSource(source, mealPlanByRecipeId, recipesById, todayKey));
-  const deduped = dedupeLabels(labels);
-
-  if (deduped.length > 0) return deduped;
-  return [item?.isManual ? "Manual item" : "Not tied to a recipe"];
+  // May be empty when every source recipe is only planned in the past —
+  // in that case the item renders with no labels at all.
+  return dedupeLabels(labels);
 }
 
 export function attachSourceLabels(items, { mealPlanEntries = [], recipesById = new Map(), today } = {}) {
