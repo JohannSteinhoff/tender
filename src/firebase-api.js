@@ -60,7 +60,8 @@ function normalizeRecipeStatus(status) {
   return status === 'draft' ? 'draft' : 'published';
 }
 
-function canReadRecipe(recipe, includeDraftsForUser) {
+function canReadRecipe(recipe, includeDraftsForUser, includePrivateForUser = null) {
+  if (recipe?.isPrivate === true && recipe?.createdBy !== includePrivateForUser) return false;
   if (normalizeRecipeStatus(recipe?.status) !== 'draft') return true;
   return !!includeDraftsForUser && recipe?.createdBy === includeDraftsForUser;
 }
@@ -99,6 +100,7 @@ function docToRecipe(snap) {
     createdBy: d.createdBy || '',
     createdAt: d.createdAt || null,
     status: normalizeRecipeStatus(d.status),
+    isPrivate: d.isPrivate === true,
   };
 }
 
@@ -266,7 +268,7 @@ const TenderAPI = {
     const snap = await getDocs(query(collection(db, 'recipes'), orderBy('createdAt', 'asc')));
     return snap.docs
       .map(docToRecipe)
-      .filter(recipe => canReadRecipe(recipe, null));
+      .filter(recipe => canReadRecipe(recipe, null, currentUid()));
   },
 
   async getDiscoverRecipes(limit = 50) {
@@ -277,7 +279,7 @@ const TenderAPI = {
     const snap = await getDoc(doc(db, 'recipes', id));
     if (!snap.exists()) throw new Error('Recipe not found');
     const recipe = docToRecipe(snap);
-    if (!canReadRecipe(recipe, null)) throw new Error('Recipe not found');
+    if (!canReadRecipe(recipe, null, currentUid())) throw new Error('Recipe not found');
     return recipe;
   },
 
@@ -294,7 +296,7 @@ const TenderAPI = {
     const recipes = await Promise.all(
       likedIds.map(id => getDoc(doc(db, 'recipes', id)).then(s => s.exists() ? docToRecipe(s) : null))
     );
-    return recipes.filter(recipe => recipe && canReadRecipe(recipe, null));
+    return recipes.filter(recipe => recipe && canReadRecipe(recipe, null, uid));
   },
 
   async likeRecipe(id) {

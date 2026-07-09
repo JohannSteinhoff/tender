@@ -296,7 +296,7 @@ class GroceryListPage {
       const recipeResults = await Promise.all(
         Array.from(sourceRecipeIds).map(async (recipeId) => {
           try {
-            return [recipeId, await getRecipeById(recipeId)];
+            return [recipeId, await getRecipeById(recipeId, { includePrivateForUser: this.uid })];
           } catch (error) {
             console.error(`Failed to load recipe "${recipeId}" for grocery labels:`, error);
             return [recipeId, null];
@@ -449,7 +449,7 @@ class GroceryListPage {
 
     try {
       const [recipes, likedIds, mealPlanEntries] = await Promise.all([
-        getAllRecipes(),
+        getAllRecipes({ includePrivateForUser: this.uid }),
         getLikedRecipeIds(this.uid),
         getMealPlanEntries(this.uid).catch((error) => {
           console.error("Failed to load meal plan for batch sizes:", error);

@@ -63,6 +63,7 @@ function normalizeRecipe(recipe) {
   return {
     ...recipe,
     status: normalizeRecipeStatus(recipe?.status),
+    isPrivate: recipe?.isPrivate === true,
   };
 }
 
@@ -109,8 +110,9 @@ function prepareRecipeForWrite(data, { defaultStatus } = {}) {
   return next;
 }
 
-function canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts = false) {
+function canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts = false, includePrivateForUser = null) {
   if (includeAllDrafts) return true;
+  if (recipe?.isPrivate === true && recipe?.createdBy !== includePrivateForUser) return false;
   if (normalizeRecipeStatus(recipe?.status) !== DRAFT_STATUS) return true;
   return !!includeDraftsForUser && recipe?.createdBy === includeDraftsForUser;
 }
@@ -122,10 +124,11 @@ export async function getAllRecipes(options = {}) {
     : (options || {});
   const includeDraftsForUser = normalizedOptions.includeDraftsForUser || null;
   const includeAllDrafts = !!normalizedOptions.includeAllDrafts;
+  const includePrivateForUser = normalizedOptions.includePrivateForUser || null;
   const snap = await getDocs(query(collection(db, RECIPES_COL), orderBy('createdAt', 'asc')));
   return snap.docs
     .map(d => normalizeRecipe({ id: d.id, ...d.data() }))
-    .filter(recipe => canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts));
+    .filter(recipe => canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts, includePrivateForUser));
 }
 
 /** Fetch a single recipe by Firestore doc ID. */
@@ -135,10 +138,11 @@ export async function getRecipeById(id, options = {}) {
     : (options || {});
   const includeDraftsForUser = normalizedOptions.includeDraftsForUser || null;
   const includeAllDrafts = !!normalizedOptions.includeAllDrafts;
+  const includePrivateForUser = normalizedOptions.includePrivateForUser || null;
   const snap = await getDoc(doc(db, RECIPES_COL, id));
   if (!snap.exists()) return null;
   const recipe = normalizeRecipe({ id: snap.id, ...snap.data() });
-  return canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts) ? recipe : null;
+  return canReadRecipe(recipe, includeDraftsForUser, includeAllDrafts, includePrivateForUser) ? recipe : null;
 }
 
 /** Create a new recipe. Returns the new recipe object. */

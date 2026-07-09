@@ -1,6 +1,6 @@
 import { requireAuth } from '../auth.js';
 import { getUserProfile, getUserProfiles, getNotifications, markNotificationRead } from '../api/users.js';
-import { getAllRecipes, getLikedRecipeIds, deleteRecipe } from '../api/recipes.js';
+import { getAllRecipes, getLikedRecipeIds, deleteRecipe, updateRecipe } from '../api/recipes.js';
 import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
 import { openRecipeModal } from '../components/recipeModal.js';
@@ -63,7 +63,7 @@ async function init() {
   const [prof, liked, recipes] = await Promise.all([
     getUserProfile(uid),
     getLikedRecipeIds(uid),
-    getAllRecipes({ includeDraftsForUser: uid }),
+    getAllRecipes({ includeDraftsForUser: uid, includePrivateForUser: uid }),
   ]);
 
   profile = prof || { uid };
@@ -251,11 +251,12 @@ function renderMyRecipes() {
     return;
   }
 
-  const dotsMenuHtml = `
+  const dotsMenuHtml = (recipe) => `
     <div class="card-owner-actions">
       <button class="card-dots-btn" data-action="dots" aria-label="Options">&#8942;</button>
       <div class="card-dots-menu" style="display:none">
         <button data-action="edit">&#9998;&#xFE0F; Edit</button>
+        ${isDraftRecipe(recipe) ? '' : `<button data-action="privacy">${recipe.isPrivate ? '&#x1F310; Make Public' : '&#x1F512; Make Private'}</button>`}
         <button data-action="delete">&#128465;&#xFE0F; Delete</button>
       </div>
     </div>`;
@@ -280,6 +281,7 @@ function renderMyRecipes() {
             <div class="my-recipe-list-name-row">
               <div class="my-recipe-list-name">${escapeHtml(recipeName)}</div>
               ${isDraft ? '<span class="my-recipe-status-pill is-draft">Draft</span>' : ''}
+              ${!isDraft && r.isPrivate ? '<span class="my-recipe-status-pill is-private">&#x1F512; Private</span>' : ''}
             </div>
             <div class="my-recipe-list-meta">${isDraft
               ? (meta || 'Private draft · Finish it before posting')
@@ -292,7 +294,7 @@ function renderMyRecipes() {
             : `<button class="card-plan-btn my-recipe-plan-btn" data-action="plan" aria-label="Add ${escapeHtml(recipeName)} to meal plan">
                  &#x1F4C5; Plan
                </button>`}
-          ${dotsMenuHtml}
+          ${dotsMenuHtml(r)}
         </div>`;
     }).join('');
   } else {
@@ -309,9 +311,10 @@ function renderMyRecipes() {
           <div class="my-recipe-info">
             <div class="my-recipe-name-row">
               <div class="my-recipe-name">${escapeHtml(recipeName)}</div>
-              ${dotsMenuHtml}
+              ${dotsMenuHtml(r)}
             </div>
             ${isDraft ? '<div class="my-recipe-status-pill is-draft">Private Draft</div>' : ''}
+            ${!isDraft && r.isPrivate ? '<div class="my-recipe-status-pill is-private">&#x1F512; Private</div>' : ''}
             <div class="my-recipe-meta">
               ${r.cuisine ? `<span>${capitalizeFirst(r.cuisine)}</span>` : ''}
               ${r.cookTime ? `<span>&#x23F1; ${r.cookTime} min</span>` : ''}
@@ -373,6 +376,26 @@ function renderMyRecipes() {
       e.stopPropagation();
       card.querySelector('.card-dots-menu').style.display = 'none';
       openEditor(recipe);
+    });
+
+    card.querySelector('[data-action="privacy"]')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      card.querySelector('.card-dots-menu').style.display = 'none';
+      const makePrivate = !recipe.isPrivate;
+      try {
+        await updateRecipe(id, { isPrivate: makePrivate });
+        recipe.isPrivate = makePrivate;
+        renderMyRecipes();
+        showToast(
+          makePrivate
+            ? 'Recipe is now private — only you can see it here in your Cook Nook.'
+            : 'Recipe is public again.',
+          'success'
+        );
+      } catch (err) {
+        console.error('Failed to update recipe privacy:', err);
+        showToast('Could not update recipe privacy', 'error');
+      }
     });
 
     card.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
