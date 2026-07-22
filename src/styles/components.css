@@ -826,6 +826,7 @@ html.dark-mode .auth-gate-btn-secondary {
   border: 1px solid var(--border-color);
   border-radius: 999px;
   background: var(--bg-card);
+  color: var(--text-primary);
   padding: 5px 11px;
   font: inherit;
   font-size: 0.82em;
@@ -841,6 +842,7 @@ html.dark-mode .auth-gate-btn-secondary {
   border: 1px solid var(--border-color);
   border-radius: 999px;
   background: var(--bg-card);
+  color: var(--text-primary);
   padding: 5px 9px;
   font: inherit;
   font-size: 0.8em;
