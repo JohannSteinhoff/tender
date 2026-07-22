@@ -345,55 +345,175 @@ async function savePreferences() {
   }
 }
 
-// ── Photo upload ────────────────────────────────────────────────
+// ── Photo upload / crop ─────────────────────────────────────────
 
-function compressImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const MAX = 256;
-        let { width, height } = img;
-        if (width > height) { if (width  > MAX) { height = Math.round(height * MAX / width);  width  = MAX; } }
-        else                 { if (height > MAX) { width  = Math.round(width  * MAX / height); height = MAX; } }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+const OUTPUT_SIZE = 320; // saved avatar is a square dataURL of this size
+const MIN_ZOOM = 1;      // multiplier over the "fit the circle" scale
+const MAX_ZOOM = 4;
+
+const photoInput  = document.getElementById('photoInput');
+const cropOverlay = document.getElementById('avatarCropOverlay');
+const cropStage   = document.getElementById('avatarCropStage');
+const cropImg     = document.getElementById('avatarCropImg');
+const cropZoom    = document.getElementById('avatarCropZoom');
+const cropConfirm = document.getElementById('avatarCropConfirm');
+const cropCancel  = document.getElementById('avatarCropCancel');
+const cropClose   = document.getElementById('avatarCropClose');
+
+let cropState = null; // { naturalWidth, naturalHeight, stageSize, baseScale, scale, panX, panY }
+
+function resetPhotoInput() {
+  photoInput.value = '';
 }
 
-document.getElementById('photoInput').addEventListener('change', async (e) => {
+function closeCropModal() {
+  cropOverlay.classList.add('hidden');
+  cropImg.removeAttribute('src');
+  cropState = null;
+  resetPhotoInput();
+}
+
+function clampCropPan(state) {
+  const width  = state.naturalWidth  * state.scale;
+  const height = state.naturalHeight * state.scale;
+  const maxPanX = Math.max(0, (width  - state.stageSize) / 2);
+  const maxPanY = Math.max(0, (height - state.stageSize) / 2);
+  state.panX = Math.min(maxPanX, Math.max(-maxPanX, state.panX));
+  state.panY = Math.min(maxPanY, Math.max(-maxPanY, state.panY));
+}
+
+function applyCropTransform() {
+  const state = cropState;
+  if (!state) return;
+  const width  = state.naturalWidth  * state.scale;
+  const height = state.naturalHeight * state.scale;
+  cropImg.style.width  = `${width}px`;
+  cropImg.style.height = `${height}px`;
+  cropImg.style.left = `${(state.stageSize - width)  / 2 + state.panX}px`;
+  cropImg.style.top  = `${(state.stageSize - height) / 2 + state.panY}px`;
+}
+
+function setCropZoomFraction(fraction) {
+  const state = cropState;
+  if (!state) return;
+  fraction = Math.min(1, Math.max(0, fraction));
+  state.scale = state.baseScale * (MIN_ZOOM + fraction * (MAX_ZOOM - MIN_ZOOM));
+  clampCropPan(state);
+  applyCropTransform();
+}
+
+function openCropModal(file) {
+  const reader = new FileReader();
+  reader.onerror = () => { alert('Could not read that file.'); resetPhotoInput(); };
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onerror = () => { alert('Could not load that image.'); resetPhotoInput(); };
+    img.onload = () => {
+      cropImg.src = e.target.result;
+      cropOverlay.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        const stageSize = cropStage.clientWidth;
+        const baseScale = Math.max(stageSize / img.naturalWidth, stageSize / img.naturalHeight);
+        cropState = {
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+          stageSize,
+          baseScale,
+          scale: baseScale,
+          panX: 0,
+          panY: 0,
+        };
+        cropZoom.value = '0';
+        applyCropTransform();
+      });
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+photoInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!uid) { alert('Still loading — please try again.'); return; }
+  if (!uid) { alert('Still loading — please try again.'); resetPhotoInput(); return; }
+  openCropModal(file);
+});
 
-  const label = document.getElementById('avatarUploadBtn');
-  label.textContent = 'Saving...';
-  label.style.pointerEvents = 'none';
+let cropDragId = null;
+let cropDragStart = null;
+
+cropStage.addEventListener('pointerdown', (e) => {
+  if (!cropState) return;
+  cropDragId = e.pointerId;
+  cropDragStart = { x: e.clientX, y: e.clientY, panX: cropState.panX, panY: cropState.panY };
+  cropStage.setPointerCapture(e.pointerId);
+  cropStage.classList.add('dragging');
+});
+
+cropStage.addEventListener('pointermove', (e) => {
+  if (cropDragId !== e.pointerId || !cropState || !cropDragStart) return;
+  cropState.panX = cropDragStart.panX + (e.clientX - cropDragStart.x);
+  cropState.panY = cropDragStart.panY + (e.clientY - cropDragStart.y);
+  clampCropPan(cropState);
+  applyCropTransform();
+});
+
+function endCropDrag(e) {
+  if (cropDragId !== e.pointerId) return;
+  cropDragId = null;
+  cropDragStart = null;
+  cropStage.classList.remove('dragging');
+}
+cropStage.addEventListener('pointerup', endCropDrag);
+cropStage.addEventListener('pointercancel', endCropDrag);
+
+cropStage.addEventListener('wheel', (e) => {
+  if (!cropState) return;
+  e.preventDefault();
+  const step = e.deltaY > 0 ? -4 : 4;
+  cropZoom.value = String(Math.min(100, Math.max(0, Number(cropZoom.value) + step)));
+  setCropZoomFraction(Number(cropZoom.value) / 100);
+}, { passive: false });
+
+cropZoom.addEventListener('input', () => {
+  setCropZoomFraction(Number(cropZoom.value) / 100);
+});
+
+cropCancel.addEventListener('click', closeCropModal);
+cropClose.addEventListener('click', closeCropModal);
+cropOverlay.addEventListener('click', (e) => { if (e.target === cropOverlay) closeCropModal(); });
+
+cropConfirm.addEventListener('click', async () => {
+  if (!cropState || !uid) return;
+  cropConfirm.textContent = 'Saving...';
+  cropConfirm.disabled = true;
   try {
-    const dataURL = await compressImage(file);
+    const state = cropState;
+    const outScale = OUTPUT_SIZE / state.stageSize;
+    const drawWidth  = state.naturalWidth  * state.scale * outScale;
+    const drawHeight = state.naturalHeight * state.scale * outScale;
+    const drawLeft = ((state.stageSize - state.naturalWidth  * state.scale) / 2 + state.panX) * outScale;
+    const drawTop  = ((state.stageSize - state.naturalHeight * state.scale) / 2 + state.panY) * outScale;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = OUTPUT_SIZE;
+    canvas.height = OUTPUT_SIZE;
+    canvas.getContext('2d').drawImage(cropImg, drawLeft, drawTop, drawWidth, drawHeight);
+    const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+
     await updateUserProfile(uid, { photoURL: dataURL });
     if (profile) profile.photoURL = dataURL;
     const avatarEl = document.getElementById('accountAvatar');
     avatarEl.innerHTML = `<img src="${dataURL}" alt="Profile photo">`;
     avatarEl.classList.add('has-photo');
     if (profile) renderNav('account', profile);
-    label.textContent = 'Change Photo';
+    closeCropModal();
   } catch (err) {
     console.error(err);
     alert(`Failed to save photo: ${err.message}`);
-    label.textContent = 'Change Photo';
   } finally {
-    label.style.pointerEvents = '';
-    e.target.value = '';
+    cropConfirm.textContent = 'Save Photo';
+    cropConfirm.disabled = false;
   }
 });
 
