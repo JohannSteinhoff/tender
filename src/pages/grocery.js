@@ -7,6 +7,7 @@ import {
   removeInvite,
   removeMember,
   transferOwnership,
+  renameLinkedList,
   getListMembers,
   getPendingInvitees,
   searchAddableUsers,
@@ -725,8 +726,10 @@ class GroceryListPage {
       document.querySelector(".page-header > div")?.appendChild(toggle);
     }
 
+    const linkedLabel = this.linkedList.name ? escapeHtml(this.linkedList.name) : "Linked List";
+
     toggle.innerHTML = `
-      <button type="button" class="grocery-toggle-pill${!this.viewingPersonal ? " active" : ""}" data-target="linked">&#x1F517; Linked List</button>
+      <button type="button" class="grocery-toggle-pill${!this.viewingPersonal ? " active" : ""}" data-target="linked" title="${linkedLabel}">&#x1F517; ${linkedLabel}</button>
       <button type="button" class="grocery-toggle-pill${this.viewingPersonal ? " active" : ""}" data-target="personal">&#x1F464; My List</button>
     `;
 
@@ -763,6 +766,7 @@ class GroceryListPage {
       <div class="confirm-dialog link-list-dialog">
         <h3>Link Grocery List</h3>
         <p class="link-list-hint">Invite someone to link your list with theirs — once they accept, it's one list that updates live for both of you.</p>
+        <div class="link-list-name-row" id="linkListNameRow"></div>
         <div class="link-list-members" id="linkListMembers"></div>
         <div class="link-list-search">
           <input type="text" id="linkListSearchInput" placeholder="Search by name or email" autocomplete="off">
@@ -774,9 +778,63 @@ class GroceryListPage {
       </div>`;
     document.body.appendChild(overlay);
 
+    const nameRowEl = overlay.querySelector("#linkListNameRow");
     const membersEl = overlay.querySelector("#linkListMembers");
     const searchInput = overlay.querySelector("#linkListSearchInput");
     const resultsEl = overlay.querySelector("#linkListResults");
+
+    const renderNameRow = () => {
+      if (!this.linkedList) {
+        nameRowEl.innerHTML = "";
+        return;
+      }
+
+      const isOwnerViewing = this.linkedList.ownerId === this.uid;
+      const currentName = this.linkedList.name || "";
+
+      if (!isOwnerViewing) {
+        nameRowEl.innerHTML = currentName
+          ? `<p class="link-list-name-readonly">List name: <strong>${escapeHtml(currentName)}</strong></p>`
+          : "";
+        return;
+      }
+
+      nameRowEl.innerHTML = `
+        <label class="link-list-name-label" for="linkListNameInput">List name</label>
+        <div class="link-list-name-editor">
+          <input type="text" id="linkListNameInput" placeholder="e.g. The Smiths" maxlength="60" value="${escapeHtml(currentName)}">
+          <button type="button" id="linkListNameSaveBtn">Save</button>
+        </div>`;
+
+      const input = nameRowEl.querySelector("#linkListNameInput");
+      const saveBtn = nameRowEl.querySelector("#linkListNameSaveBtn");
+
+      const saveName = async () => {
+        const newName = input.value.trim();
+        if (newName === (this.linkedList.name || "")) return;
+
+        saveBtn.disabled = true;
+        try {
+          await renameLinkedList(this.linkedList.id, newName);
+          this.linkedList.name = newName;
+          this.renderListToggle();
+          showToast(newName ? "List name updated." : "List name cleared.", "success");
+        } catch (error) {
+          console.error("Failed to rename linked list:", error);
+          showToast("Could not update the list name.", "error");
+        } finally {
+          saveBtn.disabled = false;
+        }
+      };
+
+      saveBtn.addEventListener("click", saveName);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          saveName();
+        }
+      });
+    };
 
     const renderMembers = () => {
       const isOwnerViewing = this.linkedList?.ownerId === this.uid;
@@ -960,6 +1018,7 @@ class GroceryListPage {
             searchInput.value = "";
             searchResults = [];
             resultsEl.innerHTML = "";
+            renderNameRow();
             renderMembers();
             this.renderListToggle();
 
@@ -999,6 +1058,7 @@ class GroceryListPage {
     };
 
     searchInput.addEventListener("input", () => { runSearch(); });
+    renderNameRow();
     renderMembers();
 
     const close = () => overlay.remove();

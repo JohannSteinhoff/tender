@@ -105,6 +105,14 @@ export async function transferOwnership(listId, newOwnerUid) {
   });
 }
 
+/** Rename a linked list — owner only (enforced by rules). Pass "" to clear
+ *  a custom name and fall back to the generic "Linked List" label. */
+export async function renameLinkedList(listId, name) {
+  await updateDoc(doc(db, LISTS_COLLECTION, listId), {
+    name: String(name || "").trim(),
+  });
+}
+
 /** Resolve profile info for every member of a linked list. */
 export async function getListMembers(listId) {
   const snap = await getDoc(doc(db, LISTS_COLLECTION, listId));

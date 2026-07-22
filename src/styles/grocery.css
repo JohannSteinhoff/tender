@@ -766,6 +766,9 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grocery-toggle-pill:hover { color: var(--text-primary); }
@@ -783,6 +786,65 @@
 
 .link-list-hint {
   margin-bottom: 18px !important;
+}
+
+.link-list-name-row:empty {
+  display: none;
+}
+
+.link-list-name-label {
+  display: block;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.link-list-name-editor {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.link-list-name-editor input {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
+.link-list-name-editor input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.link-list-name-editor button {
+  background: var(--gradient);
+  border: none;
+  color: white;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85em;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.link-list-name-editor button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.link-list-name-readonly {
+  font-size: 0.88em;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
 }
 
 .link-list-members {
