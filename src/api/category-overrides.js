@@ -55,3 +55,16 @@ export async function clearGlobalCategoryOverride(name) {
   if (!id) return;
   await deleteDoc(doc(db, COLLECTION, id));
 }
+
+/** Fetch every category override with its full metadata (who set it, when) —
+ *  for admin review, as opposed to getCategoryOverrides()'s lookup map. */
+export async function getAllCategoryOverrides() {
+  const snap = await getDocs(collection(db, COLLECTION));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** Remove an override by its known doc id — avoids re-deriving the id from
+ *  a name when the caller already has the doc (e.g. an admin list view). */
+export async function clearCategoryOverrideById(id) {
+  await deleteDoc(doc(db, COLLECTION, id));
+}

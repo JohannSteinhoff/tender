@@ -10,6 +10,7 @@ import {
   unlikeRecipe
 } from '../api/recipes.js';
 import { createNotification, getNotificationPrefs, getUserProfile } from '../api/users.js';
+import { reportContent } from '../api/reports.js';
 import { openMealPlanPrompt } from './mealPlanPrompt.js';
 import { showToast } from './toast.js';
 import { toggleGuestLike } from '../utils/guestLikes.js';
@@ -118,6 +119,7 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
           </button>
           ${isOwner && options.onEdit ? `<button class="btn-edit-modal" id="modalEditBtn">&#9998;&#xFE0F; Edit Recipe</button>` : ''}
           ${isOwner && options.onDelete ? `<button class="btn-delete-modal" id="modalDeleteBtn">&#128465;&#xFE0F; Delete Recipe</button>` : ''}
+          ${uid && !isOwner ? `<button class="btn-report-modal" id="modalReportBtn">&#x1F6A9; Report Recipe</button>` : ''}
         </div>
         <div class="modal-share-row">
           <button class="btn-share-modal" id="modalShareBtn" title="Copy link to recipe" aria-label="Share recipe">
@@ -256,6 +258,30 @@ export function openRecipeModal(recipe, uid, likedIds, onLikeChange, author = nu
     copyRecipeLink(recipe.id);
   });
 
+  if (uid && !isOwner) {
+    document.getElementById('modalReportBtn').addEventListener('click', async () => {
+      const reason = await showReportPrompt('this recipe');
+      if (!reason) return;
+      try {
+        const me = await getUserProfile(uid);
+        const reporterName = `${me?.firstName || ''} ${me?.lastName || ''}`.trim() || me?.displayName || 'A user';
+        await reportContent({
+          targetType: 'recipe',
+          recipeId: recipe.id,
+          reporterUid: uid,
+          reporterName,
+          reason,
+          recipeName: recipe.name,
+          contentAuthorUid: recipe.createdBy || null,
+        });
+        showToast('Report submitted — thanks for flagging this.', 'success');
+      } catch (err) {
+        console.error('Failed to submit report', err);
+        showToast('Could not submit report', 'error');
+      }
+    });
+  }
+
   wireComments({
     overlay,
     recipe,
@@ -310,6 +336,7 @@ async function wireComments({ overlay, recipe, uid }) {
               &#x2764;&#xFE0F; ${comment.likeCount || 0}
             </button>
             <button type="button" class="comment-reply-toggle-btn" data-action="toggle-reply-form">Reply</button>
+            ${uid && comment.userId !== uid ? `<button type="button" class="comment-report-btn" data-action="report-comment" aria-label="Report comment" title="Report comment">&#x1F6A9;</button>` : ''}
           </div>
           <form class="comment-reply-form" data-form="reply" style="display:none">
             <textarea maxlength="${MAX_COMMENT_LENGTH}" required placeholder="Write a reply..."></textarea>
@@ -320,12 +347,13 @@ async function wireComments({ overlay, recipe, uid }) {
           ${replies.length ? `
           <div class="comment-replies">
             ${replies.map((reply) => `
-              <div class="reply-item">
+              <div class="reply-item" data-reply-id="${reply.id}">
                 <div class="comment-top-row">
                   <a class="comment-author" href="${escapeHtml(reply.profilePath || `/profile.html?uid=${encodeURIComponent(reply.userId || '')}`)}">${escapeHtml(commentAuthorName(reply))}</a>
                   <span class="comment-time">${escapeHtml(formatTimestamp(reply.createdAt))}</span>
                 </div>
                 <p class="comment-text">${escapeHtml(reply.text || '')}</p>
+                ${uid && reply.userId !== uid ? `<button type="button" class="comment-report-btn reply-report-btn" data-action="report-reply" data-reply-id="${reply.id}" aria-label="Report reply" title="Report reply">&#x1F6A9;</button>` : ''}
               </div>
             `).join('')}
           </div>` : ''}
@@ -447,6 +475,63 @@ async function wireComments({ overlay, recipe, uid }) {
       return;
     }
 
+    if (e.target.closest('[data-action="report-comment"]')) {
+      const reason = await showReportPrompt('this comment');
+      if (!reason) return;
+      try {
+        const me = await ensureCurrentProfile();
+        const reporterName = `${me?.firstName || ''} ${me?.lastName || ''}`.trim() || me?.displayName || 'A user';
+        await reportContent({
+          targetType: 'comment',
+          recipeId: recipe.id,
+          commentId,
+          reporterUid: uid,
+          reporterName,
+          reason,
+          recipeName: recipe.name,
+          contentPreview: truncate(comment.text),
+          contentAuthorUid: comment.userId || null,
+          contentAuthorName: comment.displayName || null,
+        });
+        showToast('Report submitted — thanks for flagging this.', 'success');
+      } catch (err) {
+        console.error('Failed to submit report', err);
+        showToast('Could not submit report', 'error');
+      }
+      return;
+    }
+
+    const reportReplyBtn = e.target.closest('[data-action="report-reply"]');
+    if (reportReplyBtn) {
+      const replyId = reportReplyBtn.dataset.replyId;
+      const reply = (comment.replies || []).find((r) => r.id === replyId);
+      if (!reply) return;
+      const reason = await showReportPrompt('this reply');
+      if (!reason) return;
+      try {
+        const me = await ensureCurrentProfile();
+        const reporterName = `${me?.firstName || ''} ${me?.lastName || ''}`.trim() || me?.displayName || 'A user';
+        await reportContent({
+          targetType: 'reply',
+          recipeId: recipe.id,
+          commentId,
+          replyId,
+          reporterUid: uid,
+          reporterName,
+          reason,
+          recipeName: recipe.name,
+          contentPreview: truncate(reply.text),
+          contentAuthorUid: reply.userId || null,
+          contentAuthorName: reply.displayName || null,
+        });
+        showToast('Report submitted — thanks for flagging this.', 'success');
+      } catch (err) {
+        console.error('Failed to submit report', err);
+        showToast('Could not submit report', 'error');
+      }
+      return;
+    }
+
     if (e.target.closest('[data-action="toggle-like"]')) {
       const btn = item.querySelector('[data-action="toggle-like"]');
       if (!btn) return;
@@ -524,6 +609,53 @@ async function wireComments({ overlay, recipe, uid }) {
     console.error('Failed loading comments', err);
     listEl.innerHTML = '<div class="comments-empty">Could not load comments right now.</div>';
   }
+}
+
+/** Prompts for a report reason — resolves the trimmed reason string, or
+ *  null if cancelled/empty. Same confirm-overlay pattern used elsewhere
+ *  (e.g. grocery.js's showClearAllConfirm), with a textarea instead of
+ *  static copy. */
+function showReportPrompt(subjectLabel) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+    overlay.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-icon">&#x1F6A9;</div>
+        <h3>Report ${escapeHtml(subjectLabel)}</h3>
+        <p>Let an admin know what's wrong. This is sent for review, not shared publicly.</p>
+        <textarea class="confirm-textarea" placeholder="What's the issue?" maxlength="500"></textarea>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn">Cancel</button>
+          <button class="confirm-report-btn">Submit Report</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const textarea = overlay.querySelector('.confirm-textarea');
+    textarea.focus();
+
+    function done(result) {
+      overlay.classList.add('confirm-hiding');
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener('keydown', escHandlerLocal);
+      resolve(result);
+    }
+
+    function escHandlerLocal(e) { if (e.key === 'Escape') done(null); }
+
+    overlay.querySelector('.confirm-cancel-btn').addEventListener('click', () => done(null));
+    overlay.querySelector('.confirm-report-btn').addEventListener('click', () => {
+      const reason = textarea.value.trim();
+      if (!reason) {
+        textarea.focus();
+        return;
+      }
+      done(reason);
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
+    document.addEventListener('keydown', escHandlerLocal);
+  });
 }
 
 function copyRecipeLink(recipeId) {

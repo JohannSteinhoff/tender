@@ -209,17 +209,34 @@ service cloud.firestore {
           && request.resource.data.invitedUids == resource.data.invitedUids.removeAll([request.auth.uid]);
       }
 
-      allow read: if isMember() || isInvited();
+      allow read: if isMember() || isInvited() || isAdmin();
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.members == [request.auth.uid];
       allow update: if isListOwner() || isSelfLeave() || isSelfAccept() || isSelfDecline();
-      allow delete: if isListOwner();
+      allow delete: if isListOwner() || isAdmin();
 
       match /items/{itemId} {
         allow read, write: if isSignedIn()
-          && request.auth.uid in get(/databases/$(database)/documents/groceryLists/$(listId)).data.members;
+          && (request.auth.uid in get(/databases/$(database)/documents/groceryLists/$(listId)).data.members
+              || isAdmin());
       }
+    }
+
+    // Append-only moderation audit trail — admins only, never editable.
+    match /moderationLog/{logId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // User-filed content reports. Anyone signed in can file one for
+    // themselves as pending; only admins can read the queue or resolve one.
+    match /reports/{reportId} {
+      allow read, update: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow delete: if false;
     }
 
     match /{document=**} {

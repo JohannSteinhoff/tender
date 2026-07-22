@@ -1,5 +1,6 @@
-import { auth } from './firebase.js';
+import { auth, db } from './firebase.js';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 /**
  * Returns the current Firebase user. Waits for auth to initialise.
@@ -12,6 +13,9 @@ export function requireAuth() {
       if (!user) {
         window.location.replace('/login.html');
       } else {
+        // Fire-and-forget — every authenticated page goes through here, so
+        // this is the one place to stamp "last active" app-wide.
+        updateDoc(doc(db, 'users', user.uid), { lastActiveAt: serverTimestamp() }).catch(() => {});
         resolve(user);
       }
     });

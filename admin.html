@@ -18,73 +18,144 @@
   <nav id="app-nav"></nav>
 
   <main class="admin-page">
-    <section class="admin-hero">
-      <div>
-        <p class="admin-eyebrow">Admin Console</p>
-        <h1>Manage recipes and users</h1>
-        <p class="admin-subtitle">Delete recipes, moderate recipe comments, remove user data, and promote or demote other admins.</p>
+    <div class="console-statusbar">
+      <div class="console-statusbar-left">
+        <span class="console-path">Admin Console</span>
       </div>
-      <div class="admin-summary" id="adminSummary">
-        <div class="admin-summary-card">
-          <span class="admin-summary-label">Users</span>
-          <strong id="userCount">0</strong>
-        </div>
-        <div class="admin-summary-card">
-          <span class="admin-summary-label">Recipes</span>
-          <strong id="recipeCount">0</strong>
-        </div>
-        <div class="admin-summary-card">
-          <span class="admin-summary-label">Admins</span>
-          <strong id="adminCount">0</strong>
-        </div>
+      <div class="console-statusbar-right" id="adminSummary">
+        <span class="console-stat">users <strong id="userCount">0</strong></span>
+        <span class="console-stat">recipes <strong id="recipeCount">0</strong></span>
+        <span class="console-stat">admins <strong id="adminCount">0</strong></span>
       </div>
-    </section>
+    </div>
 
-    <section class="admin-layout">
-      <div class="admin-card">
-        <div class="admin-card-header">
-          <div>
-            <h2>Users</h2>
-            <p>Promote admins or delete a user's Firestore data.</p>
-          </div>
-          <input id="userSearch" class="admin-search" type="search" placeholder="&gt; grep users...">
-        </div>
-        <div class="admin-list" id="userList">
-          <div class="admin-empty">Loading users...</div>
-        </div>
-      </div>
+    <p class="console-intro">Manage users, recipes, grocery lists, category overrides, and user-filed reports.</p>
 
-      <div class="admin-card">
-        <div class="admin-card-header">
-          <div>
-            <h2>Recipes</h2>
-            <p>Delete any recipe, review recipe comments, and send a reason to the affected user.</p>
-          </div>
-          <input id="recipeSearch" class="admin-search" type="search" placeholder="&gt; grep recipes...">
-        </div>
-        <div class="admin-list" id="recipeList">
-          <div class="admin-empty">Loading recipes...</div>
-        </div>
-      </div>
-    </section>
+    <div class="console-body">
+      <nav class="console-sidebar" id="consoleTabs">
+        <button type="button" class="console-tab active" data-tab="users">
+          <span class="console-tab-icon">&#9656;</span>
+          <span class="console-tab-label">users.json</span>
+          <span class="console-tab-count" id="tabUserCount">0</span>
+        </button>
+        <button type="button" class="console-tab" data-tab="recipes">
+          <span class="console-tab-icon">&#9656;</span>
+          <span class="console-tab-label">recipes.json</span>
+          <span class="console-tab-count" id="tabRecipeCount">0</span>
+        </button>
+        <button type="button" class="console-tab" data-tab="groceries">
+          <span class="console-tab-icon">&#9656;</span>
+          <span class="console-tab-label">groceries.json</span>
+          <span class="console-tab-count" id="tabGroceryCount">0</span>
+        </button>
+        <button type="button" class="console-tab" data-tab="overrides">
+          <span class="console-tab-icon">&#9656;</span>
+          <span class="console-tab-label">overrides.json</span>
+          <span class="console-tab-count" id="tabOverrideCount">0</span>
+        </button>
+        <button type="button" class="console-tab" data-tab="reports">
+          <span class="console-tab-icon">&#9656;</span>
+          <span class="console-tab-label">reports.json</span>
+          <span class="console-tab-count" id="tabReportCount">0</span>
+        </button>
+      </nav>
 
-    <section class="admin-logs-section">
-      <div class="admin-card">
-        <div class="admin-card-header">
-          <div>
-            <h2>Debug Logs</h2>
-            <p>Console output captured this session. Includes log, info, warn, and error.</p>
+      <div class="console-main">
+        <section class="console-panel active" data-panel="users">
+          <div class="admin-card-header">
+            <div>
+              <h2>Users</h2>
+              <p>Promote admins or delete a user's Firestore data.</p>
+            </div>
+            <input id="userSearch" class="admin-search" type="search" placeholder="&gt; grep users...">
           </div>
-          <div class="admin-logs-actions">
-            <button class="admin-btn admin-btn-secondary" id="copyLogsBtn">Copy all</button>
-            <button class="admin-btn admin-btn-secondary" id="clearLogsBtn">Clear</button>
+          <div class="admin-filter-row" id="userFilterRow">
+            <button type="button" class="admin-filter-btn active" data-filter="all">All</button>
+            <button type="button" class="admin-filter-btn" data-filter="admin">Admins</button>
+            <button type="button" class="admin-filter-btn" data-filter="member">Members</button>
           </div>
-        </div>
-        <div class="admin-log-list" id="logList">
-          <div class="admin-empty">No logs captured yet.</div>
+          <div class="admin-list" id="userList">
+            <div class="admin-empty">Loading users...</div>
+          </div>
+        </section>
+
+        <section class="console-panel" data-panel="recipes">
+          <div class="admin-card-header">
+            <div>
+              <h2>Recipes</h2>
+              <p>Delete any recipe, review recipe comments, and send a reason to the affected user.</p>
+            </div>
+            <input id="recipeSearch" class="admin-search" type="search" placeholder="&gt; grep recipes...">
+          </div>
+          <div class="admin-filter-row" id="recipeFilterRow">
+            <button type="button" class="admin-filter-btn active" data-filter="all">All</button>
+            <button type="button" class="admin-filter-btn" data-filter="published">Published</button>
+            <button type="button" class="admin-filter-btn" data-filter="draft">Draft</button>
+            <button type="button" class="admin-filter-btn" data-filter="private">Private</button>
+          </div>
+          <div class="admin-list" id="recipeList">
+            <div class="admin-empty">Loading recipes...</div>
+          </div>
+        </section>
+
+        <section class="console-panel" data-panel="groceries">
+          <div class="admin-card-header">
+            <div>
+              <h2>Grocery Lists</h2>
+              <p>Every linked grocery list — view membership and force-dissolve a stuck one.</p>
+            </div>
+          </div>
+          <div class="admin-list" id="groceryListsList">
+            <div class="admin-empty">Loading grocery lists...</div>
+          </div>
+        </section>
+
+        <section class="console-panel" data-panel="overrides">
+          <div class="admin-card-header">
+            <div>
+              <h2>Category Overrides</h2>
+              <p>Ingredient &rarr; store-section overrides, set from the grocery page's "..." menu.</p>
+            </div>
+          </div>
+          <div class="admin-list" id="overridesList">
+            <div class="admin-empty">Loading overrides...</div>
+          </div>
+        </section>
+
+        <section class="console-panel" data-panel="reports">
+          <div class="admin-card-header">
+            <div>
+              <h2>Reports</h2>
+              <p>Recipes, comments, and replies flagged by users, awaiting review.</p>
+            </div>
+          </div>
+          <div class="admin-filter-row" id="reportFilterRow">
+            <button type="button" class="admin-filter-btn active" data-filter="pending">Pending</button>
+            <button type="button" class="admin-filter-btn" data-filter="resolved">Resolved</button>
+            <button type="button" class="admin-filter-btn" data-filter="dismissed">Dismissed</button>
+            <button type="button" class="admin-filter-btn" data-filter="all">All</button>
+          </div>
+          <div class="admin-list" id="reportsList">
+            <div class="admin-empty">Loading reports...</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="console-drawer" id="logsDrawer">
+      <div class="console-drawer-header">
+        <button type="button" class="console-drawer-toggle" id="logsDrawerToggle">
+          <span class="console-drawer-caret">&#9656;</span> Debug Logs
+        </button>
+        <div class="console-drawer-actions">
+          <button type="button" class="admin-btn admin-btn-secondary" id="copyLogsBtn">Copy all</button>
+          <button type="button" class="admin-btn admin-btn-secondary" id="clearLogsBtn">Clear</button>
         </div>
       </div>
-    </section>
+      <div class="admin-log-list" id="logList">
+        <div class="admin-empty">No logs captured yet.</div>
+      </div>
+    </div>
   </main>
 
   <script type="module" src="/src/pages/admin.js"></script>

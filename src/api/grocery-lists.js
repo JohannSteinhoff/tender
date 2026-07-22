@@ -4,6 +4,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -13,6 +14,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { getAllUsers, getUserProfiles } from './users.js';
 
@@ -133,6 +135,24 @@ export async function getPendingInvitees(listId) {
 
   const profiles = await getUserProfiles(invitedUids);
   return invitedUids.map((uid) => ({ uid, ...(profiles[uid] || {}) }));
+}
+
+/** List every linked list in existence (admin only, per rules). */
+export async function getAllGroceryLists() {
+  const snap = await getDocs(listsRef());
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** Admin support tool: force-dissolve a linked list — deletes its items
+ *  subcollection, then the list doc itself. Members' watchMyLinkedList
+ *  subscriptions pick up the doc's disappearance and fall back to their
+ *  personal lists automatically, same as a normal self-unlink. */
+export async function deleteLinkedListCascade(listId) {
+  const itemsSnap = await getDocs(collection(db, LISTS_COLLECTION, listId, 'items'));
+  const batch = writeBatch(db);
+  itemsSnap.docs.forEach((itemDoc) => batch.delete(itemDoc.ref));
+  await batch.commit();
+  await deleteDoc(doc(db, LISTS_COLLECTION, listId));
 }
 
 /**

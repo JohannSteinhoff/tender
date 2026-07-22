@@ -281,6 +281,46 @@ html.dark-mode .auth-gate-btn-secondary {
   box-shadow: 0 6px 18px rgba(231,76,60,0.4);
 }
 
+.confirm-textarea {
+  width: 100%;
+  min-height: 84px;
+  margin-bottom: 20px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9em;
+  resize: vertical;
+}
+
+.confirm-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.confirm-report-btn {
+  flex: 1;
+  padding: 11px;
+  background: #d97706;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.95em;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(217,119,6,0.3);
+}
+
+.confirm-report-btn:hover {
+  background: #b45309;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(217,119,6,0.4);
+}
+
 .ar-unsaved-dialog {
   max-width: 460px;
   text-align: left;
@@ -608,7 +648,8 @@ html.dark-mode .auth-gate-btn-secondary {
 }
 
 .btn-edit-modal,
-.btn-delete-modal {
+.btn-delete-modal,
+.btn-report-modal {
   padding: 12px 14px;
   border-radius: 10px;
   border: 1.5px solid var(--border-color);
@@ -632,6 +673,13 @@ html.dark-mode .auth-gate-btn-secondary {
   border-color: #e74c3c;
   color: #e74c3c;
   background: #fde8e8;
+}
+
+.btn-report-modal:hover {
+  transform: translateY(-2px);
+  border-color: #d97706;
+  color: #d97706;
+  background: #fef3c7;
 }
 
 /* Share sits in its own compact row below the action grid */
@@ -787,6 +835,29 @@ html.dark-mode .auth-gate-btn-secondary {
 .comment-like-btn.active {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.comment-report-btn {
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-card);
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 0.8em;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: auto;
+  opacity: 0.7;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+
+.comment-report-btn:hover {
+  opacity: 1;
+  border-color: #d97706;
+}
+
+.reply-report-btn {
+  margin-top: 6px;
 }
 
 .comment-reply-form {
