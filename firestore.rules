@@ -42,7 +42,10 @@ service cloud.firestore {
     function validNotificationCreate(recipientId) {
       return request.resource.data.recipientUserId == recipientId
         && request.resource.data.actorUserId == request.auth.uid
-        && request.resource.data.type in ['recipe_comment', 'comment_reply', 'admin_recipe_removed', 'admin_comment_removed']
+        && request.resource.data.type in [
+          'recipe_comment', 'comment_reply', 'admin_recipe_removed', 'admin_comment_removed',
+          'grocery_list_invite', 'grocery_list_invite_response'
+        ]
         && request.resource.data.isRead == false;
     }
 
@@ -94,7 +97,7 @@ service cloud.firestore {
           && validNotificationCreate(userId);
         allow update: if request.auth != null
           && request.auth.uid == userId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'status']);
         allow delete: if false;
       }
     }
@@ -157,6 +160,66 @@ service cloud.firestore {
     match /groceryCategoryOverrides/{ingredientId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // Shared grocery lists — membership-gated. A user's uid must be in the
+    // members array to read/write the list or its items. Joining requires
+    // an invite: the owner adds a uid to invitedUids, and only that same
+    // uid can move themselves from invitedUids into members (accept) or
+    // drop themselves from invitedUids (decline) — nobody can add
+    // themselves straight to members.
+    match /groceryLists/{listId} {
+      function isMember() {
+        return isSignedIn() && request.auth.uid in resource.data.members;
+      }
+
+      function isInvited() {
+        return isSignedIn() && request.auth.uid in resource.data.get('invitedUids', []);
+      }
+
+      function isListOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.ownerId;
+      }
+
+      // A non-owner member may only remove themselves — nothing else about
+      // the doc may change in that same write.
+      function isSelfLeave() {
+        return isMember()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members == resource.data.members.removeAll([request.auth.uid])
+          && !(request.auth.uid in request.resource.data.members);
+      }
+
+      // An invitee accepting: moves their own uid from invitedUids to
+      // members in one write, touching nothing else.
+      function isSelfAccept() {
+        return isInvited()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'invitedUids'])
+          && request.resource.data.members.size() == resource.data.members.size() + 1
+          && request.resource.data.members.hasAll(resource.data.members)
+          && request.auth.uid in request.resource.data.members
+          && request.resource.data.invitedUids == resource.data.invitedUids.removeAll([request.auth.uid]);
+      }
+
+      // An invitee declining (or the owner cancelling a pending invite):
+      // just drops the uid from invitedUids.
+      function isSelfDecline() {
+        return isInvited()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['invitedUids'])
+          && request.resource.data.invitedUids == resource.data.invitedUids.removeAll([request.auth.uid]);
+      }
+
+      allow read: if isMember() || isInvited();
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members == [request.auth.uid];
+      allow update: if isListOwner() || isSelfLeave() || isSelfAccept() || isSelfDecline();
+      allow delete: if isListOwner();
+
+      match /items/{itemId} {
+        allow read, write: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/groceryLists/$(listId)).data.members;
+      }
     }
 
     match /{document=**} {

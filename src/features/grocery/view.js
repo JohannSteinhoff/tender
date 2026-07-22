@@ -98,6 +98,32 @@ export function renderSourceLabels(item) {
     </div>`;
 }
 
+export function initialsFor(name) {
+  return (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase() || '?';
+}
+
+// Only rendered when the active list has more than one member — membersById
+// is null/omitted entirely for personal (single-member) lists.
+function renderAddedByChip(item, membersById) {
+  if (!membersById || !item.addedBy) return "";
+
+  const member = membersById.get(item.addedBy);
+  const name = member
+    ? `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email || 'Member'
+    : (item.addedByName || 'Member');
+
+  return `
+    <span class="grocery-item-added-by ${member?.photoURL ? 'has-photo' : ''}" title="Added by ${escapeHtml(name)}">
+      ${member?.photoURL ? `<img src="${escapeHtml(member.photoURL)}" alt="">` : escapeHtml(initialsFor(name))}
+    </span>`;
+}
+
 function renderAdminMenu(item) {
   const catOptions = GROCERY_CATEGORIES.map(cat => {
     const isActive = item.categoryOverride === cat.id;
@@ -127,7 +153,7 @@ function renderAdminMenu(item) {
     </div>`;
 }
 
-export function renderGroceryItemMarkup(item, isAdmin = false) {
+export function renderGroceryItemMarkup(item, isAdmin = false, membersById = null) {
   return `
     <div class="grocery-item${item.checked ? " checked" : ""}" data-id="${item.id}">
       <input class="grocery-item-check" type="checkbox" ${item.checked ? "checked" : ""} aria-label="Check ${escapeHtml(item.name)}">
@@ -137,6 +163,7 @@ export function renderGroceryItemMarkup(item, isAdmin = false) {
         ${renderSelectedBrand(item)}
         ${renderRecommendedBrands(item)}
       </div>
+      ${renderAddedByChip(item, membersById)}
       <span class="grocery-item-qty" aria-label="Quantity">${renderQuantityLabel(item)}</span>
       ${isAdmin ? renderAdminMenu(item) : ''}
       <button class="grocery-item-delete" aria-label="Remove">&#x2715;</button>

@@ -1,5 +1,6 @@
 import { requireAuth } from '../auth.js';
-import { getUserProfile, getUserProfiles, getNotifications, markNotificationRead } from '../api/users.js';
+import { getUserProfile, getUserProfiles, getNotifications, markNotificationRead, setNotificationStatus, createNotification } from '../api/users.js';
+import { acceptInvite, removeInvite } from '../api/grocery-lists.js';
 import { getAllRecipes, getLikedRecipeIds, deleteRecipe, updateRecipe } from '../api/recipes.js';
 import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
@@ -15,6 +16,10 @@ let likedIds = new Set();
 let allRecipes = [];
 let authorProfiles = {};
 let myRecipesView = 'grid';
+let myRecipesSearch = '';
+let myRecipesPage = 1;
+const NOOK_PAGE_SIZE = 12;
+let notifications = [];
 
 function isDraftRecipe(recipe) {
   return recipe?.status === 'draft';
@@ -114,6 +119,8 @@ async function init() {
     }
   });
 
+  document.getElementById('welcomeSection').addEventListener('click', handleWelcomeBannerClick);
+
   document.getElementById('addRecipeBtn').addEventListener('click', () => {
     try {
       openAddRecipeModal(uid, (newRecipe) => {
@@ -202,10 +209,147 @@ function renderLikedRecipes() {
   applyCardTilt(grid, '.recipe-mini-card');
 }
 
+function recipeMatchesNookSearch(recipe, query) {
+  if (!query) return true;
+  const ingredientText = Array.isArray(recipe.ingredients)
+    ? recipe.ingredients.join(' ')
+    : (recipe.ingredients || '');
+  return [
+    getRecipeDisplayName(recipe),
+    recipe.description,
+    recipe.cuisine,
+    recipe.difficulty,
+    ingredientText,
+  ]
+    .filter(Boolean)
+    .some(value => String(value).toLowerCase().includes(query));
+}
+
+function renderNookControls(hasRecipes) {
+  const controls = document.getElementById('cookNookControls');
+  if (!controls) return;
+
+  if (!hasRecipes) {
+    controls.innerHTML = '';
+    delete controls.dataset.ready;
+    return;
+  }
+
+  // Built once; later renders only sync state so the search input keeps focus.
+  if (controls.dataset.ready !== '1') {
+    controls.innerHTML = `
+      <div class="nook-search">
+        <span class="nook-search-icon">&#x1F50D;</span>
+        <input type="text" class="nook-search-input" id="nookSearchInput"
+               placeholder="Search your recipes..." aria-label="Search your recipes">
+        <button class="nook-search-clear" id="nookSearchClear" aria-label="Clear search" style="display:none">&#x2715;</button>
+      </div>
+      <div class="nook-view-toggle">
+        <button class="nook-view-btn" data-view="grid" title="Grid view">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1.2"/><rect x="9" y="0" width="6" height="6" rx="1.2"/><rect x="0" y="9" width="6" height="6" rx="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.2"/></svg>
+          Grid
+        </button>
+        <button class="nook-view-btn" data-view="list" title="List view">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="1" width="15" height="2" rx="1"/><rect x="0" y="6.5" width="15" height="2" rx="1"/><rect x="0" y="12" width="15" height="2" rx="1"/></svg>
+          List
+        </button>
+      </div>`;
+
+    controls.querySelectorAll('.nook-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        myRecipesView = btn.dataset.view;
+        renderMyRecipes();
+      });
+    });
+
+    const input = controls.querySelector('#nookSearchInput');
+    input.addEventListener('input', () => {
+      myRecipesSearch = input.value;
+      myRecipesPage = 1;
+      renderMyRecipes();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && input.value) {
+        input.value = '';
+        myRecipesSearch = '';
+        myRecipesPage = 1;
+        renderMyRecipes();
+      }
+    });
+    controls.querySelector('#nookSearchClear').addEventListener('click', () => {
+      myRecipesSearch = '';
+      myRecipesPage = 1;
+      renderMyRecipes();
+      controls.querySelector('#nookSearchInput').focus();
+    });
+
+    controls.dataset.ready = '1';
+  }
+
+  controls.querySelectorAll('.nook-view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === myRecipesView);
+  });
+  const input = controls.querySelector('#nookSearchInput');
+  if (input && input.value !== myRecipesSearch) input.value = myRecipesSearch;
+  const clearBtn = controls.querySelector('#nookSearchClear');
+  if (clearBtn) clearBtn.style.display = myRecipesSearch ? '' : 'none';
+}
+
+function renderNookPagination(totalCount, totalPages) {
+  const body = document.querySelector('.cook-nook-body');
+  let pager = document.getElementById('nookPagination');
+  if (!pager) {
+    pager = document.createElement('div');
+    pager.id = 'nookPagination';
+    pager.className = 'nook-pagination';
+    body?.appendChild(pager);
+  }
+
+  if (totalPages <= 1) {
+    pager.innerHTML = '';
+    return;
+  }
+
+  const start = (myRecipesPage - 1) * NOOK_PAGE_SIZE + 1;
+  const end = Math.min(myRecipesPage * NOOK_PAGE_SIZE, totalCount);
+
+  // Compact page list: first, last, current ±1, with ellipses
+  const pages = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || Math.abs(p - myRecipesPage) <= 1) {
+      pages.push(p);
+    } else if (pages[pages.length - 1] !== '…') {
+      pages.push('…');
+    }
+  }
+
+  pager.innerHTML = `
+    <span class="nook-page-info">${start}–${end} of ${totalCount}</span>
+    <div class="nook-page-btns">
+      <button class="nook-page-btn nook-page-prev" ${myRecipesPage === 1 ? 'disabled' : ''} aria-label="Previous page">&#x2039;</button>
+      ${pages.map(p => p === '…'
+        ? '<span class="nook-page-ellipsis">&#x2026;</span>'
+        : `<button class="nook-page-btn nook-page-num${p === myRecipesPage ? ' active' : ''}" data-page="${p}" aria-label="Page ${p}"${p === myRecipesPage ? ' aria-current="page"' : ''}>${p}</button>`
+      ).join('')}
+      <button class="nook-page-btn nook-page-next" ${myRecipesPage === totalPages ? 'disabled' : ''} aria-label="Next page">&#x203A;</button>
+    </div>`;
+
+  const goTo = (page) => {
+    myRecipesPage = page;
+    renderMyRecipes();
+    document.querySelector('.cook-nook-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  pager.querySelector('.nook-page-prev').addEventListener('click', () => goTo(myRecipesPage - 1));
+  pager.querySelector('.nook-page-next').addEventListener('click', () => goTo(myRecipesPage + 1));
+  pager.querySelectorAll('.nook-page-num').forEach(btn => {
+    btn.addEventListener('click', () => goTo(parseInt(btn.dataset.page, 10)));
+  });
+}
+
 function renderMyRecipes() {
   const grid = document.getElementById('myRecipesGrid');
   const badge = document.getElementById('myRecipeCount');
-  const controls = document.getElementById('cookNookControls');
   const myRecipes = allRecipes.filter(r => r.createdBy === uid);
   const draftCount = myRecipes.filter(isDraftRecipe).length;
 
@@ -213,29 +357,7 @@ function renderMyRecipes() {
     badge.textContent = `${myRecipes.length} recipe${myRecipes.length !== 1 ? 's' : ''}${draftCount ? ` · ${draftCount} draft${draftCount !== 1 ? 's' : ''}` : ''}`;
   }
 
-  if (controls) {
-    if (myRecipes.length > 0) {
-      controls.innerHTML = `
-        <div class="nook-view-toggle">
-          <button class="nook-view-btn${myRecipesView === 'grid' ? ' active' : ''}" data-view="grid" title="Grid view">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1.2"/><rect x="9" y="0" width="6" height="6" rx="1.2"/><rect x="0" y="9" width="6" height="6" rx="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.2"/></svg>
-            Grid
-          </button>
-          <button class="nook-view-btn${myRecipesView === 'list' ? ' active' : ''}" data-view="list" title="List view">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="1" width="15" height="2" rx="1"/><rect x="0" y="6.5" width="15" height="2" rx="1"/><rect x="0" y="12" width="15" height="2" rx="1"/></svg>
-            List
-          </button>
-        </div>`;
-      controls.querySelectorAll('.nook-view-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          myRecipesView = btn.dataset.view;
-          renderMyRecipes();
-        });
-      });
-    } else {
-      controls.innerHTML = '';
-    }
-  }
+  renderNookControls(myRecipes.length > 0);
 
   if (myRecipes.length === 0) {
     grid.className = 'my-recipes-grid';
@@ -248,8 +370,28 @@ function renderMyRecipes() {
     document.getElementById('cookNookAddBtn').addEventListener('click', () => {
       document.getElementById('addRecipeBtn').click();
     });
+    renderNookPagination(0, 0);
     return;
   }
+
+  const query = myRecipesSearch.trim().toLowerCase();
+  const filtered = myRecipes.filter(r => recipeMatchesNookSearch(r, query));
+
+  if (filtered.length === 0) {
+    grid.className = 'my-recipes-grid';
+    grid.innerHTML = `
+      <div class="cook-nook-empty">
+        <div class="cook-nook-empty-icon">&#x1F50D;</div>
+        <p>No recipes match "${escapeHtml(myRecipesSearch.trim())}".<br>Try a different search.</p>
+      </div>`;
+    renderNookPagination(0, 0);
+    return;
+  }
+
+  const totalPages = Math.ceil(filtered.length / NOOK_PAGE_SIZE);
+  if (myRecipesPage > totalPages) myRecipesPage = totalPages;
+  if (myRecipesPage < 1) myRecipesPage = 1;
+  const pageRecipes = filtered.slice((myRecipesPage - 1) * NOOK_PAGE_SIZE, myRecipesPage * NOOK_PAGE_SIZE);
 
   const dotsMenuHtml = (recipe) => `
     <div class="card-owner-actions">
@@ -263,7 +405,7 @@ function renderMyRecipes() {
 
   if (myRecipesView === 'list') {
     grid.className = 'my-recipes-list';
-    grid.innerHTML = myRecipes.map(r => {
+    grid.innerHTML = pageRecipes.map(r => {
       const recipeName = getRecipeDisplayName(r);
       const isDraft = isDraftRecipe(r);
       const meta = [
@@ -299,7 +441,7 @@ function renderMyRecipes() {
     }).join('');
   } else {
     grid.className = 'my-recipes-grid';
-    grid.innerHTML = myRecipes.map(r => {
+    grid.innerHTML = pageRecipes.map(r => {
       const recipeName = getRecipeDisplayName(r);
       const isDraft = isDraftRecipe(r);
 
@@ -418,6 +560,8 @@ function renderMyRecipes() {
   if (myRecipesView === 'grid') {
     applyCardTilt(grid, '.my-recipe-card:not(.is-draft)');
   }
+
+  renderNookPagination(filtered.length, totalPages);
 }
 
 function showConfirm(recipeName) {
@@ -618,6 +762,24 @@ function getNotificationDisplay(notification) {
     };
   }
 
+  if (notification.type === 'grocery_list_invite') {
+    return {
+      preview: null,
+      typeLabel: 'invited you to link grocery lists',
+      actorName: notification.actorName || 'Someone',
+      recipeName: '',
+    };
+  }
+
+  if (notification.type === 'grocery_list_invite_response') {
+    return {
+      preview: null,
+      typeLabel: notification.status === 'accepted' ? 'accepted your grocery list invite' : 'declined your grocery list invite',
+      actorName: notification.actorName || 'Someone',
+      recipeName: '',
+    };
+  }
+
   return {
     preview: notification.commentPreview || notification.replyPreview || null,
     typeLabel: notification.type === 'comment_reply' ? 'replied to your comment on' : 'commented on',
@@ -631,8 +793,16 @@ function buildNotifCard(n) {
   const preview = details.preview;
   const initials = escapeHtml(((n.actorName || '?')[0]).toUpperCase());
 
+  const isPendingInvite = n.type === 'grocery_list_invite' && (!n.status || n.status === 'pending');
+  const respondedLabel = n.type === 'grocery_list_invite' && n.status === 'accepted' ? 'You accepted'
+    : n.type === 'grocery_list_invite' && n.status === 'declined' ? 'You declined'
+    : null;
+
   return `
-    <div class="dash-notif-item${n.isRead ? '' : ' unread'}" data-notification-id="${n.id}">
+    <div class="dash-notif-item${n.isRead ? '' : ' unread'}"
+         data-notification-id="${n.id}"
+         ${n.targetId ? `data-list-id="${escapeHtml(n.targetId)}"` : ''}
+         ${n.actorUserId ? `data-actor-id="${escapeHtml(n.actorUserId)}"` : ''}>
       <div class="dash-notif-avatars">
         ${n.actorPhotoURL
           ? `<img class="dash-notif-avatar" src="${escapeHtml(n.actorPhotoURL)}" alt="">`
@@ -654,54 +824,110 @@ function buildNotifCard(n) {
       </div>
       <div class="dash-notif-right">
         ${!n.isRead ? '<span class="dash-notif-dot"></span>' : ''}
-        ${!n.isRead
-          ? `<button class="dash-notif-mark-read" data-action="mark-read" aria-label="Mark as read">&#x2713;</button>`
-          : ''}
+        ${isPendingInvite
+          ? `<span class="dash-notif-invite-actions">
+               <button type="button" class="dash-notif-invite-btn dash-notif-invite-accept" data-action="accept-grocery-invite" aria-label="Accept invite">&#x2713;</button>
+               <button type="button" class="dash-notif-invite-btn dash-notif-invite-decline" data-action="decline-grocery-invite" aria-label="Decline invite">&#x2715;</button>
+             </span>`
+          : respondedLabel
+            ? `<span class="dash-notif-invite-responded">${respondedLabel}</span>`
+            : (!n.isRead ? `<button class="dash-notif-mark-read" data-action="mark-read" aria-label="Mark as read">&#x2713;</button>` : '')}
       </div>
     </div>`;
 }
 
-async function renderNotifications() {
-  const section = document.getElementById('dashNotifSection');
-  const toggle  = document.getElementById('dashNotifToggle');
-  const list    = document.getElementById('dashNotifList');
-  const badge   = document.getElementById('dashNotifBadge');
+/** Finds the newest pending grocery-list invite, if any — drives the
+ *  welcome-banner takeover. */
+function getPendingInvite() {
+  return notifications.find(n => n.type === 'grocery_list_invite' && (!n.status || n.status === 'pending'));
+}
 
-  if (toggle && section) {
-    toggle.addEventListener('click', () => {
-      const expanded = section.classList.toggle('expanded');
-      toggle.setAttribute('aria-expanded', expanded);
-    });
+/** Shared accept/decline logic used by both the welcome banner and the
+ *  notification-center row — joins (or skips) the list, stamps the
+ *  notification's outcome, and tells the inviter how it went. */
+async function respondToGroceryInvite({ notificationId, listId, inviterUid, accepted }) {
+  if (accepted) await acceptInvite(listId, uid);
+  else await removeInvite(listId, uid);
+
+  await setNotificationStatus(uid, notificationId, accepted ? 'accepted' : 'declined');
+
+  if (inviterUid) {
+    const fullName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'Someone';
+    createNotification(inviterUid, {
+      actorUserId: uid,
+      type: 'grocery_list_invite_response',
+      message: `${fullName} ${accepted ? 'accepted' : 'declined'} your grocery list invite.`,
+      targetId: listId,
+      status: accepted ? 'accepted' : 'declined',
+      actorName: fullName,
+      recipeEmoji: accepted ? '&#x2705;' : '&#x274C;',
+    }).catch((err) => console.error('Failed to send invite response notification:', err));
   }
 
-  function updateBadge(count) {
-    if (badge) { badge.style.display = count > 0 ? '' : 'none'; badge.textContent = count; }
-  }
+  const notif = notifications.find(n => n.id === notificationId);
+  if (notif) { notif.isRead = true; notif.status = accepted ? 'accepted' : 'declined'; }
+}
 
-  let notifications = [];
-  try {
-    notifications = await getNotifications(uid);
-  } catch (err) {
-    console.warn('Could not load notifications:', err);
-    if (list) list.innerHTML = `<div class="dash-notif-empty">Could not load notifications.</div>`;
+/** Syncs the welcome banner to whatever the newest pending invite is —
+ *  swaps in the interactive invite view in place of the personalized
+ *  greeting, or restores the greeting once there's nothing pending. */
+function syncInviteBanner() {
+  const section = document.getElementById('welcomeSection');
+  if (!section) return;
+
+  const invite = getPendingInvite();
+  if (!invite) {
+    section.classList.remove('invite-mode');
+    delete section.dataset.notificationId;
+    delete section.dataset.listId;
+    delete section.dataset.actorId;
     return;
   }
 
-  const total = notifications.length;
-  let unreadCount = notifications.filter(n => !n.isRead).length;
-  updateBadge(unreadCount);
+  section.classList.add('invite-mode');
+  section.dataset.notificationId = invite.id;
+  section.dataset.listId = invite.targetId || '';
+  section.dataset.actorId = invite.actorUserId || '';
+  const textEl = document.getElementById('welcomeInviteText');
+  if (textEl) textEl.innerHTML = `<strong>${escapeHtml(invite.actorName || 'Someone')}</strong> wants to link grocery lists with you.`;
+}
 
-  function updateSummary() {
-    const footer = list?.querySelector('.dash-notif-footer');
-    if (!footer) return;
-    const unreadEl = footer.querySelector('.dash-notif-footer-unread');
-    if (unreadEl) {
-      unreadEl.textContent = `${unreadCount} unread`;
-      unreadEl.classList.toggle('has-unread', unreadCount > 0);
-    }
+async function handleWelcomeBannerClick(e) {
+  const acceptBtn = e.target.closest('[data-action="accept-grocery-invite"]');
+  const declineBtn = e.target.closest('[data-action="decline-grocery-invite"]');
+  if (!acceptBtn && !declineBtn) return;
+
+  const section = document.getElementById('welcomeSection');
+  const notificationId = section?.dataset.notificationId;
+  const listId = section?.dataset.listId;
+  const inviterUid = section?.dataset.actorId;
+  if (!notificationId || !listId) return;
+
+  const accepted = !!acceptBtn;
+  section.querySelectorAll('.welcome-invite-btn').forEach(b => { b.disabled = true; });
+
+  try {
+    await respondToGroceryInvite({ notificationId, listId, inviterUid, accepted });
+    showToast(accepted ? 'Grocery lists linked!' : 'Invite declined');
+    syncInviteBanner();
+    renderNotifList();
+  } catch (err) {
+    console.error('Failed to respond to grocery list invite:', err);
+    showToast('Could not respond to that invite. Please try again.', 'error');
+    section.querySelectorAll('.welcome-invite-btn').forEach(b => { b.disabled = false; });
   }
+}
 
+/** Pure re-render of the notif-center list/badge from the current
+ *  `notifications` state — no network call. Safe to call repeatedly. */
+function renderNotifList() {
+  const list  = document.getElementById('dashNotifList');
+  const badge = document.getElementById('dashNotifBadge');
   if (!list) return;
+
+  const total = notifications.length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+  if (badge) { badge.style.display = unreadCount > 0 ? '' : 'none'; badge.textContent = unreadCount; }
 
   const shown = notifications.slice(0, 3);
   if (shown.length === 0) {
@@ -717,28 +943,77 @@ async function renderNotifications() {
     </div>`;
 
   list.innerHTML = shown.map(buildNotifCard).join('') + footerHtml;
+}
 
-  // Mark-as-read inline — no page reload
-  list.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-action="mark-read"]');
-    if (!btn) return;
-    const item = btn.closest('[data-notification-id]');
+async function handleNotifListClick(e) {
+  const markReadBtn = e.target.closest('[data-action="mark-read"]');
+  if (markReadBtn) {
+    const item = markReadBtn.closest('[data-notification-id]');
     const id = item?.dataset.notificationId;
     if (!id) return;
-    btn.disabled = true;
+    markReadBtn.disabled = true;
     try {
       await markNotificationRead(uid, id, true);
-      item.classList.remove('unread');
-      item.querySelector('.dash-notif-dot')?.remove();
-      btn.remove();
-      unreadCount = Math.max(0, unreadCount - 1);
-      updateBadge(unreadCount);
-      updateSummary();
+      const notif = notifications.find(n => n.id === id);
+      if (notif) notif.isRead = true;
+      renderNotifList();
     } catch (err) {
       console.error('Could not mark notification read:', err);
-      btn.disabled = false;
+      markReadBtn.disabled = false;
     }
-  });
+    return;
+  }
+
+  // Accept/decline a grocery list linking invite — joins (or skips) the
+  // list, tells the notification pipeline how it was resolved, and
+  // notifies whoever sent the invite of the outcome.
+  const acceptBtn = e.target.closest('[data-action="accept-grocery-invite"]');
+  const declineBtn = e.target.closest('[data-action="decline-grocery-invite"]');
+  if (acceptBtn || declineBtn) {
+    const accepted = !!acceptBtn;
+    const item = (acceptBtn || declineBtn).closest('[data-notification-id]');
+    const notificationId = item?.dataset.notificationId;
+    const listId = item?.dataset.listId;
+    const inviterUid = item?.dataset.actorId;
+    if (!notificationId || !listId) return;
+
+    item.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try {
+      await respondToGroceryInvite({ notificationId, listId, inviterUid, accepted });
+      renderNotifList();
+      syncInviteBanner();
+    } catch (err) {
+      console.error('Failed to respond to grocery list invite:', err);
+      showToast('Could not respond to that invite. Please try again.', 'error');
+      item.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    }
+  }
+}
+
+async function renderNotifications() {
+  const section = document.getElementById('dashNotifSection');
+  const toggle  = document.getElementById('dashNotifToggle');
+  const list    = document.getElementById('dashNotifList');
+
+  if (toggle && section) {
+    toggle.addEventListener('click', () => {
+      const expanded = section.classList.toggle('expanded');
+      toggle.setAttribute('aria-expanded', expanded);
+    });
+  }
+
+  if (list) list.addEventListener('click', handleNotifListClick);
+
+  try {
+    notifications = await getNotifications(uid);
+  } catch (err) {
+    console.warn('Could not load notifications:', err);
+    if (list) list.innerHTML = `<div class="dash-notif-empty">Could not load notifications.</div>`;
+    return;
+  }
+
+  renderNotifList();
+  syncInviteBanner();
 }
 
 init().catch(console.error);

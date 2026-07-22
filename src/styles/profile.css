@@ -721,6 +721,49 @@
 .notif-mark-read:hover { text-decoration: underline; }
 .notif-mark-read:disabled { opacity: 0.45; cursor: default; }
 
+/* Accept / decline buttons for actionable notifications (e.g. grocery
+   list linking invites) */
+.notif-invite-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.notif-invite-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.15s, filter 0.15s;
+}
+
+.notif-invite-btn:disabled { opacity: 0.5; cursor: default; }
+.notif-invite-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+
+.notif-invite-accept {
+  background: #2ecc71;
+  color: white;
+  box-shadow: 0 3px 10px rgba(46,204,113,0.35);
+}
+
+.notif-invite-decline {
+  background: #e74c3c;
+  color: white;
+  box-shadow: 0 3px 10px rgba(231,76,60,0.35);
+}
+
+.notif-invite-responded {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .notif-empty {
   text-align: center;
   padding: 32px;

@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   updateDoc,
@@ -21,7 +22,7 @@ import {
 
 function toGroceryItem(snapshot) {
   const data = snapshot.data();
-  const normalized = normalizeGroceryItem({
+  const base = {
     id: snapshot.id,
     name: data.name || '',
     quantity: Number.isFinite(data.quantity) ? data.quantity : 1,
@@ -30,21 +31,18 @@ function toGroceryItem(snapshot) {
     selectedBrand: sanitizeBrandSelection(data.selectedBrand),
     sourceRecipes: sanitizeRecipeSources(data.sourceRecipes),
     isManual: Boolean(data.isManual),
-  });
-
-  return normalized || {
-    id: snapshot.id,
-    name: data.name || '',
-    quantity: Number.isFinite(data.quantity) ? data.quantity : 1,
-    quantityUnit: data.quantityUnit || null,
-    checked: Boolean(data.checked),
-    selectedBrand: sanitizeBrandSelection(data.selectedBrand),
-    sourceRecipes: sanitizeRecipeSources(data.sourceRecipes),
-    isManual: Boolean(data.isManual),
+    addedBy: data.addedBy || null,
+    addedByName: data.addedByName || '',
   };
+
+  const normalized = normalizeGroceryItem(base);
+  return normalized || base;
 }
 
-function buildGroceryWrite(item, includeTimestamp = false) {
+// `author` attributes newly-created items to whoever is performing the
+// write (falls back to whatever the item itself already carries, so a
+// copy between lists can preserve the original author).
+function buildGroceryWrite(item, includeTimestamp = false, author = {}) {
   const payload = {
     name: item.name,
     quantity: item.quantity,
@@ -57,6 +55,8 @@ function buildGroceryWrite(item, includeTimestamp = false) {
 
   if (includeTimestamp) {
     payload.addedAt = serverTimestamp();
+    payload.addedBy = item.addedBy || author.uid || null;
+    payload.addedByName = item.addedByName || author.name || '';
   }
 
   return payload;
@@ -104,14 +104,52 @@ function needsStoredUpdate(snapshotData, item) {
 }
 
 export class GroceryRepository {
-  constructor(uid) {
-    this.uid = uid;
-    this.collectionRef = collection(db, 'users', uid, 'grocery');
+  /** A user's own private grocery list — unchanged from before sharing existed. */
+  static forUser(uid, author = {}) {
+    return new GroceryRepository(collection(db, 'users', uid, 'grocery'), author);
+  }
+
+  /** A shared grocery list's items, keyed by list id. */
+  static forList(listId, author = {}) {
+    return new GroceryRepository(collection(db, 'groceryLists', listId, 'items'), author);
+  }
+
+  constructor(collectionRef, author = {}) {
+    this.collectionRef = collectionRef;
+    this.author = { uid: author.uid || null, name: author.name || '' };
   }
 
   async list() {
     const snapshot = await getDocs(this.collectionRef);
     return snapshot.docs.map(toGroceryItem);
+  }
+
+  /**
+   * Subscribes to live updates on this list, invoking onChange with the
+   * full item array on every change. Returns an unsubscribe function.
+   */
+  watch(onChange, onError) {
+    return onSnapshot(
+      this.collectionRef,
+      (snapshot) => onChange(snapshot.docs.map(toGroceryItem)),
+      (error) => onError?.(error)
+    );
+  }
+
+  /**
+   * Bulk-copies items verbatim (preserving checked state and original
+   * author) into this collection as new docs — used when a personal list
+   * becomes the seed for a newly-created shared list.
+   */
+  async copyItemsFrom(items) {
+    if (!items.length) return;
+
+    const batch = writeBatch(db);
+    items.forEach((item) => {
+      const ref = doc(this.collectionRef);
+      batch.set(ref, buildGroceryWrite(item, true, this.author));
+    });
+    await batch.commit();
   }
 
   async add({ name, quantity = 1 }) {
@@ -139,17 +177,17 @@ export class GroceryRepository {
   }
 
   async setChecked(id, checked) {
-    await updateDoc(doc(db, 'users', this.uid, 'grocery', id), {
+    await updateDoc(doc(this.collectionRef, id), {
       checked: Boolean(checked),
     });
   }
 
   async delete(id) {
-    await deleteDoc(doc(db, 'users', this.uid, 'grocery', id));
+    await deleteDoc(doc(this.collectionRef, id));
   }
 
   async setSelectedBrand(id, brand) {
-    await updateDoc(doc(db, 'users', this.uid, 'grocery', id), {
+    await updateDoc(doc(this.collectionRef, id), {
       selectedBrand: sanitizeBrandSelection(brand),
     });
   }
@@ -252,8 +290,10 @@ export class GroceryRepository {
         selectedBrand: null,
         sourceRecipes: sanitizeRecipeSources(incomingItem.sourceRecipes),
         isManual: Boolean(incomingItem.isManual),
+        addedBy: this.author.uid || null,
+        addedByName: this.author.name || '',
       };
-      batch.set(ref, buildGroceryWrite(item, true));
+      batch.set(ref, buildGroceryWrite(item, true, this.author));
       existingByKey.set(key, { ref, item, needsUpdate: false });
       added += 1;
       changed = true;
@@ -261,7 +301,7 @@ export class GroceryRepository {
 
     existingByKey.forEach(({ ref, item, needsUpdate }) => {
       if (!needsUpdate) return;
-      batch.set(ref, buildGroceryWrite(item), { merge: true });
+      batch.set(ref, buildGroceryWrite(item, false, this.author), { merge: true });
       changed = true;
     });
 

@@ -563,7 +563,7 @@ const TenderAPI = {
       return 0;
     }
 
-    const repo = new GroceryRepository(uid);
+    const repo = GroceryRepository.forUser(uid);
     const result = await repo.mergeByName(generatedItems);
     return result.added + result.updated;
   },

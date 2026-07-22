@@ -1,18 +1,15 @@
 {
   "projects": {
-    "default": "tender-a7367",
-    "postgrad": "tender-post-grad"
+    "default": "tender-a7367"
   },
   "targets": {
     "tender-a7367": {
       "hosting": {
-        "live": ["tender-a7367"]
-      }
-    },
-    "tender-post-grad": {
-      "hosting": {
-        "live": ["gettender"]
+        "live": [
+          "tenderfood"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }

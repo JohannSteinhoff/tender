@@ -20,12 +20,27 @@
   <main class="dashboard-page">
 
     <!-- Welcome banner -->
-    <section class="welcome-section">
-      <div class="welcome-text">
-        <h1 id="welcomeHeading">Welcome back!</h1>
-        <p id="welcomeSub">Here's what's cooking today.</p>
+    <section class="welcome-section" id="welcomeSection">
+      <div class="welcome-default">
+        <div class="welcome-text">
+          <h1 id="welcomeHeading">Welcome back!</h1>
+          <p id="welcomeSub">Here's what's cooking today.</p>
+        </div>
+        <button class="start-swiping-btn" onclick="location.href='/swipe.html'">Start Swiping &#x1F525;</button>
       </div>
-      <button class="start-swiping-btn" onclick="location.href='/swipe.html'">Start Swiping &#x1F525;</button>
+      <div class="welcome-invite" id="welcomeInvite">
+        <div class="welcome-invite-content">
+          <div class="welcome-invite-icon">&#x1F517;</div>
+          <div class="welcome-text">
+            <h1>Grocery list invite</h1>
+            <p id="welcomeInviteText">Someone wants to link grocery lists with you.</p>
+          </div>
+        </div>
+        <div class="welcome-invite-actions">
+          <button type="button" class="welcome-invite-btn welcome-invite-accept" data-action="accept-grocery-invite">&#x2713; Accept</button>
+          <button type="button" class="welcome-invite-btn welcome-invite-decline" data-action="decline-grocery-invite">&#x2715; Decline</button>
+        </div>
+      </div>
     </section>
 
     <!-- Stats row -->

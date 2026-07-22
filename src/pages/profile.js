@@ -1,8 +1,18 @@
 import { requireAuth } from '../auth.js';
-import { getNotifications, getNotificationPrefs, getUserProfile, markNotificationRead, updateNotificationPrefs } from '../api/users.js';
+import {
+  getNotifications,
+  getNotificationPrefs,
+  getUserProfile,
+  markNotificationRead,
+  setNotificationStatus,
+  updateNotificationPrefs,
+  createNotification,
+} from '../api/users.js';
+import { acceptInvite, removeInvite } from '../api/grocery-lists.js';
 import { getAllRecipes, getLikedRecipeIds } from '../api/recipes.js';
 import { ensureSeedRecipesOwnedByUser } from '../seed.js';
 import { renderNav } from '../components/nav.js';
+import { showToast } from '../components/toast.js';
 import { openRecipeModal } from '../components/recipeModal.js';
 import { escapeHtml, capitalizeFirst } from '../utils/helpers.js';
 
@@ -84,6 +94,24 @@ function getNotificationDisplay(notification) {
     };
   }
 
+  if (notification.type === 'grocery_list_invite') {
+    return {
+      preview: null,
+      typeLabel: 'invited you to link grocery lists',
+      actorName: notification.actorName || 'Someone',
+      recipeName: '',
+    };
+  }
+
+  if (notification.type === 'grocery_list_invite_response') {
+    return {
+      preview: null,
+      typeLabel: notification.status === 'accepted' ? 'accepted your grocery list invite' : 'declined your grocery list invite',
+      actorName: notification.actorName || 'Someone',
+      recipeName: '',
+    };
+  }
+
   return {
     preview: notification.commentPreview || notification.replyPreview || null,
     typeLabel: notification.type === 'comment_reply' ? 'replied to your comment on' : 'commented on',
@@ -107,8 +135,17 @@ function buildNotificationList(notifications) {
       const preview = details.preview;
       const initials = escapeHtml(((n.actorName || '?')[0]).toUpperCase());
 
+      const isPendingInvite = n.type === 'grocery_list_invite' && (!n.status || n.status === 'pending');
+      const respondedLabel = n.type === 'grocery_list_invite' && n.status === 'accepted' ? 'You accepted'
+        : n.type === 'grocery_list_invite' && n.status === 'declined' ? 'You declined'
+        : null;
+
       return `
-        <article class="notif-item${n.isRead ? '' : ' unread'}" data-notification-id="${n.id}">
+        <article class="notif-item${n.isRead ? '' : ' unread'}"
+                  data-notification-id="${n.id}"
+                  data-notification-type="${escapeHtml(n.type || '')}"
+                  ${n.targetId ? `data-list-id="${escapeHtml(n.targetId)}"` : ''}
+                  ${n.actorUserId ? `data-actor-id="${escapeHtml(n.actorUserId)}"` : ''}>
           <div class="notif-card-header">
             <div class="notif-card-avatars">
               ${n.actorPhotoURL
@@ -129,12 +166,19 @@ function buildNotificationList(notifications) {
             <span class="notif-meta-text">
               <strong>${escapeHtml(details.actorName)}</strong>
               ${details.typeLabel}
-              <em>${escapeHtml(details.recipeName)}</em>
+              ${details.recipeName ? `<em>${escapeHtml(details.recipeName)}</em>` : ''}
               &nbsp;·&nbsp;${escapeHtml(formatNotificationDate(n.createdAt))}
             </span>
-            ${!n.isRead
-              ? `<button type="button" class="notif-mark-read" data-action="mark-read">Mark as read</button>`
-              : ''}
+            ${isPendingInvite ? `
+              <span class="notif-invite-actions">
+                <button type="button" class="notif-invite-btn notif-invite-accept" data-action="accept-grocery-invite" aria-label="Accept invite">&#x2713;</button>
+                <button type="button" class="notif-invite-btn notif-invite-decline" data-action="decline-grocery-invite" aria-label="Decline invite">&#x2715;</button>
+              </span>
+            ` : respondedLabel
+              ? `<span class="notif-invite-responded">${respondedLabel}</span>`
+              : (!n.isRead
+                ? `<button type="button" class="notif-mark-read" data-action="mark-read">Mark as read</button>`
+                : '')}
           </div>
         </article>
       `;
@@ -462,21 +506,8 @@ function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds
     }
   });
 
-  // Mark notification as read — updates DOM in-place, no page reload
-  page.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-action="mark-read"]');
-    if (!btn) return;
-    const item = btn.closest('[data-notification-id]');
-    const id = item?.dataset.notificationId;
-    if (!id) return;
-
-    btn.disabled = true;
-    await markNotificationRead(currentUid, id, true);
-
-    item.classList.remove('unread');
-    btn.remove();
-
-    // Update the unread count badge in the tab button and heading
+  // Updates the unread-count badge in the tab button and heading in place.
+  function refreshUnreadBadges() {
     const remaining = document.querySelectorAll('.notif-item.unread').length;
 
     const tabBadge = document.querySelector('[data-tab="notifications"] .section-count');
@@ -488,6 +519,74 @@ function render(profile, profileUid, recipes, isOwnProfile, currentUid, likedIds
 
     const headingBadge = document.getElementById('notifUnreadCount');
     if (headingBadge) headingBadge.textContent = remaining;
+  }
+
+  // Mark notification as read — updates DOM in-place, no page reload
+  page.addEventListener('click', async (e) => {
+    const markReadBtn = e.target.closest('[data-action="mark-read"]');
+    if (markReadBtn) {
+      const item = markReadBtn.closest('[data-notification-id]');
+      const id = item?.dataset.notificationId;
+      if (!id) return;
+
+      markReadBtn.disabled = true;
+      await markNotificationRead(currentUid, id, true);
+
+      item.classList.remove('unread');
+      markReadBtn.remove();
+      refreshUnreadBadges();
+      return;
+    }
+
+    // Accept/decline a grocery list linking invite — joins (or skips) the
+    // list, tells the notification pipeline how it was resolved, and
+    // notifies whoever sent the invite of the outcome.
+    const acceptBtn = e.target.closest('[data-action="accept-grocery-invite"]');
+    const declineBtn = e.target.closest('[data-action="decline-grocery-invite"]');
+    if (acceptBtn || declineBtn) {
+      const accepted = !!acceptBtn;
+      const actionsEl = (acceptBtn || declineBtn).closest('.notif-invite-actions');
+      const item = (acceptBtn || declineBtn).closest('[data-notification-id]');
+      const notificationId = item?.dataset.notificationId;
+      const listId = item?.dataset.listId;
+      const inviterUid = item?.dataset.actorId;
+      if (!notificationId || !listId) return;
+
+      actionsEl?.querySelectorAll('button').forEach(b => { b.disabled = true; });
+
+      try {
+        if (accepted) {
+          await acceptInvite(listId, currentUid);
+        } else {
+          await removeInvite(listId, currentUid);
+        }
+
+        await setNotificationStatus(currentUid, notificationId, accepted ? 'accepted' : 'declined');
+
+        if (inviterUid) {
+          await createNotification(inviterUid, {
+            actorUserId: currentUid,
+            type: 'grocery_list_invite_response',
+            message: `${fullName} ${accepted ? 'accepted' : 'declined'} your grocery list invite.`,
+            targetId: listId,
+            status: accepted ? 'accepted' : 'declined',
+            actorName: fullName,
+            recipeEmoji: accepted ? '&#x2705;' : '&#x274C;',
+          }).catch((error) => console.error('Failed to send invite response notification:', error));
+        }
+
+        if (actionsEl) {
+          actionsEl.outerHTML = `<span class="notif-invite-responded">${accepted ? 'You accepted' : 'You declined'}</span>`;
+        }
+        item.classList.remove('unread');
+        item.querySelector('.notif-dot')?.remove();
+        refreshUnreadBadges();
+      } catch (error) {
+        console.error('Failed to respond to grocery list invite:', error);
+        showToast('Could not respond to that invite. Please try again.', 'error');
+        actionsEl?.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      }
+    }
   });
 }
 

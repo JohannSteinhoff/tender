@@ -391,7 +391,7 @@ async function loadAll() {
 function computeVisibleDays() {
   const scroll = document.querySelector('.mp-cal-scroll');
   if (!scroll || !scroll.clientWidth) return S.viewDays;
-  const GAP = 10;
+  const GAP = 1;
   const fit = Math.max(1, Math.floor((scroll.clientWidth + GAP) / (MIN_COL_WIDTH + GAP)));
   return Math.min(S.viewDays, fit);
 }

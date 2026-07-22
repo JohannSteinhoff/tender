@@ -1,24 +1,32 @@
 import { requireAuth } from "../auth.js";
 import { GroceryRepository } from "../api/grocery.js";
+import {
+  watchMyLinkedList,
+  createLinkedList,
+  inviteMember,
+  removeInvite,
+  removeMember,
+  transferOwnership,
+  getListMembers,
+  getPendingInvitees,
+  searchAddableUsers,
+} from "../api/grocery-lists.js";
 import { GroceryBrandRecommendationRepository } from "../api/grocery-recommendations.js";
 import {
-  getAllRecipes,
-  getLikedRecipeIds,
   getMealPlanEntries,
   getRecipeById,
 } from "../api/recipes.js";
-import { getUserProfile } from "../api/users.js";
+import { getUserProfile, createNotification } from "../api/users.js";
 import { renderNav } from "../components/nav.js";
 import { showToast } from "../components/toast.js";
 import { escapeHtml } from "../utils/helpers.js";
 import {
   applyBrandRecommendations,
-  collectIngredientsFromRecipes,
   getGroceryItemKey,
   normalizeGroceryItem,
   normalizeIngredientName,
 } from "../features/grocery/logic.js";
-import { attachSourceLabels, buildUpcomingBatchMultipliers } from "../features/grocery/source-labels.js";
+import { attachSourceLabels } from "../features/grocery/source-labels.js";
 import {
   getCategoryOverrides,
   setGlobalCategoryOverride,
@@ -27,6 +35,7 @@ import {
 import {
   isSameBrand,
   renderGroceryItemMarkup,
+  initialsFor,
 } from "../features/grocery/view.js";
 import {
   GROCERY_CATEGORIES,
@@ -38,11 +47,18 @@ import {
 class GroceryListPage {
   constructor() {
     this.uid = null;
+    this.displayName = "";
     this.repo = null;
+    this.unwatch = null;
+    this.unwatchLinkedList = null;
+    this.repoInitialized = false;
+    this.linkedList = null;
+    this.members = [];
+    this.membersById = new Map();
+    this.viewingPersonal = true;
     this.recommendationRepo = new GroceryBrandRecommendationRepository();
     this.items = [];
     this.loading = false;
-    this.generating = false;
     this.categoryOrder = [];
     this.isAdmin = false;
     this.categoryOverrides = new Map();
@@ -53,8 +69,8 @@ class GroceryListPage {
       input: document.getElementById("newItemInput"),
       addBtn: document.getElementById("btnAddItem"),
       cancelBtn: document.getElementById("btnCancelAdd"),
-      generateBtn: null,
       clearAllBtn: null,
+      linkBtn: null,
       total: document.getElementById("totalItems"),
       checked: document.getElementById("checkedItems"),
       remaining: document.getElementById("remainingItems"),
@@ -64,24 +80,80 @@ class GroceryListPage {
   async init() {
     const user = await requireAuth();
     this.uid = user.uid;
-    this.repo = new GroceryRepository(this.uid);
 
     this.categoryOrder = loadCategoryOrder();
     renderNav("grocery");
-    this.insertGenerateButton();
     this.insertExportButton();
     this.insertClearAllButton();
+    this.insertLinkButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
     renderNav("grocery", profile);
     this.isAdmin = profile?.isAdmin || false;
+    this.displayName = `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() || user.email || "Someone";
 
-    await this.loadItems();
+    await this.initRepo();
+  }
+
+  /** Subscribes to whichever linked list this user belongs to (if any) —
+   *  live, for the whole lifetime of the page. This is what makes joining
+   *  or leaving a linked list take effect immediately on both sides without
+   *  a refresh, not just item changes within an already-open list. */
+  async initRepo() {
+    await new Promise((resolve) => {
+      let settled = false;
+      this.unwatchLinkedList?.();
+      this.unwatchLinkedList = watchMyLinkedList(
+        this.uid,
+        async (list) => {
+          await this.handleLinkedListChange(list);
+          if (!settled) { settled = true; resolve(); }
+        },
+        (error) => {
+          console.error("Failed to watch linked grocery list:", error);
+          if (!settled) { settled = true; resolve(); }
+        }
+      );
+    });
+  }
+
+  /** Reacts to this user's linked-list membership changing — including
+   *  someone else linking or unlinking them while this page stays open. */
+  async handleLinkedListChange(list) {
+    const previousListId = this.linkedList?.id || null;
+    const nextListId = list?.id || null;
+    this.linkedList = list;
+
+    this.members = list
+      ? await getListMembers(list.id).catch(() => [])
+      : [];
+    this.membersById = new Map(this.members.map((member) => [member.uid, member]));
+
+    // Only re-point the active repo when the linked list itself appeared,
+    // disappeared, or changed — not on every membership tweak — so a
+    // manual switch to "My List" isn't yanked away while the same list's
+    // roster changes in the background.
+    const listChanged = nextListId !== previousListId || !this.repoInitialized;
+    this.repoInitialized = true;
+
+    if (listChanged) {
+      this.viewingPersonal = !list;
+      this.repo = list
+        ? GroceryRepository.forList(list.id, this.getAuthor())
+        : GroceryRepository.forUser(this.uid, this.getAuthor());
+      this.startWatching();
+    }
+
+    this.renderListToggle();
+  }
+
+  getAuthor() {
+    return { uid: this.uid, name: this.displayName };
   }
 
   bindEvents() {
-    const { addBtn, cancelBtn, form, input, list, generateBtn } = this.elements;
+    const { addBtn, cancelBtn, form, input, list } = this.elements;
 
     const sidebar = document.getElementById("categorySidebar");
     if (sidebar) {
@@ -152,10 +224,6 @@ class GroceryListPage {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       await this.handleAddItem();
-    });
-
-    generateBtn?.addEventListener("click", async () => {
-      await this.handleGenerateFromLikes();
     });
 
     this.elements.clearAllBtn?.addEventListener("click", async () => {
@@ -230,35 +298,48 @@ class GroceryListPage {
     }, { passive: true });
   }
 
-  async loadItems() {
+  /** Subscribes to the active repo's collection so both this tab and any
+   *  other list member see additions/edits live, without a refresh. */
+  startWatching() {
+    this.unwatch?.();
     this.loading = true;
+    this.items = [];
     this.render();
 
-    // Run both fetches in parallel but keep failures independent —
-    // a permission error on overrides must not prevent the grocery list loading.
-    const [itemsResult, overridesResult] = await Promise.allSettled([
-      this.repo.mergeByName([]),
-      getCategoryOverrides(),
-    ]);
+    this.unwatch = this.repo.watch(
+      async (items) => {
+        this.items = items;
+        await this.refreshItemDecorations();
+        this.applyGlobalOverrides();
+        this.sortItems();
+        this.loading = false;
+        this.render();
+      },
+      (error) => {
+        console.error("Failed to sync grocery list:", error);
+        showToast("Could not load grocery list from Firebase.", "error");
+        this.loading = false;
+        this.render();
+      }
+    );
 
-    if (itemsResult.status === "fulfilled") {
-      this.items = itemsResult.value.items;
-      await this.refreshItemDecorations();
-      this.sortItems();
-    } else {
-      console.error("Failed to load grocery items:", itemsResult.reason);
-      showToast("Could not load grocery list from Firebase.", "error");
-    }
+    // One-time dedupe pass (merges any accidental duplicate items) — any
+    // resulting writes flow back through the watch callback above.
+    this.repo.mergeByName([]).catch((error) => {
+      console.error("Failed to clean up grocery list on load:", error);
+    });
 
-    if (overridesResult.status === "fulfilled") {
-      this.categoryOverrides = overridesResult.value;
+    this.loadOverrides();
+  }
+
+  async loadOverrides() {
+    try {
+      this.categoryOverrides = await getCategoryOverrides();
       this.applyGlobalOverrides();
-    } else {
-      console.error("Failed to load category overrides:", overridesResult.reason);
+      this.render();
+    } catch (error) {
+      console.error("Failed to load category overrides:", error);
     }
-
-    this.loading = false;
-    this.render();
   }
 
   applyGlobalOverrides() {
@@ -351,7 +432,15 @@ class GroceryListPage {
 
       await this.refreshItemDecorations();
       this.sortItems();
-      this.hideAddForm();
+      // Desktop: keep the form open and refocused so multiple items can be
+      // added back-to-back without re-clicking "+ Add Item" each time.
+      // Mobile: close it, since the keyboard eats most of the screen anyway.
+      if (window.innerWidth <= 640) {
+        this.hideAddForm();
+      } else {
+        this.elements.input.value = "";
+        this.elements.input.focus();
+      }
       this.render();
       showToast(existingIndex >= 0 ? `Updated "${newItem.name}"` : `Added "${newItem.name}"`, "success");
     } catch (error) {
@@ -422,9 +511,7 @@ class GroceryListPage {
   async handleClearAll() {
     if (this.items.length === 0) return;
 
-    const confirmed = window.confirm(
-      `Remove all ${this.items.length} item${this.items.length === 1 ? "" : "s"} from your grocery list? This cannot be undone.`
-    );
+    const confirmed = await showClearAllConfirm(this.items.length);
     if (!confirmed) return;
 
     const previousItems = [...this.items];
@@ -440,58 +527,6 @@ class GroceryListPage {
       this.render();
       console.error("Failed to clear all grocery items:", error);
       showToast("Could not clear the grocery list.", "error");
-    }
-  }
-
-  async handleGenerateFromLikes() {
-    if (this.generating) return;
-    this.setGenerateButtonState(true);
-
-    try {
-      const [recipes, likedIds, mealPlanEntries] = await Promise.all([
-        getAllRecipes({ includePrivateForUser: this.uid }),
-        getLikedRecipeIds(this.uid),
-        getMealPlanEntries(this.uid).catch((error) => {
-          console.error("Failed to load meal plan for batch sizes:", error);
-          return [];
-        }),
-      ]);
-
-      if (likedIds.size === 0) {
-        showToast("No liked recipes found yet. Like some recipes first.", "default");
-        return;
-      }
-
-      const likedRecipes = recipes.filter((recipe) => likedIds.has(recipe.id));
-      const generatedItems = collectIngredientsFromRecipes(likedRecipes, {
-        batchMultipliers: buildUpcomingBatchMultipliers(mealPlanEntries),
-      });
-
-      if (generatedItems.length === 0) {
-        showToast("No ingredients found on liked recipes.", "default");
-        return;
-      }
-
-      const result = await this.repo.mergeByName(generatedItems);
-      this.items = result.items;
-      await this.refreshItemDecorations();
-      this.sortItems();
-      this.render();
-
-      if (result.added === 0 && result.updated === 0) {
-        showToast("No grocery updates were needed.", "default");
-        return;
-      }
-
-      showToast(
-        `Generated list from likes: ${result.added} added, ${result.updated} updated.`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to generate grocery items from likes:", error);
-      showToast("Could not generate grocery list from liked recipes.", "error");
-    } finally {
-      this.setGenerateButtonState(false);
     }
   }
 
@@ -597,7 +632,7 @@ class GroceryListPage {
               <span class="grocery-category-name">${cat.label}</span>
               <span class="grocery-category-count">${unchecked > 0 ? `${unchecked} left` : 'done'}</span>
             </div>
-            ${items.map(item => renderGroceryItemMarkup(item, this.isAdmin)).join('')}
+            ${items.map(item => renderGroceryItemMarkup(item, this.isAdmin, this.members.length > 1 ? this.membersById : null)).join('')}
           </div>`;
       });
 
@@ -654,18 +689,6 @@ class GroceryListPage {
       <ol class="cat-order-list">${items}</ol>`;
   }
 
-  insertGenerateButton() {
-    if (this.elements.generateBtn || !this.elements.addBtn) return;
-
-    const generateBtn = document.createElement("button");
-    generateBtn.type = "button";
-    generateBtn.id = "btnGenerateFromLiked";
-    generateBtn.className = "btn-generate-liked";
-    generateBtn.textContent = "Generate from Likes";
-    this.elements.addBtn.insertAdjacentElement("beforebegin", generateBtn);
-    this.elements.generateBtn = generateBtn;
-  }
-
   insertClearAllButton() {
     if (this.elements.clearAllBtn || !this.elements.addBtn) return;
 
@@ -677,6 +700,326 @@ class GroceryListPage {
     clearAllBtn.disabled = true;
     this.elements.addBtn.insertAdjacentElement("beforebegin", clearAllBtn);
     this.elements.clearAllBtn = clearAllBtn;
+  }
+
+  insertLinkButton() {
+    if (this.elements.linkBtn || !this.elements.addBtn) return;
+
+    const linkBtn = document.createElement("button");
+    linkBtn.type = "button";
+    linkBtn.id = "btnLinkList";
+    linkBtn.className = "btn-link-list";
+    linkBtn.textContent = "Link List";
+    this.elements.addBtn.insertAdjacentElement("beforebegin", linkBtn);
+    this.elements.linkBtn = linkBtn;
+
+    linkBtn.addEventListener("click", () => this.openLinkListModal());
+  }
+
+  /** Shows/hides the "Linked List / My List" pill in the page header —
+   *  only present at all once the user actually belongs to a linked list. */
+  renderListToggle() {
+    let toggle = document.getElementById("groceryListToggle");
+
+    if (!this.linkedList) {
+      toggle?.remove();
+      return;
+    }
+
+    if (!toggle) {
+      toggle = document.createElement("div");
+      toggle.id = "groceryListToggle";
+      toggle.className = "grocery-list-toggle";
+      document.querySelector(".page-header > div")?.appendChild(toggle);
+    }
+
+    toggle.innerHTML = `
+      <button type="button" class="grocery-toggle-pill${!this.viewingPersonal ? " active" : ""}" data-target="linked">&#x1F517; Linked List</button>
+      <button type="button" class="grocery-toggle-pill${this.viewingPersonal ? " active" : ""}" data-target="personal">&#x1F464; My List</button>
+    `;
+
+    toggle.querySelectorAll(".grocery-toggle-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wantLinked = btn.dataset.target === "linked";
+        if (wantLinked === !this.viewingPersonal) return;
+        this.switchList(wantLinked);
+      });
+    });
+  }
+
+  /** Flips between the linked list and the user's own personal list. */
+  switchList(toLinked) {
+    this.viewingPersonal = !toLinked;
+    this.repo = toLinked && this.linkedList
+      ? GroceryRepository.forList(this.linkedList.id, this.getAuthor())
+      : GroceryRepository.forUser(this.uid, this.getAuthor());
+    this.renderListToggle();
+    this.startWatching();
+  }
+
+  async openLinkListModal() {
+    const RESULTS_PAGE_SIZE = 7;
+    let searchResults = [];
+    let currentPage = 0;
+    let pendingInvitees = this.linkedList
+      ? await getPendingInvitees(this.linkedList.id).catch(() => [])
+      : [];
+
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay link-list-overlay";
+    overlay.innerHTML = `
+      <div class="confirm-dialog link-list-dialog">
+        <h3>Link Grocery List</h3>
+        <p class="link-list-hint">Invite someone to link your list with theirs — once they accept, it's one list that updates live for both of you.</p>
+        <div class="link-list-members" id="linkListMembers"></div>
+        <div class="link-list-search">
+          <input type="text" id="linkListSearchInput" placeholder="Search by name or email" autocomplete="off">
+          <div class="link-list-results" id="linkListResults"></div>
+        </div>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn" id="linkListCloseBtn">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const membersEl = overlay.querySelector("#linkListMembers");
+    const searchInput = overlay.querySelector("#linkListSearchInput");
+    const resultsEl = overlay.querySelector("#linkListResults");
+
+    const renderMembers = () => {
+      const isOwnerViewing = this.linkedList?.ownerId === this.uid;
+
+      const memberRows = this.linkedList ? this.members.map((member) => {
+        const name = `${member.firstName || ""} ${member.lastName || ""}`.trim() || "Member";
+        const isOwner = member.uid === this.linkedList.ownerId;
+        const isSelf = member.uid === this.uid;
+        const canRemove = isOwnerViewing ? !isSelf : isSelf;
+
+        return `
+          <div class="link-list-member" data-uid="${member.uid}">
+            <span class="link-list-member-avatar ${member.photoURL ? "has-photo" : ""}">
+              ${member.photoURL ? `<img src="${escapeHtml(member.photoURL)}" alt="">` : escapeHtml(initialsFor(name))}
+            </span>
+            <span class="link-list-member-name">${escapeHtml(name)}${isOwner ? " (owner)" : ""}${isSelf ? " (you)" : ""}</span>
+            ${isOwnerViewing && !isOwner ? `<button type="button" class="link-list-promote-btn" data-promote-uid="${member.uid}">Promote</button>` : ""}
+            ${canRemove ? `<button type="button" class="link-list-remove-btn" data-uid="${member.uid}">${isSelf ? "Unlink" : "Remove"}</button>` : ""}
+          </div>`;
+      }).join("") : `<p class="link-list-empty">Just you for now.</p>`;
+
+      const inviteRows = pendingInvitees.map((invitee) => {
+        const name = `${invitee.firstName || ""} ${invitee.lastName || ""}`.trim() || "Invited user";
+        return `
+          <div class="link-list-member link-list-member--pending" data-invite-uid="${invitee.uid}">
+            <span class="link-list-member-avatar ${invitee.photoURL ? "has-photo" : ""}">
+              ${invitee.photoURL ? `<img src="${escapeHtml(invitee.photoURL)}" alt="">` : escapeHtml(initialsFor(name))}
+            </span>
+            <span class="link-list-member-name">${escapeHtml(name)} <span class="link-list-pending-label">Invite pending</span></span>
+            ${isOwnerViewing ? `<button type="button" class="link-list-remove-btn" data-invite-uid="${invitee.uid}">Cancel</button>` : ""}
+          </div>`;
+      }).join("");
+
+      membersEl.innerHTML = memberRows + inviteRows;
+
+      membersEl.querySelectorAll(".link-list-remove-btn[data-uid]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const uid = btn.dataset.uid;
+          btn.disabled = true;
+
+          try {
+            await removeMember(this.linkedList.id, uid);
+
+            if (uid === this.uid) {
+              overlay.remove();
+              showToast("You unlinked from that list.", "default");
+              // The live linked-list listener picks this up and falls back
+              // to the personal list automatically — no manual reload needed.
+              return;
+            }
+
+            this.members = this.members.filter((member) => member.uid !== uid);
+            this.membersById.delete(uid);
+            renderMembers();
+            showToast("Removed from the linked list.", "success");
+          } catch (error) {
+            console.error("Failed to remove member:", error);
+            showToast("Could not remove that person.", "error");
+            btn.disabled = false;
+          }
+        });
+      });
+
+      membersEl.querySelectorAll(".link-list-promote-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const newOwnerUid = btn.dataset.promoteUid;
+          const member = this.members.find((m) => m.uid === newOwnerUid);
+          const name = (member && `${member.firstName || ""} ${member.lastName || ""}`.trim()) || "this member";
+
+          const confirmed = await showPromoteConfirm(name);
+          if (!confirmed) return;
+
+          btn.disabled = true;
+          try {
+            await transferOwnership(this.linkedList.id, newOwnerUid);
+            this.linkedList.ownerId = newOwnerUid;
+            renderMembers();
+            showToast(`${name} is now the list owner.`, "success");
+          } catch (error) {
+            console.error("Failed to promote member:", error);
+            showToast("Could not promote that member.", "error");
+            btn.disabled = false;
+          }
+        });
+      });
+
+      membersEl.querySelectorAll(".link-list-remove-btn[data-invite-uid]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const uid = btn.dataset.inviteUid;
+          btn.disabled = true;
+
+          try {
+            await removeInvite(this.linkedList.id, uid);
+            pendingInvitees = pendingInvitees.filter((invitee) => invitee.uid !== uid);
+            renderMembers();
+            showToast("Invite cancelled.", "default");
+          } catch (error) {
+            console.error("Failed to cancel invite:", error);
+            showToast("Could not cancel that invite.", "error");
+            btn.disabled = false;
+          }
+        });
+      });
+    };
+
+    const renderResultsPage = () => {
+      if (!searchInput.value.trim()) {
+        resultsEl.innerHTML = "";
+        return;
+      }
+
+      if (searchResults.length === 0) {
+        resultsEl.innerHTML = `<div class="link-list-empty">No matching accounts.</div>`;
+        return;
+      }
+
+      const totalPages = Math.max(1, Math.ceil(searchResults.length / RESULTS_PAGE_SIZE));
+      currentPage = Math.min(currentPage, totalPages - 1);
+      const start = currentPage * RESULTS_PAGE_SIZE;
+      const pageItems = searchResults.slice(start, start + RESULTS_PAGE_SIZE);
+
+      const rows = pageItems.map((user) => {
+        // Searchable by email (see searchAddableUsers), but never displayed —
+        // fall back to a generic label instead of the raw address.
+        const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unnamed user";
+        return `
+          <button type="button" class="link-list-result" data-uid="${user.uid}">
+            <span class="link-list-result-avatar ${user.photoURL ? "has-photo" : ""}">
+              ${user.photoURL ? `<img src="${escapeHtml(user.photoURL)}" alt="">` : escapeHtml(initialsFor(name))}
+            </span>
+            <span class="link-list-result-copy">
+              <span class="link-list-result-name">${escapeHtml(name)}</span>
+            </span>
+          </button>`;
+      }).join("");
+
+      const pager = totalPages > 1 ? `
+        <div class="link-list-pager">
+          <button type="button" class="link-list-page-btn" id="linkListPrevPage" ${currentPage === 0 ? "disabled" : ""} aria-label="Previous page">&#x2039;</button>
+          <span class="link-list-page-label">Page ${currentPage + 1} of ${totalPages}</span>
+          <button type="button" class="link-list-page-btn" id="linkListNextPage" ${currentPage === totalPages - 1 ? "disabled" : ""} aria-label="Next page">&#x203A;</button>
+        </div>` : "";
+
+      resultsEl.innerHTML = rows + pager;
+
+      resultsEl.querySelector("#linkListPrevPage")?.addEventListener("click", () => {
+        currentPage -= 1;
+        renderResultsPage();
+      });
+      resultsEl.querySelector("#linkListNextPage")?.addEventListener("click", () => {
+        currentPage += 1;
+        renderResultsPage();
+      });
+
+      resultsEl.querySelectorAll(".link-list-result").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          const inviteeUid = btn.dataset.uid;
+
+          try {
+            if (!this.linkedList) {
+              this.linkedList = await createLinkedList(this.uid);
+              const existingItems = await this.repo.list();
+              const linkedRepo = GroceryRepository.forList(this.linkedList.id, this.getAuthor());
+              await linkedRepo.copyItemsFrom(existingItems);
+            }
+
+            await inviteMember(this.linkedList.id, inviteeUid);
+            await createNotification(inviteeUid, {
+              actorUserId: this.uid,
+              type: "grocery_list_invite",
+              message: `${this.displayName} invited you to link grocery lists.`,
+              targetId: this.linkedList.id,
+              status: "pending",
+              actorName: this.displayName,
+              recipeEmoji: "&#x1F517;",
+            }).catch((error) => console.error("Failed to send invite notification:", error));
+
+            pendingInvitees = await getPendingInvitees(this.linkedList.id).catch(() => pendingInvitees);
+
+            searchInput.value = "";
+            searchResults = [];
+            resultsEl.innerHTML = "";
+            renderMembers();
+            this.renderListToggle();
+
+            showToast("Invite sent!", "success");
+          } catch (error) {
+            console.error("Failed to invite that person:", error);
+            showToast("Could not send that invite.", "error");
+            btn.disabled = false;
+          }
+        });
+      });
+    };
+
+    const runSearch = async () => {
+      const term = searchInput.value;
+      const excludeUids = [
+        this.uid,
+        ...this.members.map((member) => member.uid),
+        ...pendingInvitees.map((invitee) => invitee.uid),
+      ];
+
+      if (!term.trim()) {
+        searchResults = [];
+        currentPage = 0;
+        resultsEl.innerHTML = "";
+        return;
+      }
+
+      try {
+        searchResults = await searchAddableUsers(term, excludeUids);
+        currentPage = 0;
+        renderResultsPage();
+      } catch (error) {
+        console.error("Failed to search users:", error);
+        resultsEl.innerHTML = `<div class="link-list-empty">Search failed.</div>`;
+      }
+    };
+
+    searchInput.addEventListener("input", () => { runSearch(); });
+    renderMembers();
+
+    const close = () => overlay.remove();
+    overlay.querySelector("#linkListCloseBtn").addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+    function escHandler(e) {
+      if (e.key === "Escape") {
+        close();
+        document.removeEventListener("keydown", escHandler);
+      }
+    }
+    document.addEventListener("keydown", escHandler);
   }
 
   insertExportButton() {
@@ -768,10 +1111,10 @@ class GroceryListPage {
       year: "numeric", month: "long", day: "numeric",
     });
 
-    // Group items by category (same order as the live list)
+    // Group items by category (same order and overrides as the live list)
     const grouped = {};
     for (const item of this.items) {
-      const catId = categorizeItem(item.name);
+      const catId = item.categoryOverride || categorizeItem(item.name);
       (grouped[catId] ??= []).push(item);
     }
 
@@ -926,7 +1269,7 @@ class GroceryListPage {
 
     const grouped = {};
     for (const item of this.items) {
-      const catId = categorizeItem(item.name);
+      const catId = item.categoryOverride || categorizeItem(item.name);
       (grouped[catId] ??= []).push(item);
     }
 
@@ -988,15 +1331,6 @@ class GroceryListPage {
     }
   }
 
-  setGenerateButtonState(isLoading) {
-    this.generating = isLoading;
-    if (!this.elements.generateBtn) return;
-    this.elements.generateBtn.disabled = isLoading;
-    this.elements.generateBtn.textContent = isLoading
-      ? "Generating..."
-      : "Generate from Likes";
-  }
-
   async handleCategoryOverride(id, catId) {
     const item = this.items.find(e => e.id === id);
     if (!item) return;
@@ -1036,6 +1370,72 @@ class GroceryListPage {
       showToast("Could not update section.", "error");
     }
   }
+}
+
+// ── Clear-all confirmation dialog ────────────────────────────
+function showClearAllConfirm(itemCount) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay";
+    overlay.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-icon">🧹</div>
+        <h3>Clear Grocery List</h3>
+        <p>Remove <strong>${itemCount} item${itemCount === 1 ? "" : "s"}</strong> from your grocery list?<br>This cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn">Keep List</button>
+          <button class="confirm-delete-btn">Clear All</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    function done(result) {
+      overlay.classList.add("confirm-hiding");
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener("keydown", escHandler);
+      resolve(result);
+    }
+
+    function escHandler(e) { if (e.key === "Escape") done(false); }
+
+    overlay.querySelector(".confirm-cancel-btn").addEventListener("click", () => done(false));
+    overlay.querySelector(".confirm-delete-btn").addEventListener("click", () => done(true));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(false); });
+    document.addEventListener("keydown", escHandler);
+  });
+}
+
+// ── Promote-to-owner confirmation dialog ─────────────────────
+function showPromoteConfirm(name) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "confirm-overlay";
+    overlay.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-icon">👑</div>
+        <h3>Promote to Owner</h3>
+        <p>Make <strong>${escapeHtml(name)}</strong> the owner of this list?<br>You'll become a regular member and lose owner controls.</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel-btn">Cancel</button>
+          <button class="confirm-delete-btn">Promote</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    function done(result) {
+      overlay.classList.add("confirm-hiding");
+      setTimeout(() => overlay.remove(), 180);
+      document.removeEventListener("keydown", escHandler);
+      resolve(result);
+    }
+
+    function escHandler(e) { if (e.key === "Escape") done(false); }
+
+    overlay.querySelector(".confirm-cancel-btn").addEventListener("click", () => done(false));
+    overlay.querySelector(".confirm-delete-btn").addEventListener("click", () => done(true));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) done(false); });
+    document.addEventListener("keydown", escHandler);
+  });
 }
 
 const page = new GroceryListPage();

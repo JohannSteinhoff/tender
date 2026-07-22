@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "deploy": "npm run build && firebase deploy --only hosting,firestore",
-    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore --project default",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting --project default",
     "preview": "vite preview",
     "sync:grocery-brands": "node sync-grocery-brand-recommendations.js",
     "test:grocery-brands": "vitest run tests/grocery-brand-recommendations.test.js --reporter=verbose",

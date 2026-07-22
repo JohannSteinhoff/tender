@@ -125,3 +125,9 @@ export async function getNotifications(uid) {
 export async function markNotificationRead(uid, notificationId, isRead = true) {
   await updateDoc(doc(db, 'users', uid, 'notifications', notificationId), { isRead: !!isRead });
 }
+
+/** Record how a user responded to an actionable notification (e.g. a
+ *  grocery list invite) — marks it read and stamps the outcome. */
+export async function setNotificationStatus(uid, notificationId, status) {
+  await updateDoc(doc(db, 'users', uid, 'notifications', notificationId), { isRead: true, status });
+}
