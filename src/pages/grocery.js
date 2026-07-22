@@ -11,7 +11,6 @@ import {
   getPendingInvitees,
   searchAddableUsers,
 } from "../api/grocery-lists.js";
-import { GroceryBrandRecommendationRepository } from "../api/grocery-recommendations.js";
 import {
   getMealPlanEntries,
   getRecipeById,
@@ -21,7 +20,6 @@ import { renderNav } from "../components/nav.js";
 import { showToast } from "../components/toast.js";
 import { escapeHtml } from "../utils/helpers.js";
 import {
-  applyBrandRecommendations,
   getGroceryItemKey,
   normalizeGroceryItem,
   normalizeIngredientName,
@@ -33,7 +31,6 @@ import {
   clearGlobalCategoryOverride,
 } from "../api/category-overrides.js";
 import {
-  isSameBrand,
   renderGroceryItemMarkup,
   initialsFor,
 } from "../features/grocery/view.js";
@@ -43,6 +40,16 @@ import {
   loadCategoryOrder,
   saveCategoryOrder,
 } from "../features/grocery/categories.js";
+
+const SHOW_SOURCE_LABELS_KEY = "tender_grocery_show_source_labels";
+
+function loadShowSourceLabels() {
+  return localStorage.getItem(SHOW_SOURCE_LABELS_KEY) === "1";
+}
+
+function saveShowSourceLabels(value) {
+  localStorage.setItem(SHOW_SOURCE_LABELS_KEY, value ? "1" : "0");
+}
 
 class GroceryListPage {
   constructor() {
@@ -56,12 +63,12 @@ class GroceryListPage {
     this.members = [];
     this.membersById = new Map();
     this.viewingPersonal = true;
-    this.recommendationRepo = new GroceryBrandRecommendationRepository();
     this.items = [];
     this.loading = false;
     this.categoryOrder = [];
     this.isAdmin = false;
     this.categoryOverrides = new Map();
+    this.showSourceLabels = loadShowSourceLabels();
 
     this.elements = {
       list: document.getElementById("groceryList"),
@@ -71,6 +78,7 @@ class GroceryListPage {
       cancelBtn: document.getElementById("btnCancelAdd"),
       clearAllBtn: null,
       linkBtn: null,
+      labelsToggleBtn: null,
       total: document.getElementById("totalItems"),
       checked: document.getElementById("checkedItems"),
       remaining: document.getElementById("remainingItems"),
@@ -86,6 +94,7 @@ class GroceryListPage {
     this.insertExportButton();
     this.insertClearAllButton();
     this.insertLinkButton();
+    this.insertLabelsToggleButton();
     this.bindEvents();
 
     const profile = await getUserProfile(this.uid);
@@ -240,14 +249,6 @@ class GroceryListPage {
     });
 
     list.addEventListener("click", async (event) => {
-      const brandButton = event.target.closest(".grocery-brand-chip");
-      if (brandButton) {
-        const row = brandButton.closest(".grocery-item");
-        if (!row?.dataset.id) return;
-        await this.handleSelectBrand(row.dataset.id, Number.parseInt(brandButton.dataset.brandIndex, 10));
-        return;
-      }
-
       const menuBtn = event.target.closest(".grocery-item-menu-btn");
       if (menuBtn) {
         const dropdown = menuBtn.closest(".grocery-item-menu")?.querySelector(".grocery-item-menu-dropdown");
@@ -349,18 +350,6 @@ class GroceryListPage {
     }
   }
 
-  // Recommendation lookups are intentionally isolated so a missing Firestore
-  // doc never blocks the grocery list from loading or updating.
-  async refreshRecommendations() {
-    const result = await applyBrandRecommendations(this.items, this.recommendationRepo);
-    this.items = result.items;
-
-    if (result.error) {
-      const error = result.error;
-      console.error("Failed to load brand recommendations:", error);
-    }
-  }
-
   async refreshSourceLabels() {
     try {
       const mealPlanEntries = await getMealPlanEntries(this.uid);
@@ -403,7 +392,6 @@ class GroceryListPage {
   }
 
   async refreshItemDecorations() {
-    await this.refreshRecommendations();
     await this.refreshSourceLabels();
   }
 
@@ -527,34 +515,6 @@ class GroceryListPage {
       this.render();
       console.error("Failed to clear all grocery items:", error);
       showToast("Could not clear the grocery list.", "error");
-    }
-  }
-
-  async handleSelectBrand(id, brandIndex) {
-    const item = this.items.find((entry) => entry.id === id);
-    if (!item) return;
-
-    const selectedBrand = item.recommendedBrands?.[brandIndex] || null;
-    if (!selectedBrand) return;
-
-    const previousBrand = item.selectedBrand ? { ...item.selectedBrand } : null;
-    const nextBrand = isSameBrand(item.selectedBrand, selectedBrand) ? null : selectedBrand;
-
-    item.selectedBrand = nextBrand;
-    this.render();
-
-    try {
-      await this.repo.setSelectedBrand(id, nextBrand);
-      if (nextBrand) {
-        showToast(`Selected ${nextBrand.name} for "${item.name}".`, "success");
-      } else {
-        showToast(`Cleared brand for "${item.name}".`, "default");
-      }
-    } catch (error) {
-      item.selectedBrand = previousBrand;
-      this.render();
-      console.error("Failed to save selected grocery brand:", error);
-      showToast("Could not save the selected brand.", "error");
     }
   }
 
@@ -714,6 +674,38 @@ class GroceryListPage {
     this.elements.linkBtn = linkBtn;
 
     linkBtn.addEventListener("click", () => this.openLinkListModal());
+  }
+
+  /** Toggle for showing/hiding the recipe source labels under each item
+   *  (e.g. "Chicken Katsu - Dinner") — off by default since they add a lot
+   *  of vertical space, especially on mobile. Purely a CSS class flip on
+   *  the list container, so it doesn't need a re-render. */
+  insertLabelsToggleButton() {
+    if (this.elements.labelsToggleBtn || !this.elements.addBtn) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "btnToggleLabels";
+    btn.className = "btn-toggle-labels";
+    this.elements.addBtn.insertAdjacentElement("beforebegin", btn);
+    this.elements.labelsToggleBtn = btn;
+
+    this.applyShowSourceLabels();
+
+    btn.addEventListener("click", () => {
+      this.showSourceLabels = !this.showSourceLabels;
+      saveShowSourceLabels(this.showSourceLabels);
+      this.applyShowSourceLabels();
+    });
+  }
+
+  applyShowSourceLabels() {
+    const btn = this.elements.labelsToggleBtn;
+    if (btn) {
+      btn.textContent = this.showSourceLabels ? "🏷️ Labels: On" : "🏷️ Labels: Off";
+      btn.classList.toggle("active", this.showSourceLabels);
+    }
+    this.elements.list?.classList.toggle("hide-source-labels", !this.showSourceLabels);
   }
 
   /** Shows/hides the "Linked List / My List" pill in the page header —

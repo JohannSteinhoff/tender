@@ -49,14 +49,14 @@ describe("Story 8: Grocery Source Labels", () => {
     expect(labeled[0].sourceLabels).toEqual(["Chicken Alfredo - Recipe not on meal plan"]);
   });
 
-  it("S8 TC03: manual item shows manual fallback label", () => {
+  it("S8 TC03: manual item gets no label", () => {
     const items = [buildItem({ name: "bananas", isManual: true, sourceRecipes: [] })];
     const labeled = attachSourceLabels(items, {
       mealPlanEntries: [],
       recipesById: new Map(),
     });
 
-    expect(labeled[0].sourceLabels).toEqual(["Manual item"]);
+    expect(labeled[0].sourceLabels).toEqual([]);
   });
 
   it("S8 TC04: ingredient linked to multiple scheduled recipes shows multiple labels", () => {
@@ -172,7 +172,7 @@ describe("Story 8: Grocery Source Labels", () => {
 
     expect(byId.scheduled.sourceLabels).toEqual(["Cereal Bowl - Breakfast, Apr 28"]);
     expect(byId.unscheduled.sourceLabels).toEqual(["Creamy Soup - Recipe not on meal plan"]);
-    expect(byId.manual.sourceLabels).toEqual(["Manual item"]);
+    expect(byId.manual.sourceLabels).toEqual([]);
   });
 
   it("S8 TC09: applying labels repeatedly (like page refresh) does not duplicate labels", () => {

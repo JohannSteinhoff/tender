@@ -115,8 +115,10 @@ function buildMealPlanByRecipeId(mealPlanEntries) {
 export function buildSourceLabelsForItem(item, { mealPlanByRecipeId, recipesById, today }) {
   const sources = sanitizeRecipeSources(item?.sourceRecipes);
 
+  // Items with no recipe source (manually added, or otherwise untied) get
+  // no label at all — only recipe-sourced items are worth labeling.
   if (sources.length === 0) {
-    return [item?.isManual ? "Manual item" : "Not tied to a recipe"];
+    return [];
   }
 
   const todayKey = resolveTodayKey(today);

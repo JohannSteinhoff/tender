@@ -491,49 +491,6 @@
   color: var(--text-secondary);
 }
 
-.grocery-item-brands {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.grocery-item-brands-label {
-  font-size: 0.78em;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-tertiary);
-}
-
-.grocery-item-brands-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.grocery-brand-chip {
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8em;
-  line-height: 1.2;
-  transition: transform 0.15s, border-color 0.15s, background 0.15s, color 0.15s;
-}
-
-.grocery-brand-chip:hover {
-  border-color: var(--primary);
-  transform: translateY(-1px);
-}
-
-.grocery-brand-chip.selected {
-  border-color: var(--primary);
-  background: rgba(255, 107, 107, 0.12);
-  color: var(--primary);
-}
-
 .grocery-item-qty {
   font-size: 0.8em;
   color: var(--text-secondary);
@@ -554,8 +511,7 @@
   filter: saturate(0.45);
 }
 
-.grocery-item.checked .grocery-item-brand-selection,
-.grocery-item.checked .grocery-item-brands-label {
+.grocery-item.checked .grocery-item-brand-selection {
   color: var(--text-tertiary);
 }
 
@@ -732,6 +688,37 @@
   border-color: var(--primary);
   transform: translateY(-1px);
   background: var(--bg-card-hover);
+}
+
+/* ── Source-labels visibility toggle ─────────────────────────── */
+.btn-toggle-labels {
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, transform 0.2s, background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.btn-toggle-labels:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  background: var(--bg-card-hover);
+}
+
+.btn-toggle-labels.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.grocery-list-container.hide-source-labels .grocery-item-source-labels {
+  display: none;
 }
 
 .grocery-item-added-by {
